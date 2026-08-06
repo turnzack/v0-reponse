@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Head from "next/head";
+import Editor from '@monaco-editor/react';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -31,6 +32,475 @@ const getRandomGradient = (alpha = 1) => {
   const [c1, c2] = palettes[Math.floor(Math.random() * palettes.length)];
   const angle = Math.floor(Math.random() * 360);
   return `linear-gradient(${angle}deg, rgba(${c1[0]},${c1[1]},${c1[2]},${alpha}) 0%, rgba(${c2[0]},${c2[1]},${c2[2]},${alpha}) 100%)`;
+};
+
+const WidgetSettings = ({ 
+  isModal = false, 
+  onClose, 
+  initialTab = "connexion",
+  isClient,
+  getCachedGradient,
+  mouchardLogs,
+  activePhase,
+  availableProjects,
+  setAvailableProjects,
+  selectedLaunchProject,
+  setSelectedLaunchProject
+}: any) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  // Si l'initialTab change (via l'event open-mouchard), on met à jour
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  // États locaux
+  const [execMode, setExecMode] = useState("web");
+  const [targetAi, setTargetAi] = useState("deepseek");
+  const [targetUiAi, setTargetUiAi] = useState("stitch");
+  const [customAiName, setCustomAiName] = useState("");
+  const [customAiUrl, setCustomAiUrl] = useState("");
+  const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
+  const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
+  const [apiKey, setApiKey] = useState("");
+  const [overridePrompt, setOverridePrompt] = useState("");
+  const [savedMsg, setSavedMsg] = useState(false);
+  const [isExtConnected, setIsExtConnected] = useState(true);
+
+  useEffect(() => {
+    setExecMode(localStorage.getItem("tiger_execMode") || "web");
+    setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
+    setTargetUiAi(localStorage.getItem("tiger_targetUiAi") || "stitch");
+    setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
+    setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
+    setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
+    setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
+    setApiKey(localStorage.getItem("tiger_apiKey") || "");
+  }, []);
+
+  const handleSave = () => {
+    const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
+    
+    localStorage.setItem("tiger_execMode", execMode);
+    localStorage.setItem("tiger_targetAi", targetAi);
+    localStorage.setItem("tiger_targetUiAi", targetUiAi);
+    localStorage.setItem("tiger_customAiName", customAiName);
+    localStorage.setItem("tiger_customAiUrl", customAiUrl);
+    localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
+    localStorage.setItem("tiger_vercelUrl", vercelUrl);
+    localStorage.setItem("tiger_apiKey", apiKey);
+    
+    if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
+      (window as any).AndroidBridge.showToast("Paramètres synchronisés !");
+    }
+    if (typeof window !== "undefined") {
+      window.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
+      }
+    }
+    
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 3000);
+  };
+
+  const tabs = [
+    { id: "home", label: "TIGER IA", icon: "🐯" },
+    { id: "electron", label: "Electron", icon: "💻" },
+    { id: "vercel", label: "Vercel", icon: "▲" },
+    { id: "deepseek", label: "DeepSeek", icon: "🐋" },
+    { id: "pipeline", label: "Pipeline", icon: "🎯" },
+    { id: "override", label: "Override", icon: "💉" },
+    { id: "mouchard", label: "Mouchard", icon: "👁️" },
+    { id: "connexion", label: "Connexion", icon: "⚙️" },
+  ];
+
+  return (
+    <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
+      
+      {/* Sidebar */}
+      <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
+        <div className="p-6 border-b border-white/10 flex justify-between items-center">
+          <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
+            <span className="text-cyan">🐯</span> SETTINGS
+          </h3>
+          {isModal && (
+            <button onClick={onClose} className="md:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold">✕</button>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto py-4 hide-scrollbar flex md:flex-col gap-1 px-4">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap md:whitespace-normal ${activeTab === t.id ? 'bg-cyan/20 border border-cyan/50 text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+            >
+              <span className="text-xl">{t.icon}</span>
+              <span className="font-bold text-sm tracking-wide">{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 bg-gradient-to-br from-[#111111] to-black relative overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10 hide-scrollbar">
+          
+          {/* TABS CONTENT */}
+          
+          {activeTab === "connexion" && (
+            <div className="space-y-6 animate-fadeIn">
+              <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">Configuration LLM & Bridge</h2>
+              
+              <div>
+                <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-[10px]">Mode d'exécution</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: "web", icon: "💬", title: "Chat Web" },
+                    { id: "api", icon: "🔑", title: "API Directe" },
+                    { id: "hybrid", icon: "🔀", title: "Hybride" }
+                  ].map(m => (
+                    <button 
+                      key={m.id} onClick={() => setExecMode(m.id)}
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${execMode === m.id ? 'bg-gradient-to-br from-cyan/20 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.3)]' : 'bg-gradient-to-br from-black/30 to-black/50 border-white/10 text-gray-500 hover:border-white/30'}`}
+                    >
+                      <span className="text-2xl mb-1">{m.icon}</span>
+                      <span className="font-bold text-xs">{m.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(execMode === "web" || execMode === "hybrid") && (
+                <div className="space-y-3">
+                  <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Flotte d'Assistants (Multi-Acteurs)</label>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Acteur Logique */}
+                    <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-cyan/50 transition-colors">
+                      <div className="text-[10px] text-cyan mb-2 font-bold flex items-center gap-2">🧠 Cerveau Logique (Backend)</div>
+                      <div className="flex gap-2">
+                        <select 
+                          value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
+                          className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
+                        >
+                          <option value="deepseek">🐋 DeepSeek Web</option>
+                          <option value="chatgpt">🟢 ChatGPT Web</option>
+                          <option value="gemini">✨ Gemini Web</option>
+                          <option value="claude">🟣 Claude Web</option>
+                          <option value="kimi">🌙 Kimi Web</option>
+                          <option value="qwen">🌐 Qwen Coder</option>
+                          <option value="custom">➕ IA Personnalisée</option>
+                        </select>
+                        <button 
+                          onClick={() => {
+                            if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+                              const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
+                              (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Logique.");
+                            }
+                          }}
+                          className="px-3 bg-white/10 hover:bg-cyan/20 rounded-lg font-bold text-xs transition-colors text-white"
+                        >
+                          ▶
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Acteur UI */}
+                    <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-pink/50 transition-colors">
+                      <div className="text-[10px] text-pink mb-2 font-bold flex items-center gap-2">🎨 Cerveau UI/UX (Frontend)</div>
+                      <div className="flex gap-2">
+                        <select 
+                          value={targetUiAi} onChange={(e) => setTargetUiAi(e.target.value)}
+                          className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-pink text-sm"
+                        >
+                          <option value="stitch">🧵 Stitch Google</option>
+                          <option value="v0">▲ v0.dev (Vercel)</option>
+                          <option value="bolt">⚡ Bolt.new</option>
+                          <option value="custom">➕ UI Personnalisée</option>
+                        </select>
+                        <button 
+                          onClick={() => {
+                            if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+                              const url = targetUiAi === "custom" ? customAiUrl : targetUiAi === "v0" ? "https://v0.dev/" : "https://stitch.withgoogle.com/";
+                              (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Design.");
+                            }
+                          }}
+                          className="px-3 bg-white/10 hover:bg-pink/20 rounded-lg font-bold text-xs transition-colors text-white"
+                        >
+                          ▶
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+                
+              {(targetAi === "custom" || targetUiAi === "custom") && (
+                  <div className="flex gap-3 bg-white/5 border border-white/20 p-3 rounded-xl mt-2 animate-fadeIn">
+                    <div className="flex-1">
+                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
+                      <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
+                    </div>
+                    <div className="flex-[2]">
+                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
+                      <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
+                    </div>
+                  </div>
+                )}
+
+              {(execMode === "api" || execMode === "hybrid") && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
+                    <select className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
+                      <option value="deepseek">🐋 DeepSeek</option>
+                      <option value="openai">🟢 OpenAI (ChatGPT)</option>
+                      <option value="gemini">✨ Google Gemini</option>
+                      <option value="claude">🟣 Anthropic Claude</option>
+                      <option value="kimi">🌙 Moonshot Kimi</option>
+                      <option value="qwen">🌐 Alibaba Qwen</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Clé API DeepSeek</label>
+                    <div className="flex gap-2 relative">
+                      <input 
+                        type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
+                      />
+                      <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">👁</button>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2">
+                      <button onClick={handleSave} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider transition-colors">
+                        💾 SAUVEGARDER_CONFIG
+                      </button>
+                      <span className="text-gray-500 text-xs italic">Clé stockée localement dans le navigateur.</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 p-4 bg-gradient-to-br from-black/30 to-black/50 border border-white/5 rounded-xl">
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Modèle détecté</label>
+                    <div className="text-gray-500 text-sm mb-2">Enregistrer la clé pour détecter</div>
+                    <div className="flex items-center gap-4">
+                      <button className="px-4 py-2 bg-pink/20 text-pink border border-pink/50 hover:bg-pink/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-2">
+                        🔄 AUTO_DETECT
+                      </button>
+                      <span className="text-gray-500 text-xs italic">Auto-détecté à l'enregistrement.</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="pt-4 border-t border-white/10">
+                <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
+                  🔗 Bridge (:5005 / Vercel)
+                  <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
+                    <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
+                    <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors">🔗 Tester</button>
+                  <button onClick={handleSave} className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-lg text-xs font-bold uppercase transition-colors">💾 SAUVEGARDER_CONFIG</button>
+                </div>
+                <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "pipeline" && (
+            <div className="space-y-4 animate-fadeIn h-full flex flex-col">
+              <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
+              
+              <div className="flex gap-2">
+                <div className="flex-1 bg-gradient-to-br from-cyan/30 to-cyan/10 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:from-cyan/40 hover:to-cyan/20 transition-colors">
+                  <div className="text-white font-bold text-xs flex items-center gap-2">⚙️ Standard G5</div>
+                  <div className="text-[10px] text-cyan mt-1 leading-tight">Génération de A à Z (Architecture, Design, Logique).</div>
+                </div>
+                <div className="flex-1 bg-gradient-to-br from-pink/30 to-pink/10 border border-pink/50 p-2 rounded-lg cursor-pointer hover:from-pink/40 hover:to-pink/20 transition-colors">
+                  <div className="text-white font-bold text-xs flex items-center gap-2">🎨 Design-First</div>
+                  <div className="text-[10px] text-pink mt-1 leading-tight">Stitch UI d'abord → L'IA câble la logique ensuite.</div>
+                </div>
+              </div>
+
+              <div className="text-yellow-400 text-sm font-bold mt-2">— IDE Autonome (Kirov5) —</div>
+              
+              <div className="mt-2 mb-3 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("http://localhost:5005/api/projects");
+                        const data = await res.json();
+                        if (data.projects) {
+                          setAvailableProjects(data.projects);
+                          if (data.projects.length > 0 && !selectedLaunchProject) {
+                            setSelectedLaunchProject(data.projects[0]);
+                          }
+                        }
+                      } catch (e) {
+                        alert("Impossible de charger les projets. Le Bridge est-il allumé ?");
+                      }
+                    }}
+                    className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors"
+                  >
+                    🔄
+                  </button>
+                  <select 
+                    value={selectedLaunchProject}
+                    onChange={(e) => setSelectedLaunchProject(e.target.value)}
+                    className="flex-1 bg-black/50 text-white border border-cyan/30 rounded-lg px-2 py-1 outline-none focus:border-cyan text-xs"
+                  >
+                    <option value="">-- Sélectionnez un projet --</option>
+                    {availableProjects.map((p: string) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ backgroundImage: 'linear-gradient(to right, #10a37f, #0d8a6a)', borderColor: '#10a37f' }}>
+                    📦 Auto-Capture
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (!selectedLaunchProject) return alert("Veuillez sélectionner un projet d'abord !");
+                      try {
+                        const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ project_id: selectedLaunchProject })
+                        });
+                        const data = await res.json();
+                        alert(data.message || "Lancement en cours...");
+                      } catch (e: any) {
+                        alert("Erreur de connexion au Moteur Electron : " + e.message);
+                      }
+                    }}
+                    className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-gradient-to-r from-cyan to-blue-500 hover:from-cyan/80 hover:to-blue-500/80 transition-colors"
+                  >
+                    🚀 Lancer l'Aperçu
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-1">
+                {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => {
+                  const isCurrent = activePhase === (idx + 1);
+                  return (
+                    <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-gradient-to-r from-cyan/30 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-gradient-to-r from-black/30 to-black/10 border-white/5 opacity-60'}`}>
+                      <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-gradient-to-br from-cyan to-blue-500 text-black' : 'bg-gradient-to-br from-white/20 to-white/5'}`}>{idx}</div>
+                      <span className="text-sm font-medium">{phase}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="mt-2 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
+                <div>
+                  {mouchardLogs.map((log: string, idx: number) => (
+                    <div key={idx} className="mb-1 opacity-90 break-all">{log}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "override" && (
+            <div className="space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mode Manuel (Override)</h2>
+                <p className="text-gray-400 text-xs mt-2">Prenez le contrôle manuel si l'automatisation s'enraye.</p>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-gray-300 font-bold text-sm">Injection de prompt de secours</label>
+                <textarea 
+                  value={overridePrompt} onChange={(e) => setOverridePrompt(e.target.value)}
+                  placeholder="Entrez le prompt à forcer dans DeepSeek..."
+                  className="w-full h-32 bg-gradient-to-b from-gray-900/60 to-black/60 text-white border border-white/20 rounded-xl p-3 outline-none focus:border-cyan text-sm resize-none"
+                />
+                <div className="flex gap-3 pt-2">
+                  <button className="flex-1 py-2 bg-gradient-to-r from-pink/30 to-pink/10 hover:from-pink/40 hover:to-pink/20 text-pink border border-pink/50 rounded-lg text-xs font-bold transition-all">💉 Forcer Injection</button>
+                  <button className="flex-1 py-2 bg-gradient-to-r from-orange-500/30 to-orange-500/10 hover:from-orange-500/40 hover:to-orange-500/20 text-orange-400 border border-orange-500/50 rounded-lg text-xs font-bold transition-all">📦 Forcer Capture</button>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-b from-black/50 to-black/70 border border-white/10 p-3 rounded-xl h-32 font-mono text-[10px] text-gray-400 overflow-y-auto">
+                <span className="text-white mb-2 block">Log Override</span>
+                En attente d'action manuelle...
+              </div>
+            </div>
+          )}
+
+          {activeTab === "mouchard" && (
+            <div className="space-y-4 animate-fadeIn h-full flex flex-col">
+              <div>
+                <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mouchard Système</h2>
+                <p className="text-gray-400 text-xs mt-2">Surveillance en temps réel du flux de données.</p>
+              </div>
+              
+              <div className="flex-1 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-2 relative">
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <button className="text-[10px] bg-gradient-to-r from-red-500/30 to-red-500/10 text-red-400 px-2 py-1 rounded hover:from-red-500/40 hover:to-red-500/20">[WIPE]</button>
+                </div>
+                <div className="text-white font-bold mb-3 border-b border-white/20 pb-1 inline-block">LOG_STREAM</div>
+                
+                <div className="text-yellow-400">[09:24:30] ⚠️ Bridge local non joignable (Failed to fetch (Bridge hors ligne) - Failed to fetch). Polling Vercel actif.</div>
+                <div className="text-green-400">[09:24:30] KIROV5 Orchestrator v5.1.1 prêt — structure React (.tsx/.ts/.css) préservée.</div>
+                <div className="text-cyan">[09:24:30] Onglets: Projets · Projet · Injection · Capture · GitHub + Bridge :5005.</div>
+              </div>
+            </div>
+          )}
+
+          {["home", "electron", "vercel", "deepseek"].includes(activeTab) && (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-fadeIn opacity-50">
+              <span className="text-6xl">{tabs.find(t => t.id === activeTab)?.icon}</span>
+              <h3 className="text-xl font-bold text-white">Module {tabs.find(t => t.id === activeTab)?.label}</h3>
+              <p className="text-sm text-gray-400">Section technique héritée du cœur Kirov5.</p>
+            </div>
+          )}
+          
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex justify-between items-center relative z-10">
+          <button 
+            onClick={() => setIsExtConnected(!isExtConnected)}
+            className={`text-xs font-bold hover:underline flex items-center gap-1 ${isExtConnected ? 'text-green-500' : 'text-red-500'}`}
+          >
+            <span className={`w-2 h-2 rounded-full animate-pulse ${isExtConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            {isExtConnected ? 'Extension Connectée' : 'Extension Déconnectée'}
+          </button>
+          <div className="flex gap-3">
+            {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
+            {isModal && (
+              <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-white/10 to-transparent hover:from-white/20 transition-colors text-sm">
+                Fermer
+              </button>
+            )}
+            <button 
+              onClick={handleSave}
+              className="px-6 py-2 bg-gradient-to-r from-cyan to-blue-500 rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
+            >
+              💾 SAUVEGARDER_CONFIG
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function Dashboard() {
@@ -65,6 +535,61 @@ export default function Dashboard() {
   const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé."]);
   const [realProjects, setRealProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
 
+  // --- NOUVEAUX ETATS : IDE & TROMBONE ---
+  const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [fsTree, setFsTree] = useState<any>(null);
+  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
+  const [tromboneFiles, setTromboneFiles] = useState<{path: string, content: string}[]>([]);
+
+  // Chargement de l'arborescence quand un projet est actif
+  useEffect(() => {
+    if (activeProject) {
+      fetch(`http://localhost:5005/api/fs/tree?project=${activeProject}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setFsTree(data.tree);
+        }).catch(() => {});
+    }
+  }, [activeProject]);
+
+  // Chargement du contenu du fichier sélectionné
+  useEffect(() => {
+    if (activeProject && activeFile) {
+      fetch(`http://localhost:5005/api/fs/read?project=${activeProject}&file=${encodeURIComponent(activeFile)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setFileContent(data.content);
+        }).catch(() => {});
+    }
+  }, [activeProject, activeFile]);
+
+  // Sauvegarde manuelle du fichier
+  const handleSaveFile = (content: string | undefined) => {
+    if (content === undefined || !activeProject || !activeFile) return;
+    setFileContent(content);
+    fetch("http://localhost:5005/api/fs/write", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: activeProject, file: activeFile, content })
+    }).catch(() => {});
+  };
+
+  // Attacher au trombone
+  const attachToTrombone = (filePath: string) => {
+    if (!activeProject) return;
+    fetch(`http://localhost:5005/api/fs/read?project=${activeProject}&file=${encodeURIComponent(filePath)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTromboneFiles(prev => {
+            if (prev.find(f => f.path === filePath)) return prev;
+            return [...prev, { path: filePath, content: data.content }];
+          });
+        }
+      }).catch(() => {});
+  };
+
   // Chargement des projets réels au montage
   useEffect(() => {
     fetch("http://localhost:5005/api/projects")
@@ -89,30 +614,7 @@ export default function Dashboard() {
   // Chargement de l'historique
   useEffect(() => {
     setIsClient(true);
-    const savedMessages = sessionStorage.getItem("tiger_messages");
-    if (savedMessages) {
-      try {
-        setMessages(JSON.parse(savedMessages));
-      } catch (e) {}
-    }
-    const savedPhase = sessionStorage.getItem("tiger_activePhase");
-    if (savedPhase) {
-      setActivePhase(parseInt(savedPhase, 10));
-    }
   }, []);
-
-  // Sauvegarde de l'historique
-  useEffect(() => {
-    if (isClient && messages.length > 0) {
-      sessionStorage.setItem("tiger_messages", JSON.stringify(messages));
-    }
-  }, [messages, isClient]);
-
-  useEffect(() => {
-    if (isClient) {
-      sessionStorage.setItem("tiger_activePhase", activePhase.toString());
-    }
-  }, [activePhase, isClient]);
 
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
@@ -148,13 +650,16 @@ export default function Dashboard() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = (overrideText?: any) => {
+    // Si overrideText est un événement (ex: depuis onClick ou onKeyDown), on l'ignore.
+    const textToSend = (typeof overrideText === 'string') ? overrideText : input;
     
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: input };
+    if (!textToSend.trim()) return;
+    
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: textToSend };
     setMessages((prev) => [...prev, userMsg]);
     
-    const lowerInput = input.toLowerCase();
+    const lowerInput = textToSend.toLowerCase();
     
     setTimeout(() => {
       let responseMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: "" };
@@ -166,7 +671,7 @@ export default function Dashboard() {
           (normalizedInput.includes("modifi") || normalizedInput.includes("ajoute") || normalizedInput.includes("change") || normalizedInput.includes("mise a jour") || normalizedInput.includes("evolue") || normalizedInput.includes("reprends") || normalizedInput.includes("continue"))) {
         
         // Extraction du nom de projet si fourni entre crochets (ex: [Portfolio React Vite])
-        const projectMatch = input.match(/\[(.*?)\]/);
+        const projectMatch = textToSend.match(/\[(.*?)\]/);
         const targetProject = projectMatch ? projectMatch[1] : null;
         const targetAi = normalizedInput.includes("deepseek") ? "deepseek" : "stitch";
 
@@ -180,7 +685,7 @@ export default function Dashboard() {
           body: JSON.stringify({
             target_ai: targetAi,
             target_project: targetProject, // L'extension fera le switch automatiquement !
-            prompt: "Mise à jour (Reprise de projet) : " + input.replace(/\[.*?\]/, "").trim(),
+            prompt: "Mise à jour (Reprise de projet) : " + textToSend.replace(/\[.*?\]/, "").trim(),
             auto_submit: true
           })
         }).catch(err => console.log("Erreur de connexion au Bridge local pour l'injection", err));
@@ -207,9 +712,9 @@ export default function Dashboard() {
           // Lancement parallèle réel via le Bridge (ou window.open en fallback)
           const bridge = (window as any).AndroidBridge;
             if (bridge && bridge.openAIWithPrompt) {
-              bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
+              bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend);
               setTimeout(() => {
-                bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
+                bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
               }, 1500);
             } else {
               // Fallback pour navigateur standard (Chrome, Edge, Electron, etc.)
@@ -217,7 +722,7 @@ export default function Dashboard() {
               window.open(getUrl(uiAi, true), "_blank");
               window.open(getUrl(logicAi), "_blank");
               
-              const newProjectId = "Projet_" + input.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+              const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
               
               // On envoie le prompt UI au Bridge
               fetch("http://127.0.0.1:5005/bridge/prompt", {
@@ -225,7 +730,7 @@ export default function Dashboard() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   target_ai: uiAi,
-                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + input,
+                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
                   auto_submit: true,
                   project_id: newProjectId,
                   phase_num: 1
@@ -239,7 +744,7 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     target_ai: logicAi,
-                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
+                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
                     auto_submit: true,
                     project_id: newProjectId,
                     phase_num: 1
@@ -286,7 +791,7 @@ export default function Dashboard() {
         if (typeof window !== "undefined") {
           const bridge = (window as any).AndroidBridge;
           if (bridge && bridge.openAIWithPrompt) {
-            bridge.openAIWithPrompt("https://chat.deepseek.com/", input);
+            bridge.openAIWithPrompt("https://chat.deepseek.com/", textToSend);
           } else {
             window.open("https://chat.deepseek.com/", "_blank");
           }
@@ -411,6 +916,62 @@ Format attendu:
     </div>
   );
 
+  // --- HELPERS IDE ---
+  const renderFsTree = (node: any, level = 0) => {
+    if (!node) return null;
+    if (node.type === 'directory') {
+      return (
+        <div key={node.path} className="flex flex-col">
+          <div className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 cursor-pointer text-gray-300 text-sm" style={{ paddingLeft: `${level * 12 + 8}px` }}>
+            <span className="text-orange-400">📁</span>
+            <span className="truncate font-bold">{node.name}</span>
+          </div>
+          {node.children && node.children.map((child: any) => renderFsTree(child, level + 1))}
+        </div>
+      );
+    } else {
+      return (
+        <div 
+          key={node.path} 
+          className={`flex items-center justify-between px-2 py-1 hover:bg-white/10 cursor-pointer text-sm group ${activeFile === node.path ? 'bg-cyan/20 text-cyan border-l-2 border-cyan' : 'text-gray-400'}`}
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+          onClick={() => setActiveFile(node.path)}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-blue-400">📄</span>
+            <span className="truncate">{node.name}</span>
+          </div>
+          <button 
+            className="hidden group-hover:block text-xs text-white bg-white/20 rounded px-1 hover:bg-cyan/50"
+            title="Ajouter au Trombone"
+            onClick={(e) => { e.stopPropagation(); attachToTrombone(node.path); }}
+          >
+            📎
+          </button>
+        </div>
+      );
+    }
+  };
+
+  const handleIDEAction = (action: string) => {
+    if (!activeProject) return;
+    let prompt = "";
+    if (action === "suture") prompt = `Deepseek corrige et modifie les bugs (Suture) pour le projet [${activeProject}].\n\n`;
+    if (action === "refactor") prompt = `Deepseek modifie et refactorise le code pour le projet [${activeProject}].\n\n`;
+    if (action === "improve") prompt = `Deepseek ajoute des améliorations pour le projet [${activeProject}].\n\n`;
+    
+    if (tromboneFiles.length > 0) {
+      prompt += "Voici les fichiers de contexte depuis le trombone :\n\n";
+      tromboneFiles.forEach(f => {
+        prompt += `--- ${f.path} ---\n\`\`\`\n${f.content}\n\`\`\`\n\n`;
+      });
+      // Optionnel : vider le trombone après ? 
+      // setTromboneFiles([]); 
+    }
+    handleSend(prompt);
+  };
+
+
   const WidgetProjects = () => {
     if (realProjects.length === 0) {
       return (
@@ -435,6 +996,7 @@ Format attendu:
         
         <button 
           onClick={async () => {
+            setActiveProject(p.name);
             try {
               window.dispatchEvent(new CustomEvent('open-mouchard'));
               const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
@@ -558,462 +1120,7 @@ Format attendu:
     )));
   };
 
-  const WidgetSettings = ({ isModal = false, onClose, initialTab = "connexion" }: { isModal?: boolean, onClose?: () => void, initialTab?: string }) => {
-    const [activeTab, setActiveTab] = useState(initialTab);
-    
-    // Si l'initialTab change (via l'event open-mouchard), on met à jour
-    useEffect(() => {
-      setActiveTab(initialTab);
-    }, [initialTab]);
-
-    // États locaux
-    const [execMode, setExecMode] = useState("web");
-    const [targetAi, setTargetAi] = useState("deepseek");
-    const [targetUiAi, setTargetUiAi] = useState("stitch");
-    const [customAiName, setCustomAiName] = useState("");
-    const [customAiUrl, setCustomAiUrl] = useState("");
-    const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
-    const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
-    const [apiKey, setApiKey] = useState("");
-    const [overridePrompt, setOverridePrompt] = useState("");
-    const [savedMsg, setSavedMsg] = useState(false);
-    const [isExtConnected, setIsExtConnected] = useState(true);
-
-    useEffect(() => {
-      setExecMode(localStorage.getItem("tiger_execMode") || "web");
-      setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
-      setTargetUiAi(localStorage.getItem("tiger_targetUiAi") || "stitch");
-      setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
-      setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
-      setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
-      setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
-      setApiKey(localStorage.getItem("tiger_apiKey") || "");
-    }, []);
-
-    const handleSave = () => {
-      const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
-      
-      localStorage.setItem("tiger_execMode", execMode);
-      localStorage.setItem("tiger_targetAi", targetAi);
-      localStorage.setItem("tiger_targetUiAi", targetUiAi);
-      localStorage.setItem("tiger_customAiName", customAiName);
-      localStorage.setItem("tiger_customAiUrl", customAiUrl);
-      localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
-      localStorage.setItem("tiger_vercelUrl", vercelUrl);
-      localStorage.setItem("tiger_apiKey", apiKey);
-      
-      if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
-        (window as any).AndroidBridge.showToast("Paramètres synchronisés !");
-      }
-      if (typeof window !== "undefined") {
-        window.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
-        }
-      }
-      
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
-    };
-
-    const tabs = [
-      { id: "home", label: "TIGER IA", icon: "🐯" },
-      { id: "electron", label: "Electron", icon: "💻" },
-      { id: "vercel", label: "Vercel", icon: "▲" },
-      { id: "deepseek", label: "DeepSeek", icon: "🐋" },
-      { id: "pipeline", label: "Pipeline", icon: "🎯" },
-      { id: "override", label: "Override", icon: "💉" },
-      { id: "mouchard", label: "Mouchard", icon: "👁️" },
-      { id: "connexion", label: "Connexion", icon: "⚙️" },
-    ];
-
-    return (
-      <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
-        
-        {/* Sidebar */}
-        <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
-          <div className="p-6 border-b border-white/10 flex justify-between items-center">
-            <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
-              <span className="text-cyan">🐯</span> SETTINGS
-            </h3>
-            {isModal && (
-              <button onClick={onClose} className="md:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold">✕</button>
-            )}
-          </div>
-          <div className="flex-1 overflow-y-auto py-4 hide-scrollbar flex md:flex-col gap-1 px-4">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap md:whitespace-normal ${activeTab === t.id ? 'bg-cyan/20 border border-cyan/50 text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-              >
-                <span className="text-xl">{t.icon}</span>
-                <span className="font-bold text-sm tracking-wide">{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 bg-gradient-to-br from-[#111111] to-black relative overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10 hide-scrollbar">
-            
-            {/* TABS CONTENT */}
-            
-            {activeTab === "connexion" && (
-              <div className="space-y-6 animate-fadeIn">
-                <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">Configuration LLM & Bridge</h2>
-                
-                <div>
-                  <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-[10px]">Mode d'exécution</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: "web", icon: "💬", title: "Chat Web" },
-                      { id: "api", icon: "🔑", title: "API Directe" },
-                      { id: "hybrid", icon: "🔀", title: "Hybride" }
-                    ].map(m => (
-                      <button 
-                        key={m.id} onClick={() => setExecMode(m.id)}
-                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${execMode === m.id ? 'bg-gradient-to-br from-cyan/20 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.3)]' : 'bg-gradient-to-br from-black/30 to-black/50 border-white/10 text-gray-500 hover:border-white/30'}`}
-                      >
-                        <span className="text-2xl mb-1">{m.icon}</span>
-                        <span className="font-bold text-xs">{m.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {(execMode === "web" || execMode === "hybrid") && (
-                  <div className="space-y-3">
-                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Flotte d'Assistants (Multi-Acteurs)</label>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Acteur Logique */}
-                      <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-cyan/50 transition-colors">
-                        <div className="text-[10px] text-cyan mb-2 font-bold flex items-center gap-2">🧠 Cerveau Logique (Backend)</div>
-                        <div className="flex gap-2">
-                          <select 
-                            value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
-                            className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
-                          >
-                            <option value="deepseek">🐋 DeepSeek Web</option>
-                            <option value="chatgpt">🟢 ChatGPT Web</option>
-                            <option value="gemini">✨ Gemini Web</option>
-                            <option value="claude">🟣 Claude Web</option>
-                            <option value="kimi">🌙 Kimi Web</option>
-                            <option value="qwen">🌐 Qwen Coder</option>
-                            <option value="custom">➕ IA Personnalisée</option>
-                          </select>
-                          <button 
-                            onClick={() => {
-                              if (typeof window !== "undefined" && (window as any).AndroidBridge) {
-                                const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
-                                (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Logique.");
-                              }
-                            }}
-                            className="px-3 bg-white/10 hover:bg-cyan/20 rounded-lg font-bold text-xs transition-colors text-white"
-                          >
-                            ▶
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Acteur UI */}
-                      <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-pink/50 transition-colors">
-                        <div className="text-[10px] text-pink mb-2 font-bold flex items-center gap-2">🎨 Cerveau UI/UX (Frontend)</div>
-                        <div className="flex gap-2">
-                          <select 
-                            value={targetUiAi} onChange={(e) => setTargetUiAi(e.target.value)}
-                            className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-pink text-sm"
-                          >
-                            <option value="stitch">🧵 Stitch Google</option>
-                            <option value="v0">▲ v0.dev (Vercel)</option>
-                            <option value="bolt">⚡ Bolt.new</option>
-                            <option value="custom">➕ UI Personnalisée</option>
-                          </select>
-                          <button 
-                            onClick={() => {
-                              if (typeof window !== "undefined" && (window as any).AndroidBridge) {
-                                const url = targetUiAi === "custom" ? customAiUrl : targetUiAi === "v0" ? "https://v0.dev/" : "https://stitch.withgoogle.com/";
-                                (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Design.");
-                              }
-                            }}
-                            className="px-3 bg-white/10 hover:bg-pink/20 rounded-lg font-bold text-xs transition-colors text-white"
-                          >
-                            ▶
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-                  
-                {(targetAi === "custom" || targetUiAi === "custom") && (
-                    <div className="flex gap-3 bg-white/5 border border-white/20 p-3 rounded-xl mt-2 animate-fadeIn">
-                      <div className="flex-1">
-                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
-                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
-                      </div>
-                      <div className="flex-[2]">
-                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
-                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
-                      </div>
-                    </div>
-                  )}
-
-                {(execMode === "api" || execMode === "hybrid") && (
-                  <>
-                    <div className="space-y-2">
-                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
-                      <select className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
-                        <option value="deepseek">🐋 DeepSeek</option>
-                        <option value="openai">🟢 OpenAI (ChatGPT)</option>
-                        <option value="gemini">✨ Google Gemini</option>
-                        <option value="claude">🟣 Anthropic Claude</option>
-                        <option value="kimi">🌙 Moonshot Kimi</option>
-                        <option value="qwen">🌐 Alibaba Qwen</option>
-                      </select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Clé API DeepSeek</label>
-                      <div className="flex gap-2 relative">
-                        <input 
-                          type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="sk-..."
-                          className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
-                        />
-                        <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">👁</button>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <button onClick={handleSave} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider transition-colors">
-                          💾 SAUVEGARDER_CONFIG
-                        </button>
-                        <span className="text-gray-500 text-xs italic">Clé stockée localement dans le navigateur.</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 p-4 bg-gradient-to-br from-black/30 to-black/50 border border-white/5 rounded-xl">
-                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Modèle détecté</label>
-                      <div className="text-gray-500 text-sm mb-2">Enregistrer la clé pour détecter</div>
-                      <div className="flex items-center gap-4">
-                        <button className="px-4 py-2 bg-pink/20 text-pink border border-pink/50 hover:bg-pink/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-2">
-                          🔄 AUTO_DETECT
-                        </button>
-                        <span className="text-gray-500 text-xs italic">Auto-détecté à l'enregistrement.</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="pt-4 border-t border-white/10">
-                  <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
-                    🔗 Bridge (:5005 / Vercel)
-                    <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
-                      <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
-                    </div>
-                    <div>
-                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
-                      <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors">🔗 Tester</button>
-                    <button onClick={handleSave} className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-lg text-xs font-bold uppercase transition-colors">💾 SAUVEGARDER_CONFIG</button>
-                  </div>
-                  <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "pipeline" && (
-              <div className="space-y-4 animate-fadeIn h-full flex flex-col">
-                <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
-                
-                <div className="flex gap-2">
-                  <div className="flex-1 bg-gradient-to-br from-cyan/30 to-cyan/10 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:from-cyan/40 hover:to-cyan/20 transition-colors">
-                    <div className="text-white font-bold text-xs flex items-center gap-2">⚙️ Standard G5</div>
-                    <div className="text-[10px] text-cyan mt-1 leading-tight">Génération de A à Z (Architecture, Design, Logique).</div>
-                  </div>
-                  <div className="flex-1 bg-gradient-to-br from-pink/30 to-pink/10 border border-pink/50 p-2 rounded-lg cursor-pointer hover:from-pink/40 hover:to-pink/20 transition-colors">
-                    <div className="text-white font-bold text-xs flex items-center gap-2">🎨 Design-First</div>
-                    <div className="text-[10px] text-pink mt-1 leading-tight">Stitch UI d'abord → L'IA câble la logique ensuite.</div>
-                  </div>
-                </div>
-
-                <div className="text-yellow-400 text-sm font-bold mt-2">— IDE Autonome (Kirov5) —</div>
-                
-                <div className="mt-2 mb-3 flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={async () => {
-                        try {
-                          const res = await fetch("http://localhost:5005/api/projects");
-                          const data = await res.json();
-                          if (data.projects) {
-                            setAvailableProjects(data.projects);
-                            if (data.projects.length > 0 && !selectedLaunchProject) {
-                              setSelectedLaunchProject(data.projects[0]);
-                            }
-                          }
-                        } catch (e) {
-                          alert("Impossible de charger les projets. Le Bridge est-il allumé ?");
-                        }
-                      }}
-                      className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors"
-                    >
-                      🔄
-                    </button>
-                    <select 
-                      value={selectedLaunchProject}
-                      onChange={(e) => setSelectedLaunchProject(e.target.value)}
-                      className="flex-1 bg-black/50 text-white border border-cyan/30 rounded-lg px-2 py-1 outline-none focus:border-cyan text-xs"
-                    >
-                      <option value="">-- Sélectionnez un projet --</option>
-                      {availableProjects.map(p => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ backgroundImage: 'linear-gradient(to right, #10a37f, #0d8a6a)', borderColor: '#10a37f' }}>
-                      📦 Auto-Capture
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        if (!selectedLaunchProject) return alert("Veuillez sélectionner un projet d'abord !");
-                        try {
-                          const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ project_id: selectedLaunchProject })
-                          });
-                          const data = await res.json();
-                          alert(data.message || "Lancement en cours...");
-                        } catch (e: any) {
-                          alert("Erreur de connexion au Moteur Electron : " + e.message);
-                        }
-                      }}
-                      className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-gradient-to-r from-cyan to-blue-500 hover:from-cyan/80 hover:to-blue-500/80 transition-colors"
-                    >
-                      🚀 Lancer l'Aperçu
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-2 space-y-1">
-                  {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => {
-                    const isCurrent = activePhase === (idx + 1);
-                    return (
-                      <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-gradient-to-r from-cyan/30 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-gradient-to-r from-black/30 to-black/10 border-white/5 opacity-60'}`}>
-                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-gradient-to-br from-cyan to-blue-500 text-black' : 'bg-gradient-to-br from-white/20 to-white/5'}`}>{idx}</div>
-                        <span className="text-sm font-medium">{phase}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <div className="mt-2 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
-                  <div>
-                    {mouchardLogs.map((log, idx) => (
-                      <div key={idx} className="mb-1 opacity-90 break-all">{log}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "override" && (
-              <div className="space-y-6 animate-fadeIn">
-                <div>
-                  <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mode Manuel (Override)</h2>
-                  <p className="text-gray-400 text-xs mt-2">Prenez le contrôle manuel si l'automatisation s'enraye.</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-gray-300 font-bold text-sm">Injection de prompt de secours</label>
-                  <textarea 
-                    value={overridePrompt} onChange={(e) => setOverridePrompt(e.target.value)}
-                    placeholder="Entrez le prompt à forcer dans DeepSeek..."
-                    className="w-full h-32 bg-gradient-to-b from-gray-900/60 to-black/60 text-white border border-white/20 rounded-xl p-3 outline-none focus:border-cyan text-sm resize-none"
-                  />
-                  <div className="flex gap-3 pt-2">
-                    <button className="flex-1 py-2 bg-gradient-to-r from-pink/30 to-pink/10 hover:from-pink/40 hover:to-pink/20 text-pink border border-pink/50 rounded-lg text-xs font-bold transition-all">💉 Forcer Injection</button>
-                    <button className="flex-1 py-2 bg-gradient-to-r from-orange-500/30 to-orange-500/10 hover:from-orange-500/40 hover:to-orange-500/20 text-orange-400 border border-orange-500/50 rounded-lg text-xs font-bold transition-all">📦 Forcer Capture</button>
-                  </div>
-                </div>
-                
-                <div className="bg-gradient-to-b from-black/50 to-black/70 border border-white/10 p-3 rounded-xl h-32 font-mono text-[10px] text-gray-400 overflow-y-auto">
-                  <span className="text-white mb-2 block">Log Override</span>
-                  En attente d'action manuelle...
-                </div>
-              </div>
-            )}
-
-            {activeTab === "mouchard" && (
-              <div className="space-y-4 animate-fadeIn h-full flex flex-col">
-                <div>
-                  <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mouchard Système</h2>
-                  <p className="text-gray-400 text-xs mt-2">Surveillance en temps réel du flux de données.</p>
-                </div>
-                
-                <div className="flex-1 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-2 relative">
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <button className="text-[10px] bg-gradient-to-r from-red-500/30 to-red-500/10 text-red-400 px-2 py-1 rounded hover:from-red-500/40 hover:to-red-500/20">[WIPE]</button>
-                  </div>
-                  <div className="text-white font-bold mb-3 border-b border-white/20 pb-1 inline-block">LOG_STREAM</div>
-                  
-                  <div className="text-yellow-400">[09:24:30] ⚠️ Bridge local non joignable (Failed to fetch (Bridge hors ligne) - Failed to fetch). Polling Vercel actif.</div>
-                  <div className="text-green-400">[09:24:30] KIROV5 Orchestrator v5.1.1 prêt — structure React (.tsx/.ts/.css) préservée.</div>
-                  <div className="text-cyan">[09:24:30] Onglets: Projets · Projet · Injection · Capture · GitHub + Bridge :5005.</div>
-                </div>
-              </div>
-            )}
-
-            {["home", "electron", "vercel", "deepseek"].includes(activeTab) && (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-fadeIn opacity-50">
-                <span className="text-6xl">{tabs.find(t => t.id === activeTab)?.icon}</span>
-                <h3 className="text-xl font-bold text-white">Module {tabs.find(t => t.id === activeTab)?.label}</h3>
-                <p className="text-sm text-gray-400">Section technique héritée du cœur Kirov5.</p>
-              </div>
-            )}
-            
-          </div>
-
-          {/* Footer Actions */}
-          <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex justify-between items-center relative z-10">
-            <button 
-              onClick={() => setIsExtConnected(!isExtConnected)}
-              className={`text-xs font-bold hover:underline flex items-center gap-1 ${isExtConnected ? 'text-green-500' : 'text-red-500'}`}
-            >
-              <span className={`w-2 h-2 rounded-full animate-pulse ${isExtConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-              {isExtConnected ? 'Extension Connectée' : 'Extension Déconnectée'}
-            </button>
-            <div className="flex gap-3">
-              {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
-              {isModal && (
-                <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-white/10 to-transparent hover:from-white/20 transition-colors text-sm">
-                  Fermer
-                </button>
-              )}
-              <button 
-                onClick={handleSave}
-                className="px-6 py-2 bg-gradient-to-r from-cyan to-blue-500 rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
-              >
-                💾 SAUVEGARDER_CONFIG
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // --- RENDERING PRINCIPAL ---
 
   const WidgetPhases = () => {
     const allPhases = [
@@ -1068,7 +1175,19 @@ Format attendu:
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}>
-          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} initialTab="connexion" />
+          <WidgetSettings 
+            isModal={true} 
+            onClose={() => setIsSettingsOpen(false)} 
+            initialTab="connexion"
+            isClient={isClient}
+            getCachedGradient={getCachedGradient}
+            mouchardLogs={mouchardLogs}
+            activePhase={activePhase}
+            availableProjects={availableProjects}
+            setAvailableProjects={setAvailableProjects}
+            selectedLaunchProject={selectedLaunchProject}
+            setSelectedLaunchProject={setSelectedLaunchProject}
+          />
         </div>
       )}
 
@@ -1085,18 +1204,112 @@ Format attendu:
         </div>
       </header>
 
-      {/* Chat Area */}
-      <main 
-        className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative"
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          const file = e.dataTransfer.files?.[0];
-          if (file) handleFileUpload(file);
-        }}
-      >
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden relative z-10 w-full">
+        
+        {/* === NOUVEAU : ZONE IDE INTEGREE === */}
+        {activeProject && (
+          <div className="flex flex-1 overflow-hidden h-full animate-fadeIn">
+            
+            {/* 1. Left Action Bar */}
+            <div className="w-16 bg-black/80 border-r border-white/10 flex flex-col items-center py-4 gap-6 z-20 shadow-xl">
+              <button title="Fermer le projet" onClick={() => { setActiveProject(null); setActiveFile(null); }} className="w-10 h-10 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all mb-4">
+                ✕
+              </button>
+              
+              <button title="Suture (Correction Bug)" onClick={() => handleIDEAction("suture")} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-cyan/20 text-xl border border-white/10 hover:border-cyan flex items-center justify-center transition-all group relative">
+                🩺
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-cyan pointer-events-none transition-opacity">Auto-Suture</span>
+              </button>
+              
+              <button title="Refactoring" onClick={() => handleIDEAction("refactor")} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-purple-500/20 text-xl border border-white/10 hover:border-purple-500 flex items-center justify-center transition-all group relative">
+                🔄
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-purple-400 pointer-events-none transition-opacity">Refactoring</span>
+              </button>
+              
+              <button title="Amélioration" onClick={() => handleIDEAction("improve")} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-yellow-500/20 text-xl border border-white/10 hover:border-yellow-500 flex items-center justify-center transition-all group relative">
+                ✨
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-yellow-400 pointer-events-none transition-opacity">Amélioration</span>
+              </button>
+
+              <div className="flex-1"></div>
+
+              <button title="Lancer Preview" onClick={() => {}} className="w-10 h-10 rounded-full bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-xl border border-green-500/30 hover:border-green-500 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] group relative">
+                🚀
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-green-400 pointer-events-none transition-opacity font-bold">Lancer Preview</span>
+              </button>
+            </div>
+
+            {/* 2. Explorateur de fichiers */}
+            <div className="w-64 bg-[#0a0a0a]/95 border-r border-white/10 overflow-y-auto flex flex-col hide-scrollbar z-20 shadow-2xl">
+              <div className="px-4 py-3 border-b border-white/10 sticky top-0 bg-[#0a0a0a] z-10 flex flex-col gap-2">
+                <span className="text-[10px] text-cyan font-black uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan"></span>
+                  Projet Actif
+                </span>
+                <span className="text-white font-bold text-sm truncate">{activeProject}</span>
+              </div>
+              <div className="py-2">
+                {fsTree ? renderFsTree(fsTree) : <div className="text-gray-500 text-xs px-4 py-2 animate-pulse">Scan du projet...</div>}
+              </div>
+            </div>
+
+            {/* 3. Editeur Monaco */}
+            <div className="flex-1 flex flex-col bg-[#1e1e1e] z-20 shadow-2xl relative">
+              <div className="h-12 bg-[#252526] border-b border-black flex justify-between items-center px-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-blue-400 text-lg">{activeFile ? '📄' : '📁'}</span>
+                  <span className="text-sm text-gray-300 font-mono">{activeFile || 'Aucun fichier sélectionné'}</span>
+                </div>
+                <button 
+                  onClick={() => handleSaveFile(fileContent)} 
+                  disabled={!activeFile}
+                  className={`px-4 py-1.5 rounded text-xs font-bold transition-all ${activeFile ? 'bg-cyan/20 text-cyan hover:bg-cyan hover:text-black border border-cyan/30 shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}
+                >
+                  SAUVEGARDER (CTRL+S)
+                </button>
+              </div>
+              
+              <div className="flex-1 relative">
+                {activeFile ? (
+                  <Editor 
+                    height="100%" 
+                    theme="vs-dark" 
+                    path={activeFile}
+                    language={activeFile.endsWith('.tsx') || activeFile.endsWith('.ts') ? 'typescript' : activeFile.endsWith('.css') ? 'css' : activeFile.endsWith('.html') ? 'html' : activeFile.endsWith('.json') ? 'json' : 'javascript'} 
+                    value={fileContent} 
+                    onChange={(val) => setFileContent(val || "")} 
+                    options={{ 
+                      minimap: { enabled: false }, 
+                      fontSize: 14,
+                      wordWrap: "on",
+                      padding: { top: 16 }
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
+                    <span className="text-6xl opacity-20">🐯</span>
+                    <span className="font-medium tracking-wide">Sélectionnez un fichier dans l'explorateur pour l'éditer</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Chat Area (Responsive) */}
+        <main 
+          className={`${activeProject ? 'w-96 min-w-[24rem] border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]' : 'flex-1'} overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative transition-all duration-500 ease-in-out`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) handleFileUpload(file);
+          }}
+        >
         {isDragging && (
           <div className="absolute inset-0 z-50 bg-cyan/20 backdrop-blur-sm border-4 border-dashed border-cyan rounded-3xl m-4 flex items-center justify-center pointer-events-none">
             <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre fichier Stitch (.html)<br/>pour lancer le câblage !</h2>
@@ -1119,8 +1332,8 @@ Format attendu:
             
             <button 
               onClick={() => {
-                setInput("Mes projets");
-                handleSend();
+                handleSend("Mes projets");
+                setInput("");
               }}
               className="group flex flex-col items-center gap-3"
             >
@@ -1132,8 +1345,8 @@ Format attendu:
             
             <button 
               onClick={() => {
-                setInput("Actualités IA");
-                handleSend();
+                handleSend("Actualités IA");
+                setInput("");
               }}
               className="group flex flex-col items-center gap-3"
             >
@@ -1160,7 +1373,7 @@ Format attendu:
               {msg.widget === "projects" && <WidgetProjects />}
               {msg.widget === "news" && <WidgetNews />}
               {msg.widget === "youtube" && <WidgetYouTube />}
-              {msg.widget === "settings" && <WidgetSettings />}
+              {msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} />}
               {msg.widget === "phases" && <WidgetPhases />}
             </div>
           ))}
@@ -1197,6 +1410,8 @@ Format attendu:
           </div>
         </aside>
       )}
+      
+      </div> {/* Fermeture div flex-1 principal pour que le footer passe en bas */}
 
       {/* Input Area + Connection Status Bar */}
       <footer className="backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col" style={{ background: isClient ? getCachedGradient('footer', 0.6) : 'rgba(0,0,0,0.6)' }}>
@@ -1225,50 +1440,66 @@ Format attendu:
         </div>
 
         {/* Input Bar */}
-        <div className="p-4 md:p-6 relative max-w-4xl mx-auto w-full">
-          {/* File Upload Button */}
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept=".html" 
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileUpload(file);
-              // Reset input
-              if (fileInputRef.current) fileInputRef.current.value = "";
-            }} 
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute left-8 md:left-10 top-1/2 -translate-y-1/2 text-2xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20"
-            title="Joindre un fichier HTML (Stitch)"
-          >
-            📎
-          </button>
+        <div className="p-4 md:p-6 relative w-full flex flex-col gap-2">
           
-          <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Demandez à Tiger IA, ou glissez un fichier HTML..." 
-            className="w-full border border-white/10 rounded-full pl-14 md:pl-16 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-300 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-all shadow-inner"
-            style={{ background: isClient ? getCachedGradient('input', 0.3) : 'rgba(255,255,255,0.05)' }}
-          />
-          <button 
-            onClick={handleSend}
-            className="absolute right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 text-white rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg"
-            style={{ background: isClient ? getCachedGradient('sendbtn', 1) : '#08b3c9' }}
-          >
-            <svg className="w-5 h-5 md:w-6 md:h-6 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-            </svg>
-          </button>
+          {/* LE TROMBONE (Fichiers attachés) */}
+          {tromboneFiles.length > 0 && (
+            <div className="flex gap-2 px-2 overflow-x-auto hide-scrollbar pb-2">
+              {tromboneFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 bg-cyan/10 border border-cyan/30 text-cyan text-xs px-3 py-1.5 rounded-full whitespace-nowrap animate-fadeIn">
+                  <span>📎 {f.path.split('/').pop() || f.path.split('\\').pop()}</span>
+                  <button 
+                    onClick={() => setTromboneFiles(prev => prev.filter((_, idx) => idx !== i))}
+                    className="hover:text-red-400 font-bold ml-1"
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="relative">
+            {/* File Upload Button */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".html" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+                // Reset input
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }} 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20"
+              title="Joindre un fichier HTML (Stitch)"
+            >
+              📎
+            </button>
+            
+            <input 
+              type="text" 
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Demandez à Tiger IA, ou glissez un fichier HTML..." 
+              className="w-full border border-white/10 rounded-full pl-12 md:pl-14 pr-16 py-3 md:py-4 text-white text-sm md:text-base placeholder-gray-400 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-all shadow-inner"
+              style={{ background: isClient ? getCachedGradient('input', 0.4) : 'rgba(255,255,255,0.05)' }}
+            />
+            <button 
+              onClick={handleSend}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-white rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg"
+              style={{ background: isClient ? getCachedGradient('sendbtn', 1) : '#08b3c9' }}
+            >
+              <svg className="w-4 h-4 md:w-5 md:h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </footer>
-
-      {/* Styles globaux pour cacher les scrollbars mais garder la fonctionnalité */}
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
