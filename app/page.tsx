@@ -62,12 +62,11 @@ export default function Dashboard() {
     }
   }, [activePhase, isClient]);
 
-  const [forceTab, setForceTab] = useState<string>("connexion");
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenMouchard = () => {
-      setForceTab("pipeline");
-      setIsSettingsOpen(true);
+      setIsRightSidebarOpen(true);
     };
     window.addEventListener('open-mouchard', handleOpenMouchard);
     return () => window.removeEventListener('open-mouchard', handleOpenMouchard);
@@ -1116,6 +1115,26 @@ Format attendu:
           <div ref={chatEndRef} />
         </div>
       </main>
+
+      {/* Right Sidebar (Mouchard d'Installation) */}
+      {isRightSidebarOpen && (
+        <aside className="w-80 bg-black/80 backdrop-blur-xl border-l border-white/10 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/50">
+            <h3 className="text-cyan font-black text-sm uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
+              Terminal
+            </h3>
+            <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
+          </div>
+          <div className="flex-1 p-4 font-mono text-[10px] text-green-400 overflow-y-auto flex flex-col-reverse hide-scrollbar">
+            <div>
+              {mouchardLogs.map((log, idx) => (
+                <div key={idx} className="mb-1 opacity-90 break-words">{log}</div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Input Area + Connection Status Bar */}
       <footer className="bg-black/60 backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col">
