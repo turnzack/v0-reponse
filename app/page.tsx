@@ -22,6 +22,7 @@ export default function Dashboard() {
   ]);
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Simulation des phases de création
   const [activePhase, setActivePhase] = useState(1);
@@ -45,19 +46,9 @@ export default function Dashboard() {
     setTimeout(() => {
       let responseMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: "" };
 
-      if (lowerInput.includes("projet")) {
-        responseMsg.content = "Voici la liste de vos projets récents :";
-        responseMsg.widget = "projects";
-      } else if (lowerInput.includes("youtube")) {
-        responseMsg.content = "Voici les résultats YouTube pour votre recherche :";
-        responseMsg.widget = "youtube";
-      } else if (lowerInput.includes("actualité") || lowerInput.includes("ia")) {
-        responseMsg.content = "Voici les dernières actualités sur l'Intelligence Artificielle :";
-        responseMsg.widget = "news";
-      } else if (lowerInput.includes("paramètre") || lowerInput.includes("reglage") || lowerInput.includes("configuration")) {
-        responseMsg.content = "Ouverture du panneau de configuration système :";
-        responseMsg.widget = "settings";
-      } else if (lowerInput.includes("crée") || lowerInput.includes("lance")) {
+      const normalizedInput = lowerInput.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+      if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
         responseMsg.content = "Initialisation du pipeline de création G5 en 11 phases. Démarrage...";
         responseMsg.widget = "phases";
         
@@ -72,6 +63,19 @@ export default function Dashboard() {
             setActivePhase(current);
           }
         }, 1500);
+
+      } else if (normalizedInput.includes("projet")) {
+        responseMsg.content = "Voici la liste de vos projets récents :";
+        responseMsg.widget = "projects";
+      } else if (normalizedInput.includes("youtube") || normalizedInput.includes("video")) {
+        responseMsg.content = "Voici les résultats YouTube pour votre recherche :";
+        responseMsg.widget = "youtube";
+      } else if (normalizedInput.includes("actualite") || normalizedInput.includes("ia") || normalizedInput.includes("news")) {
+        responseMsg.content = "Voici les dernières actualités sur l'Intelligence Artificielle :";
+        responseMsg.widget = "news";
+      } else if (normalizedInput.includes("parametre") || normalizedInput.includes("reglage") || normalizedInput.includes("configuration") || normalizedInput.includes("setting")) {
+        responseMsg.content = "Ouverture du panneau de configuration système :";
+        responseMsg.widget = "settings";
 
       } else {
         responseMsg.content = "Traitement de votre demande via Tiger IA...";
@@ -160,35 +164,144 @@ export default function Dashboard() {
     )));
   };
 
-  const WidgetSettings = () => {
+  const WidgetSettings = ({ isModal = false, onClose }: { isModal?: boolean, onClose?: () => void }) => {
+    // États locaux synchronisés avec localStorage (simulation de l'extension)
+    const [execMode, setExecMode] = useState("web");
+    const [targetAi, setTargetAi] = useState("deepseek");
+    const [apiKey, setApiKey] = useState("");
+    const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
+    const [autoPilot, setAutoPilot] = useState(true);
+    const [savedMsg, setSavedMsg] = useState(false);
+
+    // Charger les paramètres au montage
+    useEffect(() => {
+      setExecMode(localStorage.getItem("tiger_execMode") || "web");
+      setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
+      setApiKey(localStorage.getItem("tiger_apiKey") || "");
+      setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
+      setAutoPilot(localStorage.getItem("tiger_autoPilot") === "true");
+    }, []);
+
+    const handleSave = () => {
+      localStorage.setItem("tiger_execMode", execMode);
+      localStorage.setItem("tiger_targetAi", targetAi);
+      localStorage.setItem("tiger_apiKey", apiKey);
+      localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
+      localStorage.setItem("tiger_autoPilot", autoPilot.toString());
+      
+      // Si AndroidBridge est présent, on peut aussi l'informer des nouveaux paramètres
+      if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
+        (window as any).AndroidBridge.showToast("Paramètres synchronisés !");
+      }
+      
+      setSavedMsg(true);
+      setTimeout(() => setSavedMsg(false), 3000);
+    };
+
     return (
-      <div className="w-full max-w-lg bg-glassDark rounded-2xl p-6 border border-white/10 shadow-2xl mt-2 relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-pink/20 blur-[50px] rounded-full"></div>
-        <h3 className="text-xl font-extrabold text-white mb-6 flex items-center gap-2">
-          <span className="text-pink">⚙️</span> Configuration Système
-        </h3>
-        <div className="space-y-4 relative z-10">
-          <div className="flex justify-between items-center p-3 bg-black/30 rounded-xl border border-white/5">
-            <span className="text-gray-200 font-medium">AutoPilot G5</span>
-            <div className="w-12 h-6 bg-cyan/20 rounded-full relative cursor-pointer border border-cyan/50">
-              <div className="absolute right-1 top-1 w-4 h-4 bg-cyan rounded-full"></div>
+      <div className={`w-full max-w-2xl bg-glassDark rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
+        <div className="absolute -top-32 -right-32 w-64 h-64 bg-cyan/10 blur-[80px] rounded-full pointer-events-none"></div>
+        <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-pink/10 blur-[80px] rounded-full pointer-events-none"></div>
+        
+        <div className="flex justify-between items-center mb-8 relative z-10">
+          <h3 className="text-2xl font-extrabold text-white flex items-center gap-3">
+            <span className="text-pink">⚙️</span> Configuration Système
+          </h3>
+          <div className="flex items-center gap-4">
+            {savedMsg && <span className="text-green-400 font-bold text-sm bg-green-500/20 px-3 py-1 rounded-full animate-pulse">✓ Sauvegardé</span>}
+            {isModal && (
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-500 transition-colors text-white font-bold">✕</button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-6 relative z-10 text-sm">
+          {/* Mode d'exécution */}
+          <div>
+            <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-xs">Mode d'exécution</label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { id: "web", icon: "💬", title: "Chat Web", desc: "Injection + capture" },
+                { id: "api", icon: "🔑", title: "API Directe", desc: "Clé API → LLM" },
+                { id: "hybrid", icon: "🔀", title: "Hybride", desc: "Specs API + Code Web" }
+              ].map(m => (
+                <button 
+                  key={m.id}
+                  onClick={() => setExecMode(m.id)}
+                  className={`p-3 rounded-xl border flex flex-col items-center text-center transition-all ${execMode === m.id ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]' : 'bg-black/30 border-white/10 text-gray-400 hover:border-white/30'}`}
+                >
+                  <span className="text-xl mb-1">{m.icon}</span>
+                  <span className="font-bold">{m.title}</span>
+                  <span className="text-[10px] opacity-70 mt-1">{m.desc}</span>
+                </button>
+              ))}
             </div>
           </div>
-          <div className="flex justify-between items-center p-3 bg-black/30 rounded-xl border border-white/5">
-            <span className="text-gray-200 font-medium">LLM Principal</span>
-            <select className="bg-black/50 text-white border border-white/20 rounded-lg px-3 py-1 outline-none">
-              <option>DeepSeek V3</option>
-              <option>Gemma 2</option>
-            </select>
-          </div>
-          <div className="flex justify-between items-center p-3 bg-black/30 rounded-xl border border-white/5">
-            <span className="text-gray-200 font-medium">Mode Furtif (Bridge)</span>
-            <div className="w-12 h-6 bg-cyan/20 rounded-full relative cursor-pointer border border-cyan/50">
-              <div className="absolute right-1 top-1 w-4 h-4 bg-cyan rounded-full"></div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Assistant Cible */}
+            <div className="space-y-2">
+              <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">Assistant Cible (Mode Web)</label>
+              <select 
+                value={targetAi} 
+                onChange={(e) => setTargetAi(e.target.value)}
+                className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan transition-colors"
+              >
+                <option value="deepseek">🐋 DeepSeek Web</option>
+                <option value="qwen">🌐 Qwen Coder</option>
+                <option value="gemini">✨ Gemini Web</option>
+                <option value="chatgpt">🟢 ChatGPT Web</option>
+                <option value="kimi">🌙 Kimi Web</option>
+                <option value="claude">🟣 Claude Web</option>
+              </select>
+            </div>
+
+            {/* Bridge URL */}
+            <div className="space-y-2">
+              <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">URL Bridge Local</label>
+              <input 
+                type="text" 
+                value={bridgeUrl}
+                onChange={(e) => setBridgeUrl(e.target.value)}
+                className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan transition-colors"
+              />
             </div>
           </div>
-          <button className="w-full py-3 mt-2 bg-gradient-to-r from-pink to-purple-600 rounded-xl text-white font-bold hover:shadow-[0_0_20px_rgba(236,72,153,0.4)] transition-all">
-            Enregistrer les Paramètres
+
+          {/* API Key */}
+          <div className="space-y-2">
+            <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">Clé API (Pour mode API)</label>
+            <input 
+              type="password" 
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink transition-colors font-mono"
+            />
+          </div>
+
+          {/* AutoPilot G5 */}
+          <div className="flex justify-between items-center p-4 bg-black/30 rounded-xl border border-white/10">
+            <div>
+              <div className="text-white font-bold flex items-center gap-2">
+                <span className="text-cyan">⚡</span> AutoPilot G5 Spiral
+              </div>
+              <div className="text-xs text-gray-400 mt-1">Exécuter automatiquement toutes les phases 0→10</div>
+            </div>
+            <button 
+              onClick={() => setAutoPilot(!autoPilot)}
+              className={`w-14 h-7 rounded-full relative transition-colors border ${autoPilot ? 'bg-cyan/40 border-cyan' : 'bg-gray-800 border-gray-600'}`}
+            >
+              <div className={`absolute top-1 w-5 h-5 rounded-full transition-all ${autoPilot ? 'bg-cyan right-1 shadow-[0_0_10px_#08b3c9]' : 'bg-gray-400 left-1'}`}></div>
+            </button>
+          </div>
+
+          {/* Action Button */}
+          <button 
+            onClick={handleSave}
+            className="w-full py-4 mt-4 bg-gradient-to-r from-cyan to-blue-600 rounded-xl text-white font-black uppercase tracking-wider hover:shadow-[0_0_25px_rgba(8,179,201,0.5)] hover:scale-[1.02] transition-all"
+          >
+            💾 Sauvegarder les Paramètres
           </button>
         </div>
       </div>
@@ -256,11 +369,48 @@ export default function Dashboard() {
             <p className="text-xs text-cyan font-medium">OS Souverain v2.0</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-          <span className="text-green-500 text-xs font-bold uppercase tracking-widest">Connecté</span>
+        
+        <div className="flex items-center gap-6">
+          {/* Windows-like App Icons */}
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="group flex flex-col items-center gap-1"
+            >
+              <div className="w-10 h-10 bg-glass border border-white/20 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 group-hover:border-pink group-hover:shadow-[0_0_15px_rgba(236,72,153,0.4)] transition-all">
+                ⚙️
+              </div>
+              <span className="text-[10px] text-white/70 font-bold">Réglages</span>
+            </button>
+            <button 
+              onClick={() => {
+                setInput("Mes projets");
+                handleSend();
+              }}
+              className="group flex flex-col items-center gap-1"
+            >
+              <div className="w-10 h-10 bg-glass border border-white/20 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 group-hover:border-cyan group-hover:shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all">
+                📁
+              </div>
+              <span className="text-[10px] text-white/70 font-bold">Projets</span>
+            </button>
+          </div>
+
+          <div className="w-px h-8 bg-white/20 mx-2"></div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="text-green-500 text-xs font-bold uppercase tracking-widest hidden md:inline">Connecté</span>
+          </div>
         </div>
       </header>
+
+      {/* Floating Settings Modal (Windows Style) */}
+      {isSettingsOpen && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} />
+        </div>
+      )}
 
       {/* Chat Area */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col">
