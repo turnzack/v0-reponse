@@ -57,10 +57,20 @@ export default function Dashboard() {
         setActivePhase(1);
         
         if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+          const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+          const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
+          
+          const getUrl = (id: string, isUi: boolean = false) => {
+            if (id === "custom") return localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/";
+            if (id === "stitch") return "https://stitch.withgoogle.com/";
+            if (id === "v0") return "https://v0.dev/";
+            return `https://chat.${id}.com/`;
+          };
+
           // Lancement parallèle réel via le Bridge
-          (window as any).AndroidBridge.openAIWithPrompt("https://stitch.withgoogle.com/", "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
+          (window as any).AndroidBridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
           setTimeout(() => {
-            (window as any).AndroidBridge.openAIWithPrompt("https://chat.deepseek.com/", "L'interface UI/UX est actuellement en cours de génération sur Stitch. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
+            (window as any).AndroidBridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
           }, 1500);
         }
 
@@ -277,10 +287,11 @@ export default function Dashboard() {
     // États locaux
     const [execMode, setExecMode] = useState("web");
     const [targetAi, setTargetAi] = useState("deepseek");
+    const [targetUiAi, setTargetUiAi] = useState("stitch");
     const [customAiName, setCustomAiName] = useState("");
     const [customAiUrl, setCustomAiUrl] = useState("");
     const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
-    const [vercelUrl, setVercelUrl] = useState("https://v0-reponse.vercel.app");
+    const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
     const [apiKey, setApiKey] = useState("");
     const [overridePrompt, setOverridePrompt] = useState("");
     const [savedMsg, setSavedMsg] = useState(false);
@@ -288,18 +299,20 @@ export default function Dashboard() {
     useEffect(() => {
       setExecMode(localStorage.getItem("tiger_execMode") || "web");
       setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
+      setTargetUiAi(localStorage.getItem("tiger_targetUiAi") || "stitch");
       setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
       setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
       setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
-      setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse.vercel.app");
+      setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
       setApiKey(localStorage.getItem("tiger_apiKey") || "");
     }, []);
 
     const handleSave = () => {
-      const settings = { execMode, targetAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
+      const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
       
       localStorage.setItem("tiger_execMode", execMode);
       localStorage.setItem("tiger_targetAi", targetAi);
+      localStorage.setItem("tiger_targetUiAi", targetUiAi);
       localStorage.setItem("tiger_customAiName", customAiName);
       localStorage.setItem("tiger_customAiUrl", customAiUrl);
       localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
@@ -388,48 +401,83 @@ export default function Dashboard() {
                 </div>
 
                 {(execMode === "web" || execMode === "hybrid") && (
-                  <div className="space-y-2">
-                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Assistant chat web cible</label>
-                    <div className="flex gap-2">
-                      <select 
-                        value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
-                        className="flex-1 bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan text-sm"
-                      >
-                        <option value="deepseek">🐋 DeepSeek Web</option>
-                        <option value="chatgpt">🟢 ChatGPT Web</option>
-                        <option value="gemini">✨ Gemini Web</option>
-                        <option value="claude">🟣 Claude Web</option>
-                        <option value="kimi">🌙 Kimi Web</option>
-                        <option value="qwen">🌐 Qwen Coder</option>
-                        <option value="custom">➕ IA Personnalisée (URL)</option>
-                      </select>
-                      <button 
-                        onClick={() => {
-                          if (typeof window !== "undefined" && (window as any).AndroidBridge) {
-                            const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
-                            (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation de l'environnement.");
-                          }
-                        }}
-                        className="px-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-colors text-white"
-                      >
-                        Ouvrir
-                      </button>
+                  <div className="space-y-3">
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Flotte d'Assistants (Multi-Acteurs)</label>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Acteur Logique */}
+                      <div className="bg-black/30 p-4 rounded-xl border border-white/10 hover:border-cyan/50 transition-colors">
+                        <div className="text-[10px] text-cyan mb-2 font-bold flex items-center gap-2">🧠 Cerveau Logique (Backend)</div>
+                        <div className="flex gap-2">
+                          <select 
+                            value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
+                            className="flex-1 bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
+                          >
+                            <option value="deepseek">🐋 DeepSeek Web</option>
+                            <option value="chatgpt">🟢 ChatGPT Web</option>
+                            <option value="gemini">✨ Gemini Web</option>
+                            <option value="claude">🟣 Claude Web</option>
+                            <option value="kimi">🌙 Kimi Web</option>
+                            <option value="qwen">🌐 Qwen Coder</option>
+                            <option value="custom">➕ IA Personnalisée</option>
+                          </select>
+                          <button 
+                            onClick={() => {
+                              if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+                                const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
+                                (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Logique.");
+                              }
+                            }}
+                            className="px-3 bg-white/10 hover:bg-cyan/20 rounded-lg font-bold text-xs transition-colors text-white"
+                          >
+                            ▶
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Acteur UI */}
+                      <div className="bg-black/30 p-4 rounded-xl border border-white/10 hover:border-pink/50 transition-colors">
+                        <div className="text-[10px] text-pink mb-2 font-bold flex items-center gap-2">🎨 Cerveau UI/UX (Frontend)</div>
+                        <div className="flex gap-2">
+                          <select 
+                            value={targetUiAi} onChange={(e) => setTargetUiAi(e.target.value)}
+                            className="flex-1 bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-pink text-sm"
+                          >
+                            <option value="stitch">🧵 Stitch Google</option>
+                            <option value="v0">▲ v0.dev (Vercel)</option>
+                            <option value="bolt">⚡ Bolt.new</option>
+                            <option value="custom">➕ UI Personnalisée</option>
+                          </select>
+                          <button 
+                            onClick={() => {
+                              if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+                                const url = targetUiAi === "custom" ? customAiUrl : targetUiAi === "v0" ? "https://v0.dev/" : "https://stitch.withgoogle.com/";
+                                (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Design.");
+                              }
+                            }}
+                            className="px-3 bg-white/10 hover:bg-pink/20 rounded-lg font-bold text-xs transition-colors text-white"
+                          >
+                            ▶
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
                   </div>
+                )}
                   
-                  {targetAi === "custom" && (
-                    <div className="flex gap-3 bg-cyan/10 border border-cyan/30 p-3 rounded-xl mt-2 animate-fadeIn">
+                {(targetAi === "custom" || targetUiAi === "custom") && (
+                    <div className="flex gap-3 bg-white/5 border border-white/20 p-3 rounded-xl mt-2 animate-fadeIn">
                       <div className="flex-1">
-                        <label className="text-cyan font-bold uppercase tracking-wider text-[10px]">Nom de l'IA (ex: Stitch)</label>
-                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Stitch Google" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-cyan" />
+                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
+                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
                       </div>
                       <div className="flex-[2]">
-                        <label className="text-cyan font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
-                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://stitch.withgoogle.com/" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-cyan font-mono" />
+                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
+                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
                       </div>
                     </div>
                   )}
-                </div>
 
                 {(execMode === "api" || execMode === "hybrid") && (
                   <>
