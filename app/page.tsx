@@ -22,7 +22,9 @@ export default function Dashboard() {
   ]);
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   // Simulation des phases de création
   const [activePhase, setActivePhase] = useState(1);
@@ -48,7 +50,21 @@ export default function Dashboard() {
 
       const normalizedInput = lowerInput.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-      if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
+      if ((normalizedInput.includes("stitch") || normalizedInput.includes("design")) && (normalizedInput.includes("projet") || normalizedInput.includes("cree") || normalizedInput.includes("lance"))) {
+        responseMsg.content = "🚀 DÉMARRAGE PARALLÈLE KIROV5 🚀\n\n1️⃣ [UI/UX] Ouverture de Stitch avec le prompt de design enrichi...\n2️⃣ [LOGIQUE] Préparation de DeepSeek et création du dossier projet local...\n\nDeepSeek est informé et en attente. Une fois le design terminé sur Stitch, glissez l'HTML ici pour lancer le câblage React final en phase 5.";
+        responseMsg.widget = "phases";
+        
+        setActivePhase(1);
+        
+        if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+          // Lancement parallèle réel via le Bridge
+          (window as any).AndroidBridge.openAIWithPrompt("https://stitch.withgoogle.com/", "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
+          setTimeout(() => {
+            (window as any).AndroidBridge.openAIWithPrompt("https://chat.deepseek.com/", "L'interface UI/UX est actuellement en cours de génération sur Stitch. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
+          }, 1500);
+        }
+
+      } else if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
         responseMsg.content = "Initialisation du pipeline de création G5 en 11 phases. Démarrage...";
         responseMsg.widget = "phases";
         
@@ -89,6 +105,36 @@ export default function Dashboard() {
     }, 600);
 
     setInput("");
+  };
+
+  const handleFileUpload = (file: File) => {
+    if (!file.name.endsWith('.html')) {
+      alert("Système Kirov5 : Veuillez déposer un fichier .html généré par Stitch ou un outil similaire.");
+      return;
+    }
+
+    // 1. Message de l'utilisateur (Upload visuel)
+    const uploadMsg: Message = { 
+      id: Date.now().toString(), 
+      role: "user", 
+      content: `📁 Fichier de design déposé : ${file.name}\nAnalyse de la structure UI en cours...` 
+    };
+    setMessages((prev) => [...prev, uploadMsg]);
+
+    // 2. Activation automatique du mode Design-First
+    setTimeout(() => {
+      const responseMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        role: "assistant", 
+        content: `Mode "Design-First" activé automatiquement. 🎨\n\nTransmission du design au LLM avec la directive d'architecture intégrée :\n\n> "Voici le code HTML/CSS généré par Stitch. Transforme-le en composant React et ajoute toute la logique fonctionnelle décrite dans le cahier des charges."\n\nCâblage en attente...` 
+      };
+      setMessages((prev) => [...prev, responseMsg]);
+      
+      // Notification au bridge si disponible
+      if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
+        (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
+      }
+    }, 1200);
   };
 
   // --- WIDGET COMPONENTS ---
@@ -231,24 +277,31 @@ export default function Dashboard() {
     // États locaux
     const [execMode, setExecMode] = useState("web");
     const [targetAi, setTargetAi] = useState("deepseek");
+    const [customAiName, setCustomAiName] = useState("");
+    const [customAiUrl, setCustomAiUrl] = useState("");
     const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
     const [vercelUrl, setVercelUrl] = useState("https://v0-reponse.vercel.app");
     const [apiKey, setApiKey] = useState("");
     const [overridePrompt, setOverridePrompt] = useState("");
+    const [savedMsg, setSavedMsg] = useState(false);
 
     useEffect(() => {
       setExecMode(localStorage.getItem("tiger_execMode") || "web");
       setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
+      setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
+      setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
       setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
       setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse.vercel.app");
       setApiKey(localStorage.getItem("tiger_apiKey") || "");
     }, []);
 
     const handleSave = () => {
-      const settings = { execMode, targetAi, bridgeUrl, vercelUrl, apiKey };
+      const settings = { execMode, targetAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
       
       localStorage.setItem("tiger_execMode", execMode);
       localStorage.setItem("tiger_targetAi", targetAi);
+      localStorage.setItem("tiger_customAiName", customAiName);
+      localStorage.setItem("tiger_customAiUrl", customAiUrl);
       localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
       localStorage.setItem("tiger_vercelUrl", vercelUrl);
       localStorage.setItem("tiger_apiKey", apiKey);
@@ -263,7 +316,8 @@ export default function Dashboard() {
         }
       }
       
-      alert("Config Sauvegardée !");
+      setSavedMsg(true);
+      setTimeout(() => setSavedMsg(false), 3000);
     };
 
     const tabs = [
@@ -347,19 +401,47 @@ export default function Dashboard() {
                         <option value="claude">🟣 Claude Web</option>
                         <option value="kimi">🌙 Kimi Web</option>
                         <option value="qwen">🌐 Qwen Coder</option>
+                        <option value="custom">➕ IA Personnalisée (URL)</option>
                       </select>
-                      <button className="px-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-colors text-white">Ouvrir</button>
+                      <button 
+                        onClick={() => {
+                          if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+                            const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
+                            (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation de l'environnement.");
+                          }
+                        }}
+                        className="px-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-colors text-white"
+                      >
+                        Ouvrir
+                      </button>
                     </div>
                   </div>
-                )}
+                  
+                  {targetAi === "custom" && (
+                    <div className="flex gap-3 bg-cyan/10 border border-cyan/30 p-3 rounded-xl mt-2 animate-fadeIn">
+                      <div className="flex-1">
+                        <label className="text-cyan font-bold uppercase tracking-wider text-[10px]">Nom de l'IA (ex: Stitch)</label>
+                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Stitch Google" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-cyan" />
+                      </div>
+                      <div className="flex-[2]">
+                        <label className="text-cyan font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
+                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://stitch.withgoogle.com/" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-cyan font-mono" />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {(execMode === "api" || execMode === "hybrid") && (
                   <>
                     <div className="space-y-2">
                       <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
                       <select className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
-                        <option value="deepseek">DeepSeek</option>
-                        <option value="openai">OpenAI</option>
+                        <option value="deepseek">🐋 DeepSeek</option>
+                        <option value="openai">🟢 OpenAI (ChatGPT)</option>
+                        <option value="gemini">✨ Google Gemini</option>
+                        <option value="claude">🟣 Anthropic Claude</option>
+                        <option value="kimi">🌙 Moonshot Kimi</option>
+                        <option value="qwen">🌐 Alibaba Qwen</option>
                       </select>
                     </div>
                     
@@ -421,7 +503,19 @@ export default function Dashboard() {
             {activeTab === "pipeline" && (
               <div className="space-y-4 animate-fadeIn h-full flex flex-col">
                 <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
-                <div className="text-yellow-400 text-sm font-bold">— En attente de Vercel —</div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-cyan/20 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:bg-cyan/30 transition-colors">
+                    <div className="text-white font-bold text-xs flex items-center gap-2">⚙️ Standard G5</div>
+                    <div className="text-[10px] text-cyan mt-1 leading-tight">Génération de A à Z (Architecture, Design, Logique).</div>
+                  </div>
+                  <div className="flex-1 bg-pink/20 border border-pink/50 p-2 rounded-lg cursor-pointer hover:bg-pink/30 transition-colors">
+                    <div className="text-white font-bold text-xs flex items-center gap-2">🎨 Design-First</div>
+                    <div className="text-[10px] text-pink mt-1 leading-tight">Stitch UI d'abord → L'IA câble la logique ensuite.</div>
+                  </div>
+                </div>
+
+                <div className="text-yellow-400 text-sm font-bold mt-2">— En attente de Vercel —</div>
                 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-1">
                   {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => (
@@ -432,7 +526,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 
-                <div className="mt-4 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400">
+                <div className="mt-2 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400">
                   <div className="text-white mb-1">Terminal de suivi</div>
                   <div>{">"} Système Kirov5 initialisé.</div>
                   <div>{">"} En écoute des signaux Vercel...</div>
@@ -501,6 +595,7 @@ export default function Dashboard() {
           <div className="p-4 border-t border-white/10 bg-black/40 flex justify-between items-center relative z-10">
             <button className="text-red-500 text-xs font-bold hover:underline">Déconnecter Ext.</button>
             <div className="flex gap-3">
+              {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
               {isModal && (
                 <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-white/5 hover:bg-white/10 transition-colors text-sm">
                   Fermer
@@ -590,7 +685,23 @@ export default function Dashboard() {
       </header>
 
       {/* Chat Area */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col">
+      <main 
+        className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative"
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFileUpload(file);
+        }}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-cyan/20 backdrop-blur-sm border-4 border-dashed border-cyan rounded-3xl m-4 flex items-center justify-center pointer-events-none">
+            <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre fichier Stitch (.html)<br/>pour lancer le câblage !</h2>
+          </div>
+        )}
+
         <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
           
           {/* Mobile-style Home Screen Grid */}
@@ -685,13 +796,34 @@ export default function Dashboard() {
 
         {/* Input Bar */}
         <div className="p-4 md:p-6 relative max-w-4xl mx-auto w-full">
+          {/* File Upload Button */}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept=".html" 
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+              // Reset input
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }} 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute left-8 md:left-10 top-1/2 -translate-y-1/2 text-2xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20"
+            title="Joindre un fichier HTML (Stitch)"
+          >
+            📎
+          </button>
+          
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Demandez à Tiger IA (ex: 'Mes projets', 'Actualités IA', 'Ouvre YouTube')..." 
-            className="w-full bg-white/5 border border-white/10 rounded-full pl-6 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-500 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan focus:bg-white/10 transition-all shadow-inner"
+            placeholder="Demandez à Tiger IA, ou glissez un fichier HTML..." 
+            className="w-full bg-white/5 border border-white/10 rounded-full pl-14 md:pl-16 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-500 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan focus:bg-white/10 transition-all shadow-inner"
           />
           <button 
             onClick={handleSend}
