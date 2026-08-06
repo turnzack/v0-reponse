@@ -1068,7 +1068,7 @@ Format attendu:
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}>
-          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} initialTab={forceTab} />
+          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} initialTab="connexion" />
         </div>
       )}
 
@@ -1170,15 +1170,15 @@ Format attendu:
 
       {/* Right Sidebar (Mouchard d'Installation) */}
       {isRightSidebarOpen && (
-        <aside className="w-80 backdrop-blur-2xl border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn shadow-[-10px_0_30px_rgba(0,0,0,0.5)]" style={{ background: isClient ? getCachedGradient('sidebar', 0.8) : 'rgba(0,0,0,0.8)' }}>
-          <div className="p-4 border-b border-white/10 flex justify-between items-center" style={{ background: isClient ? getCachedGradient('sidebar-head', 0.4) : 'rgba(0,0,0,0.5)' }}>
+        <aside className="w-80 border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn shadow-[-10px_0_30px_rgba(0,0,0,0.5)] bg-black">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#050505]">
             <h3 className="text-cyan font-black text-sm uppercase tracking-widest flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
               Terminal
             </h3>
             <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
           </div>
-          <div className="flex-1 p-4 font-mono text-xs overflow-y-auto flex flex-col-reverse hide-scrollbar" style={{ background: isClient ? getCachedGradient('sidebar-body', 0.9) : '#0a0a0a' }}>
+          <div className="flex-1 p-4 font-mono text-xs overflow-y-auto flex flex-col-reverse hide-scrollbar bg-black">
             <div>
               {mouchardLogs.map((log, idx) => {
                 let colorClass = "text-[#52c1c9]"; // Teal clair (Défaut)
