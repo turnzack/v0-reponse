@@ -1,5 +1,4 @@
 import './globals.css';
-import '../popup.css'; // On importe le CSS original de l'extension !
 
 export const metadata = {
   title: 'KIROV5 Jarvis Fusion — UI',
