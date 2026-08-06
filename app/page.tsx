@@ -28,6 +28,50 @@ export default function Dashboard() {
   
   // Simulation des phases de création
   const [activePhase, setActivePhase] = useState(1);
+  const [isClient, setIsClient] = useState(false);
+
+  const [availableProjects, setAvailableProjects] = useState<string[]>([]);
+  const [selectedLaunchProject, setSelectedLaunchProject] = useState<string>("");
+  const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé."]);
+
+  // Chargement de l'historique
+  useEffect(() => {
+    setIsClient(true);
+    const savedMessages = sessionStorage.getItem("tiger_messages");
+    if (savedMessages) {
+      try {
+        setMessages(JSON.parse(savedMessages));
+      } catch (e) {}
+    }
+    const savedPhase = sessionStorage.getItem("tiger_activePhase");
+    if (savedPhase) {
+      setActivePhase(parseInt(savedPhase, 10));
+    }
+  }, []);
+
+  // Sauvegarde de l'historique
+  useEffect(() => {
+    if (isClient && messages.length > 0) {
+      sessionStorage.setItem("tiger_messages", JSON.stringify(messages));
+    }
+  }, [messages, isClient]);
+
+  useEffect(() => {
+    if (isClient) {
+      sessionStorage.setItem("tiger_activePhase", activePhase.toString());
+    }
+  }, [activePhase, isClient]);
+
+  const [forceTab, setForceTab] = useState<string>("connexion");
+
+  useEffect(() => {
+    const handleOpenMouchard = () => {
+      setForceTab("pipeline");
+      setIsSettingsOpen(true);
+    };
+    window.addEventListener('open-mouchard', handleOpenMouchard);
+    return () => window.removeEventListener('open-mouchard', handleOpenMouchard);
+  }, []);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,13 +94,39 @@ export default function Dashboard() {
 
       const normalizedInput = lowerInput.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-      if ((normalizedInput.includes("stitch") || normalizedInput.includes("design")) && (normalizedInput.includes("projet") || normalizedInput.includes("cree") || normalizedInput.includes("lance"))) {
+      // 1. DÉTECTION MODIFICATION (Projet Existant / Reprise)
+      if ((normalizedInput.includes("stitch") || normalizedInput.includes("deepseek") || normalizedInput.includes("design") || normalizedInput.includes("logique")) && 
+          (normalizedInput.includes("modifi") || normalizedInput.includes("ajoute") || normalizedInput.includes("change") || normalizedInput.includes("mise a jour") || normalizedInput.includes("evolue") || normalizedInput.includes("reprends") || normalizedInput.includes("continue"))) {
+        
+        // Extraction du nom de projet si fourni entre crochets (ex: [Portfolio React Vite])
+        const projectMatch = input.match(/\[(.*?)\]/);
+        const targetProject = projectMatch ? projectMatch[1] : null;
+        const targetAi = normalizedInput.includes("deepseek") ? "deepseek" : "stitch";
+
+        responseMsg.content = `🔄 MODE ÉVOLUTION ACTIVÉ (${targetAi.toUpperCase()}) 🔄\n\nJ'injecte vos nouvelles directives directement dans votre interface... ${targetProject ? `\n🔍 Recherche et AutoSwitch vers le projet : "${targetProject}"` : "Reprise du travail en cours."}`;
+        responseMsg.widget = null;
+
+        // On envoie le prompt directement au Bridge local sans ouvrir de nouvel onglet
+        fetch("http://127.0.0.1:5005/bridge/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_ai: targetAi,
+            target_project: targetProject, // L'extension fera le switch automatiquement !
+            prompt: "Mise à jour (Reprise de projet) : " + input.replace(/\[.*?\]/, "").trim(),
+            auto_submit: true
+          })
+        }).catch(err => console.log("Erreur de connexion au Bridge local pour l'injection", err));
+        
+      } 
+      // 2. DÉTECTION NOUVEAU PROJET
+      else if ((normalizedInput.includes("stitch") || normalizedInput.includes("design")) && (normalizedInput.includes("projet") || normalizedInput.includes("cree") || normalizedInput.includes("lance"))) {
         responseMsg.content = "🚀 DÉMARRAGE PARALLÈLE KIROV5 🚀\n\n1️⃣ [UI/UX] Ouverture de Stitch avec le prompt de design enrichi...\n2️⃣ [LOGIQUE] Préparation de DeepSeek et création du dossier projet local...\n\nDeepSeek est informé et en attente. Une fois le design terminé sur Stitch, glissez l'HTML ici pour lancer le câblage React final en phase 5.";
         responseMsg.widget = "phases";
         
         setActivePhase(1);
         
-        if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+        if (typeof window !== "undefined") {
           const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
           const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
           
@@ -67,12 +137,52 @@ export default function Dashboard() {
             return `https://chat.${id}.com/`;
           };
 
-          // Lancement parallèle réel via le Bridge
-          (window as any).AndroidBridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
-          setTimeout(() => {
-            (window as any).AndroidBridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
-          }, 1500);
-        }
+          // Lancement parallèle réel via le Bridge (ou window.open en fallback)
+          const bridge = (window as any).AndroidBridge;
+            if (bridge && bridge.openAIWithPrompt) {
+              bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + input);
+              setTimeout(() => {
+                bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
+              }, 1500);
+            } else {
+              // Fallback pour navigateur standard (Chrome, Edge, Electron, etc.)
+              // OUVERTURE SYNCHRONE DES FENÊTRES POUR ÉVITER LE POPUP BLOCKER
+              window.open(getUrl(uiAi, true), "_blank");
+              window.open(getUrl(logicAi), "_blank");
+              
+              const newProjectId = "Projet_" + input.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+              
+              // On envoie le prompt UI au Bridge
+              fetch("http://127.0.0.1:5005/bridge/prompt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  target_ai: uiAi,
+                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + input,
+                  auto_submit: true,
+                  project_id: newProjectId,
+                  phase_num: 1
+                })
+              }).catch(() => {});
+
+              // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
+              setTimeout(() => {
+                fetch("http://127.0.0.1:5005/bridge/prompt", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_ai: logicAi,
+                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + input + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
+                    auto_submit: true,
+                    project_id: newProjectId,
+                    phase_num: 1
+                  })
+                }).catch(() => {});
+              }, 500); 
+              
+              console.log("Les IA ont été ouvertes. Les prompts ont été envoyés au Bridge local pour injection via l'extension.");
+            }
+          }
 
       } else if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
         responseMsg.content = "Initialisation du pipeline de création G5 en 11 phases. Démarrage...";
@@ -105,9 +215,14 @@ export default function Dashboard() {
 
       } else {
         responseMsg.content = "Traitement de votre demande via Tiger IA...";
-        // Call bridge if available
-        if (typeof window !== "undefined" && (window as any).AndroidBridge) {
-          (window as any).AndroidBridge.openAIWithPrompt("https://chat.deepseek.com/", input);
+        // Call bridge if available, otherwise window.open
+        if (typeof window !== "undefined") {
+          const bridge = (window as any).AndroidBridge;
+          if (bridge && bridge.openAIWithPrompt) {
+            bridge.openAIWithPrompt("https://chat.deepseek.com/", input);
+          } else {
+            window.open("https://chat.deepseek.com/", "_blank");
+          }
         }
       }
 
@@ -131,20 +246,90 @@ export default function Dashboard() {
     };
     setMessages((prev) => [...prev, uploadMsg]);
 
-    // 2. Activation automatique du mode Design-First
-    setTimeout(() => {
-      const responseMsg: Message = { 
-        id: (Date.now() + 1).toString(), 
-        role: "assistant", 
-        content: `Mode "Design-First" activé automatiquement. 🎨\n\nTransmission du design au LLM avec la directive d'architecture intégrée :\n\n> "Voici le code HTML/CSS généré par Stitch. Transforme-le en composant React et ajoute toute la logique fonctionnelle décrite dans le cahier des charges."\n\nCâblage en attente...` 
-      };
-      setMessages((prev) => [...prev, responseMsg]);
+    // Lecture du fichier HTML pour automatiser l'injection
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const htmlContent = e.target?.result as string;
       
-      // Notification au bridge si disponible
-      if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
-        (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
-      }
-    }, 1200);
+      // 2. Activation automatique du mode Design-First
+      setTimeout(() => {
+        const responseMsg: Message = { 
+          id: (Date.now() + 1).toString(), 
+          role: "assistant", 
+          content: `Mode "Design-First" activé automatiquement. 🎨\n\nTransmission du design au LLM avec la directive d'architecture intégrée.\nCâblage en cours...`,
+          widget: "phases"
+        };
+        setActivePhase(5); // Phase 5 correspond à "Génération / Câblage"
+        setMessages((prev) => [...prev, responseMsg]);
+        
+        // Simuler l'avancement visuel des phases pour l'expérience utilisateur
+        let currentDropPhase = 5;
+        const dropInterval = setInterval(() => {
+          currentDropPhase++;
+          if (currentDropPhase > 11) {
+            clearInterval(dropInterval);
+          } else {
+            setActivePhase(currentDropPhase);
+          }
+        }, 3000); // Avance d'une phase toutes les 3 secondes
+
+        
+        // Notification au bridge mobile (optionnel)
+        if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
+          (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
+        }
+
+        // ENVOI AUTOMATIQUE AU BRIDGE POUR INJECTION DANS DEEPSEEK
+        if (typeof window !== "undefined") {
+          const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+          const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.
+Ta mission est de créer un projet React (Vite + TSX) COMPLET et autonome à partir de ce design.
+
+Tu DOIS impérativement générer TOUS les fichiers nécessaires pour que le projet soit exécutable immédiatement, notamment :
+1. \`package.json\` (avec les scripts vite, et react/react-dom)
+2. \`index.html\` (le point d'entrée)
+3. \`vite.config.ts\`
+4. \`src/main.tsx\` et \`src/App.tsx\`
+5. Tous les composants React déduits du HTML (dans \`src/components/\`)
+6. Le CSS (dans \`src/styles/\` ou similaire)
+          
+CODE HTML ORIGINE:
+          
+CODE HTML:
+\`\`\`html
+${htmlContent}
+\`\`\`
+
+RÈGLE ABSOLUE POUR LA RÉPONSE (KIROV5) :
+Tu dois UNIQUEMENT répondre avec un objet JSON valide contenant les fichiers générés. Aucun texte explicatif avant ou après le JSON.
+Format attendu:
+\`\`\`json
+{
+  "files": [
+    { "path": "src/App.tsx", "content": "...", "language": "tsx" }
+  ]
+}
+\`\`\`
+`;
+          const designProjectId = "Design_" + file.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
+          
+          fetch("http://127.0.0.1:5005/bridge/prompt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target_ai: logicAi,
+              prompt: finalPrompt,
+              auto_submit: true,
+              project_id: designProjectId,
+              phase_num: 5
+            })
+          })
+          .then(res => console.log("[Bridge] Prompt HTML envoyé avec succès, status:", res.status))
+          .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt HTML:", err));
+        }
+      }, 1200);
+    };
+    reader.readAsText(file);
   };
 
   // --- WIDGET COMPONENTS ---
@@ -160,20 +345,60 @@ export default function Dashboard() {
   );
 
   const WidgetProjects = () => {
-    const projects = [
-      { name: "TCE Réponse", desc: "Pipeline G5, React + Vite", bg: "bg-gradient-to-br from-blue-900 to-cyan-900" },
-      { name: "Sovereign Mobile", desc: "Capacitor, Android Bridge", bg: "bg-gradient-to-br from-teal-900 to-green-900" },
-      { name: "Electron Desktop", desc: "Windows x64, Node.js", bg: "bg-gradient-to-br from-purple-900 to-pink-900" },
-      { name: "UI Vercel", desc: "Next.js, TailwindCSS", bg: "bg-gradient-to-br from-gray-800 to-black" },
-    ];
-    return renderCarousel(projects.map((p, i) => (
-      <div key={i} className={`w-64 h-40 ${p.bg} rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer relative overflow-hidden group`}>
+    const [realProjects, setRealProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
+    
+    useEffect(() => {
+      fetch("http://localhost:5005/api/projects")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.projects) {
+            const colors = [
+              "bg-gradient-to-br from-blue-900 to-cyan-900",
+              "bg-gradient-to-br from-teal-900 to-green-900",
+              "bg-gradient-to-br from-purple-900 to-pink-900",
+              "bg-gradient-to-br from-gray-800 to-black"
+            ];
+            setRealProjects(data.projects.map((p: string, i: number) => ({
+              name: p,
+              desc: "Projet Kirov5 Local",
+              bg: colors[i % colors.length]
+            })));
+          }
+        }).catch(() => {
+          // Fallback silencieux si le bridge est off
+        });
+    }, []);
+
+    if (realProjects.length === 0) {
+      return <div className="p-4 text-cyan text-sm italic">Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé).</div>;
+    }
+
+    return renderCarousel(realProjects.map((p, i) => (
+      <div key={i} className={`w-64 h-48 ${p.bg} rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group`}>
         <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-0" />
         <div className="z-10 relative">
-          <div className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">PROJET</div>
-          <h3 className="text-xl font-bold text-white mb-2">{p.name}</h3>
+          <div className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">PROJET LOCAL</div>
+          <h3 className="text-xl font-bold text-white mb-2 break-all">{p.name}</h3>
         </div>
-        <div className="z-10 relative text-sm text-cyan font-medium">{p.desc}</div>
+        <div className="z-10 relative text-sm text-cyan font-medium mb-3">{p.desc}</div>
+        <button 
+          onClick={async () => {
+            try {
+              window.dispatchEvent(new CustomEvent('open-mouchard'));
+              const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project_id: p.name })
+              });
+              const data = await res.json();
+            } catch (e: any) {
+              alert("Erreur de lancement : " + e.message);
+            }
+          }}
+          className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
+        >
+          🚀 Lancer l'IDE
+        </button>
       </div>
     )));
   };
@@ -281,9 +506,14 @@ export default function Dashboard() {
     )));
   };
 
-  const WidgetSettings = ({ isModal = false, onClose }: { isModal?: boolean, onClose?: () => void }) => {
-    const [activeTab, setActiveTab] = useState("connexion");
+  const WidgetSettings = ({ isModal = false, onClose, initialTab = "connexion" }: { isModal?: boolean, onClose?: () => void, initialTab?: string }) => {
+    const [activeTab, setActiveTab] = useState(initialTab);
     
+    // Si l'initialTab change (via l'event open-mouchard), on met à jour
+    useEffect(() => {
+      setActiveTab(initialTab);
+    }, [initialTab]);
+
     // États locaux
     const [execMode, setExecMode] = useState("web");
     const [targetAi, setTargetAi] = useState("deepseek");
@@ -295,6 +525,7 @@ export default function Dashboard() {
     const [apiKey, setApiKey] = useState("");
     const [overridePrompt, setOverridePrompt] = useState("");
     const [savedMsg, setSavedMsg] = useState(false);
+    const [isExtConnected, setIsExtConnected] = useState(true);
 
     useEffect(() => {
       setExecMode(localStorage.getItem("tiger_execMode") || "web");
@@ -563,21 +794,85 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="text-yellow-400 text-sm font-bold mt-2">— En attente de Vercel —</div>
+                <div className="text-yellow-400 text-sm font-bold mt-2">— IDE Autonome (Kirov5) —</div>
                 
+                <div className="mt-2 mb-3 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("http://localhost:5005/api/projects");
+                          const data = await res.json();
+                          if (data.projects) {
+                            setAvailableProjects(data.projects);
+                            if (data.projects.length > 0 && !selectedLaunchProject) {
+                              setSelectedLaunchProject(data.projects[0]);
+                            }
+                          }
+                        } catch (e) {
+                          alert("Impossible de charger les projets. Le Bridge est-il allumé ?");
+                        }
+                      }}
+                      className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors"
+                    >
+                      🔄
+                    </button>
+                    <select 
+                      value={selectedLaunchProject}
+                      onChange={(e) => setSelectedLaunchProject(e.target.value)}
+                      className="flex-1 bg-black/50 text-white border border-cyan/30 rounded-lg px-2 py-1 outline-none focus:border-cyan text-xs"
+                    >
+                      <option value="">-- Sélectionnez un projet --</option>
+                      {availableProjects.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ background: '#10a37f', borderColor: '#10a37f' }}>
+                      📦 Auto-Capture
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!selectedLaunchProject) return alert("Veuillez sélectionner un projet d'abord !");
+                        try {
+                          const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ project_id: selectedLaunchProject })
+                          });
+                          const data = await res.json();
+                          alert(data.message || "Lancement en cours...");
+                        } catch (e: any) {
+                          alert("Erreur de connexion au Moteur Electron : " + e.message);
+                        }
+                      }}
+                      className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-cyan hover:bg-cyan/80 transition-colors"
+                    >
+                      🚀 Lancer l'Aperçu
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex-1 overflow-y-auto pr-2 space-y-1">
-                  {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2 rounded bg-black/20 border border-white/5 opacity-60">
-                      <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold">{idx}</div>
-                      <span className="text-sm font-medium">{phase}</span>
-                    </div>
-                  ))}
+                  {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => {
+                    const isCurrent = activePhase === (idx + 1);
+                    return (
+                      <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-black/20 border-white/5 opacity-60'}`}>
+                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-cyan text-black' : 'bg-white/10'}`}>{idx}</div>
+                        <span className="text-sm font-medium">{phase}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 
-                <div className="mt-2 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400">
-                  <div className="text-white mb-1">Terminal de suivi</div>
-                  <div>{">"} Système Kirov5 initialisé.</div>
-                  <div>{">"} En écoute des signaux Vercel...</div>
+                <div className="mt-2 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
+                  <div>
+                    {mouchardLogs.map((log, idx) => (
+                      <div key={idx} className="mb-1 opacity-90 break-all">{log}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -641,7 +936,13 @@ export default function Dashboard() {
 
           {/* Footer Actions */}
           <div className="p-4 border-t border-white/10 bg-black/40 flex justify-between items-center relative z-10">
-            <button className="text-red-500 text-xs font-bold hover:underline">Déconnecter Ext.</button>
+            <button 
+              onClick={() => setIsExtConnected(!isExtConnected)}
+              className={`text-xs font-bold hover:underline flex items-center gap-1 ${isExtConnected ? 'text-green-500' : 'text-red-500'}`}
+            >
+              <span className={`w-2 h-2 rounded-full animate-pulse ${isExtConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+              {isExtConnected ? 'Extension Connectée' : 'Extension Déconnectée'}
+            </button>
             <div className="flex gap-3">
               {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
               {isModal && (
@@ -715,7 +1016,7 @@ export default function Dashboard() {
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} />
+          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} initialTab={forceTab} />
         </div>
       )}
 
