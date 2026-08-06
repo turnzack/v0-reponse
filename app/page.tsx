@@ -110,8 +110,8 @@ export default function Dashboard() {
       { name: "Electron Desktop", desc: "Windows x64, Node.js", bg: "bg-gradient-to-br from-purple-900 to-pink-900" },
       { name: "UI Vercel", desc: "Next.js, TailwindCSS", bg: "bg-gradient-to-br from-gray-800 to-black" },
     ];
-    return renderCarousel(projects.map(p => (
-      <div className={`w-64 h-40 ${p.bg} rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer relative overflow-hidden group`}>
+    return renderCarousel(projects.map((p, i) => (
+      <div key={i} className={`w-64 h-40 ${p.bg} rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform cursor-pointer relative overflow-hidden group`}>
         <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-0" />
         <div className="z-10 relative">
           <div className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">PROJET</div>
@@ -123,17 +123,79 @@ export default function Dashboard() {
   };
 
   const WidgetNews = () => {
+    const [selectedArticle, setSelectedArticle] = useState<any>(null);
+
     const news = [
-      { title: "DeepSeek V3", desc: "Le nouveau modèle surpasse GPT-4 sur les tests logiques.", tag: "LLM" },
-      { title: "React 19", desc: "Le compilateur React est enfin disponible en version beta.", tag: "Frontend" },
-      { title: "Next.js 15", desc: "Mise à jour majeure du cache et de l'architecture App Router.", tag: "Framework" },
+      { 
+        id: 1, 
+        title: "DeepSeek V3", 
+        desc: "Le nouveau modèle surpasse GPT-4 sur les tests logiques.", 
+        tag: "LLM", 
+        content: "DeepSeek a annoncé aujourd'hui la sortie de la version V3 de son modèle phare. Il présente des avancées majeures en logique formelle, générant du code complexe avec une précision inégalée.\n\nL'architecture Mixture of Experts (MoE) a été drastiquement optimisée pour réduire la latence de moitié tout en gardant une consommation mémoire réduite. Ce modèle Open Source promet de bousculer la domination de l'écosystème fermé de OpenAI."
+      },
+      { 
+        id: 2, 
+        title: "React 19", 
+        desc: "Le compilateur React est enfin disponible en version beta.", 
+        tag: "Frontend", 
+        content: "Après des années d'attente, le projet 'React Forget' est officiellement publié sous le nom de React Compiler dans React 19.\n\nFini les useMemo et useCallback manuels : le compilateur gère désormais l'optimisation des rendus automatiquement à l'étape du build. Cela simplifie considérablement le code des développeurs tout en garantissant des performances maximales côté client."
+      },
+      { 
+        id: 3, 
+        title: "Next.js 15", 
+        desc: "Mise à jour majeure du cache et de l'architecture App Router.", 
+        tag: "Framework", 
+        content: "Vercel a lancé Next.js 15 avec de nombreux changements profonds.\n\nLe système de cache par défaut de (fetch) n'est plus agressif, répondant enfin aux retours de la communauté qui le trouvait trop imprévisible. De plus, l'expérience développeur (DX) lors de l'utilisation du turbopack a été grandement améliorée, rendant les rechargements à chaud (HMR) quasi instantanés sur les très gros projets."
+      },
     ];
+
+    if (selectedArticle) {
+      return (
+        <div className="w-full max-w-3xl bg-glassDark rounded-3xl p-6 md:p-8 border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] mt-4 relative animate-fadeIn">
+          <button 
+            onClick={() => setSelectedArticle(null)}
+            className="absolute top-6 right-6 w-8 h-8 bg-white/10 hover:bg-red-500 rounded-full flex flex-col items-center justify-center text-white font-bold transition-colors z-20"
+            title="Fermer"
+          >
+            ✕
+          </button>
+          
+          <span className="px-3 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-4 inline-block">{selectedArticle.tag}</span>
+          <h2 className="text-2xl md:text-4xl font-black text-white mb-4 leading-tight">{selectedArticle.title}</h2>
+          <p className="text-gray-300 font-medium text-sm md:text-base mb-6 leading-relaxed border-l-4 border-cyan/50 pl-4">
+            {selectedArticle.desc}
+          </p>
+          
+          <div className="w-full h-px bg-white/10 mb-6"></div>
+          
+          <div className="text-gray-200 text-sm md:text-base leading-loose whitespace-pre-line">
+            {selectedArticle.content}
+          </div>
+          
+          <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
+            <span className="text-xs text-gray-500 font-mono">SOURCE: TIGER NEWS NETWORK</span>
+            <button 
+              onClick={() => setSelectedArticle(null)}
+              className="px-6 py-3 bg-white/5 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/10 hover:border-cyan"
+            >
+              ← Retour à la liste
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return renderCarousel(news.map(n => (
-      <div className="w-72 h-48 bg-glassDark rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg">
+      <div key={n.id} className="w-72 h-48 bg-glassDark rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg">
         <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3">{n.tag}</span>
         <h3 className="text-lg font-bold text-white mb-2 leading-tight">{n.title}</h3>
         <p className="text-gray-400 text-sm flex-1">{n.desc}</p>
-        <button className="text-cyan text-sm font-semibold hover:underline self-end">Lire l&apos;article →</button>
+        <button 
+          onClick={() => setSelectedArticle(n)}
+          className="text-cyan text-sm font-semibold hover:underline self-end cursor-pointer"
+        >
+          Lire l&apos;article →
+        </button>
       </div>
     )));
   };
@@ -144,10 +206,9 @@ export default function Dashboard() {
       { title: "React Tailwind Masterclass", channel: "UI Design", views: "5.4k" },
       { title: "Android Bridge Capacitor", channel: "Mobile Dev", views: "800" },
     ];
-    return renderCarousel(videos.map(v => (
-      <div className="w-64 bg-black/60 rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg">
+    return renderCarousel(videos.map((v, i) => (
+      <div key={i} className="w-64 bg-black/60 rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg">
         <div className="h-32 bg-gray-800 relative flex items-center justify-center">
-          {/* Placeholder d'image vidéo avec icône play */}
           <div className="absolute inset-0 bg-gradient-to-tr from-red-900/40 to-transparent"></div>
           <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg z-10 cursor-pointer hover:scale-110 transition-transform">
             <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1"></div>
@@ -165,144 +226,294 @@ export default function Dashboard() {
   };
 
   const WidgetSettings = ({ isModal = false, onClose }: { isModal?: boolean, onClose?: () => void }) => {
-    // États locaux synchronisés avec localStorage (simulation de l'extension)
+    const [activeTab, setActiveTab] = useState("connexion");
+    
+    // États locaux
     const [execMode, setExecMode] = useState("web");
     const [targetAi, setTargetAi] = useState("deepseek");
-    const [apiKey, setApiKey] = useState("");
     const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
-    const [autoPilot, setAutoPilot] = useState(true);
-    const [savedMsg, setSavedMsg] = useState(false);
+    const [vercelUrl, setVercelUrl] = useState("https://v0-reponse.vercel.app");
+    const [apiKey, setApiKey] = useState("");
+    const [overridePrompt, setOverridePrompt] = useState("");
 
-    // Charger les paramètres au montage
     useEffect(() => {
       setExecMode(localStorage.getItem("tiger_execMode") || "web");
       setTargetAi(localStorage.getItem("tiger_targetAi") || "deepseek");
-      setApiKey(localStorage.getItem("tiger_apiKey") || "");
       setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
-      setAutoPilot(localStorage.getItem("tiger_autoPilot") === "true");
+      setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse.vercel.app");
+      setApiKey(localStorage.getItem("tiger_apiKey") || "");
     }, []);
 
     const handleSave = () => {
+      const settings = { execMode, targetAi, bridgeUrl, vercelUrl, apiKey };
+      
       localStorage.setItem("tiger_execMode", execMode);
       localStorage.setItem("tiger_targetAi", targetAi);
-      localStorage.setItem("tiger_apiKey", apiKey);
       localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
-      localStorage.setItem("tiger_autoPilot", autoPilot.toString());
+      localStorage.setItem("tiger_vercelUrl", vercelUrl);
+      localStorage.setItem("tiger_apiKey", apiKey);
       
-      // Si AndroidBridge est présent, on peut aussi l'informer des nouveaux paramètres
       if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
         (window as any).AndroidBridge.showToast("Paramètres synchronisés !");
       }
+      if (typeof window !== "undefined") {
+        window.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'TIGER_EXTENSION_SYNC', payload: settings }, '*');
+        }
+      }
       
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
+      alert("Config Sauvegardée !");
     };
 
+    const tabs = [
+      { id: "home", label: "TIGER IA", icon: "🐯" },
+      { id: "electron", label: "Electron", icon: "💻" },
+      { id: "vercel", label: "Vercel", icon: "▲" },
+      { id: "deepseek", label: "DeepSeek", icon: "🐋" },
+      { id: "pipeline", label: "Pipeline", icon: "🎯" },
+      { id: "override", label: "Override", icon: "💉" },
+      { id: "mouchard", label: "Mouchard", icon: "👁️" },
+      { id: "connexion", label: "Connexion", icon: "⚙️" },
+    ];
+
     return (
-      <div className={`w-full max-w-2xl bg-glassDark rounded-3xl p-6 md:p-8 border border-white/10 shadow-2xl relative overflow-hidden ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
-        <div className="absolute -top-32 -right-32 w-64 h-64 bg-cyan/10 blur-[80px] rounded-full pointer-events-none"></div>
-        <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-pink/10 blur-[80px] rounded-full pointer-events-none"></div>
+      <div className={`w-full max-w-5xl bg-[#111111] rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
         
-        <div className="flex justify-between items-center mb-8 relative z-10">
-          <h3 className="text-2xl font-extrabold text-white flex items-center gap-3">
-            <span className="text-pink">⚙️</span> Configuration Système
-          </h3>
-          <div className="flex items-center gap-4">
-            {savedMsg && <span className="text-green-400 font-bold text-sm bg-green-500/20 px-3 py-1 rounded-full animate-pulse">✓ Sauvegardé</span>}
+        {/* Sidebar */}
+        <div className="w-full md:w-64 bg-black/60 border-r border-white/10 flex flex-col">
+          <div className="p-6 border-b border-white/10 flex justify-between items-center">
+            <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
+              <span className="text-cyan">🐯</span> SETTINGS
+            </h3>
             {isModal && (
-              <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-500 transition-colors text-white font-bold">✕</button>
+              <button onClick={onClose} className="md:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold">✕</button>
             )}
+          </div>
+          <div className="flex-1 overflow-y-auto py-4 hide-scrollbar flex md:flex-col gap-1 px-4">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap md:whitespace-normal ${activeTab === t.id ? 'bg-cyan/20 border border-cyan/50 text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+              >
+                <span className="text-xl">{t.icon}</span>
+                <span className="font-bold text-sm tracking-wide">{t.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="space-y-6 relative z-10 text-sm">
-          {/* Mode d'exécution */}
-          <div>
-            <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-xs">Mode d'exécution</label>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { id: "web", icon: "💬", title: "Chat Web", desc: "Injection + capture" },
-                { id: "api", icon: "🔑", title: "API Directe", desc: "Clé API → LLM" },
-                { id: "hybrid", icon: "🔀", title: "Hybride", desc: "Specs API + Code Web" }
-              ].map(m => (
-                <button 
-                  key={m.id}
-                  onClick={() => setExecMode(m.id)}
-                  className={`p-3 rounded-xl border flex flex-col items-center text-center transition-all ${execMode === m.id ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]' : 'bg-black/30 border-white/10 text-gray-400 hover:border-white/30'}`}
-                >
-                  <span className="text-xl mb-1">{m.icon}</span>
-                  <span className="font-bold">{m.title}</span>
-                  <span className="text-[10px] opacity-70 mt-1">{m.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Content Area */}
+        <div className="flex-1 bg-glassDark relative overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10 hide-scrollbar">
+            
+            {/* TABS CONTENT */}
+            
+            {activeTab === "connexion" && (
+              <div className="space-y-6 animate-fadeIn">
+                <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">Configuration LLM & Bridge</h2>
+                
+                <div>
+                  <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-[10px]">Mode d'exécution</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: "web", icon: "💬", title: "Chat Web" },
+                      { id: "api", icon: "🔑", title: "API Directe" },
+                      { id: "hybrid", icon: "🔀", title: "Hybride" }
+                    ].map(m => (
+                      <button 
+                        key={m.id} onClick={() => setExecMode(m.id)}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${execMode === m.id ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.3)]' : 'bg-black/30 border-white/10 text-gray-500 hover:border-white/30'}`}
+                      >
+                        <span className="text-2xl mb-1">{m.icon}</span>
+                        <span className="font-bold text-xs">{m.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Assistant Cible */}
-            <div className="space-y-2">
-              <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">Assistant Cible (Mode Web)</label>
-              <select 
-                value={targetAi} 
-                onChange={(e) => setTargetAi(e.target.value)}
-                className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan transition-colors"
-              >
-                <option value="deepseek">🐋 DeepSeek Web</option>
-                <option value="qwen">🌐 Qwen Coder</option>
-                <option value="gemini">✨ Gemini Web</option>
-                <option value="chatgpt">🟢 ChatGPT Web</option>
-                <option value="kimi">🌙 Kimi Web</option>
-                <option value="claude">🟣 Claude Web</option>
-              </select>
-            </div>
+                {(execMode === "web" || execMode === "hybrid") && (
+                  <div className="space-y-2">
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Assistant chat web cible</label>
+                    <div className="flex gap-2">
+                      <select 
+                        value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
+                        className="flex-1 bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan text-sm"
+                      >
+                        <option value="deepseek">🐋 DeepSeek Web</option>
+                        <option value="chatgpt">🟢 ChatGPT Web</option>
+                        <option value="gemini">✨ Gemini Web</option>
+                        <option value="claude">🟣 Claude Web</option>
+                        <option value="kimi">🌙 Kimi Web</option>
+                        <option value="qwen">🌐 Qwen Coder</option>
+                      </select>
+                      <button className="px-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-colors text-white">Ouvrir</button>
+                    </div>
+                  </div>
+                )}
 
-            {/* Bridge URL */}
-            <div className="space-y-2">
-              <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">URL Bridge Local</label>
-              <input 
-                type="text" 
-                value={bridgeUrl}
-                onChange={(e) => setBridgeUrl(e.target.value)}
-                className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-cyan transition-colors"
-              />
-            </div>
-          </div>
+                {(execMode === "api" || execMode === "hybrid") && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
+                      <select className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="openai">OpenAI</option>
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Clé API DeepSeek</label>
+                      <div className="flex gap-2 relative">
+                        <input 
+                          type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="sk-..."
+                          className="flex-1 bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
+                        />
+                        <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">👁</button>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2">
+                        <button onClick={handleSave} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider transition-colors">
+                          💾 SAUVEGARDER_CONFIG
+                        </button>
+                        <span className="text-gray-500 text-xs italic">Clé stockée localement dans le navigateur.</span>
+                      </div>
+                    </div>
 
-          {/* API Key */}
-          <div className="space-y-2">
-            <label className="text-gray-300 font-bold uppercase tracking-wider text-xs">Clé API (Pour mode API)</label>
-            <input 
-              type="password" 
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink transition-colors font-mono"
-            />
-          </div>
+                    <div className="space-y-2 p-4 bg-black/30 border border-white/5 rounded-xl">
+                      <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Modèle détecté</label>
+                      <div className="text-gray-500 text-sm mb-2">Enregistrer la clé pour détecter</div>
+                      <div className="flex items-center gap-4">
+                        <button className="px-4 py-2 bg-pink/20 text-pink border border-pink/50 hover:bg-pink/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-2">
+                          🔄 AUTO_DETECT
+                        </button>
+                        <span className="text-gray-500 text-xs italic">Auto-détecté à l'enregistrement.</span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
-          {/* AutoPilot G5 */}
-          <div className="flex justify-between items-center p-4 bg-black/30 rounded-xl border border-white/10">
-            <div>
-              <div className="text-white font-bold flex items-center gap-2">
-                <span className="text-cyan">⚡</span> AutoPilot G5 Spiral
+                <div className="pt-4 border-t border-white/10">
+                  <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
+                    🔗 Bridge (:5005 / Vercel)
+                    <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
+                      <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
+                      <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors">🔗 Tester</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-lg text-xs font-bold uppercase transition-colors">💾 SAUVEGARDER_CONFIG</button>
+                  </div>
+                  <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
+                </div>
               </div>
-              <div className="text-xs text-gray-400 mt-1">Exécuter automatiquement toutes les phases 0→10</div>
-            </div>
-            <button 
-              onClick={() => setAutoPilot(!autoPilot)}
-              className={`w-14 h-7 rounded-full relative transition-colors border ${autoPilot ? 'bg-cyan/40 border-cyan' : 'bg-gray-800 border-gray-600'}`}
-            >
-              <div className={`absolute top-1 w-5 h-5 rounded-full transition-all ${autoPilot ? 'bg-cyan right-1 shadow-[0_0_10px_#08b3c9]' : 'bg-gray-400 left-1'}`}></div>
-            </button>
+            )}
+
+            {activeTab === "pipeline" && (
+              <div className="space-y-4 animate-fadeIn h-full flex flex-col">
+                <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
+                <div className="text-yellow-400 text-sm font-bold">— En attente de Vercel —</div>
+                
+                <div className="flex-1 overflow-y-auto pr-2 space-y-1">
+                  {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-2 rounded bg-black/20 border border-white/5 opacity-60">
+                      <div className="w-6 h-6 bg-white/10 rounded flex items-center justify-center text-xs font-bold">{idx}</div>
+                      <span className="text-sm font-medium">{phase}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-4 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400">
+                  <div className="text-white mb-1">Terminal de suivi</div>
+                  <div>{">"} Système Kirov5 initialisé.</div>
+                  <div>{">"} En écoute des signaux Vercel...</div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "override" && (
+              <div className="space-y-6 animate-fadeIn">
+                <div>
+                  <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mode Manuel (Override)</h2>
+                  <p className="text-gray-400 text-xs mt-2">Prenez le contrôle manuel si l'automatisation s'enraye.</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-gray-300 font-bold text-sm">Injection de prompt de secours</label>
+                  <textarea 
+                    value={overridePrompt} onChange={(e) => setOverridePrompt(e.target.value)}
+                    placeholder="Entrez le prompt à forcer dans DeepSeek..."
+                    className="w-full h-32 bg-black/50 text-white border border-white/20 rounded-xl p-3 outline-none focus:border-cyan text-sm resize-none"
+                  />
+                  <div className="flex gap-3 pt-2">
+                    <button className="flex-1 py-2 bg-pink/20 hover:bg-pink/40 text-pink border border-pink/50 rounded-lg text-xs font-bold transition-all">💉 Forcer Injection</button>
+                    <button className="flex-1 py-2 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border border-orange-500/50 rounded-lg text-xs font-bold transition-all">📦 Forcer Capture</button>
+                  </div>
+                </div>
+                
+                <div className="bg-black/60 border border-white/10 p-3 rounded-xl h-32 font-mono text-[10px] text-gray-400 overflow-y-auto">
+                  <span className="text-white mb-2 block">Log Override</span>
+                  En attente d'action manuelle...
+                </div>
+              </div>
+            )}
+
+            {activeTab === "mouchard" && (
+              <div className="space-y-4 animate-fadeIn h-full flex flex-col">
+                <div>
+                  <h2 className="text-xl font-black text-white border-b border-white/10 pb-2">Mouchard Système</h2>
+                  <p className="text-gray-400 text-xs mt-2">Surveillance en temps réel du flux de données.</p>
+                </div>
+                
+                <div className="flex-1 bg-black border border-white/10 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-2 relative">
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500/40">[WIPE]</button>
+                  </div>
+                  <div className="text-white font-bold mb-3 border-b border-white/20 pb-1 inline-block">LOG_STREAM</div>
+                  
+                  <div className="text-yellow-400">[09:24:30] ⚠️ Bridge local non joignable (Failed to fetch (Bridge hors ligne) - Failed to fetch). Polling Vercel actif.</div>
+                  <div className="text-green-400">[09:24:30] KIROV5 Orchestrator v5.1.1 prêt — structure React (.tsx/.ts/.css) préservée.</div>
+                  <div className="text-cyan">[09:24:30] Onglets: Projets · Projet · Injection · Capture · GitHub + Bridge :5005.</div>
+                </div>
+              </div>
+            )}
+
+            {["home", "electron", "vercel", "deepseek"].includes(activeTab) && (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-fadeIn opacity-50">
+                <span className="text-6xl">{tabs.find(t => t.id === activeTab)?.icon}</span>
+                <h3 className="text-xl font-bold text-white">Module {tabs.find(t => t.id === activeTab)?.label}</h3>
+                <p className="text-sm text-gray-400">Section technique héritée du cœur Kirov5.</p>
+              </div>
+            )}
+            
           </div>
 
-          {/* Action Button */}
-          <button 
-            onClick={handleSave}
-            className="w-full py-4 mt-4 bg-gradient-to-r from-cyan to-blue-600 rounded-xl text-white font-black uppercase tracking-wider hover:shadow-[0_0_25px_rgba(8,179,201,0.5)] hover:scale-[1.02] transition-all"
-          >
-            💾 Sauvegarder les Paramètres
-          </button>
+          {/* Footer Actions */}
+          <div className="p-4 border-t border-white/10 bg-black/40 flex justify-between items-center relative z-10">
+            <button className="text-red-500 text-xs font-bold hover:underline">Déconnecter Ext.</button>
+            <div className="flex gap-3">
+              {isModal && (
+                <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-white/5 hover:bg-white/10 transition-colors text-sm">
+                  Fermer
+                </button>
+              )}
+              <button 
+                onClick={handleSave}
+                className="px-6 py-2 bg-cyan/80 hover:bg-cyan rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
+              >
+                💾 SAUVEGARDER_CONFIG
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -321,12 +532,12 @@ export default function Dashboard() {
           const isDone = step < activePhase;
           const isCurrent = step === activePhase;
           
-          let cardBg = "bg-glass border-white/10 opacity-50"; // Attente
+          let cardBg = "bg-glass border-white/10 opacity-50"; 
           if (isDone) cardBg = "bg-gradient-to-br from-green-900/60 to-emerald-900/60 border-green-500/50 text-green-100 shadow-[0_0_15px_rgba(34,197,94,0.2)]";
           if (isCurrent) cardBg = "bg-gradient-to-br from-cyan/20 to-blue-900/40 border-cyan text-white shadow-[0_0_20px_rgba(8,179,201,0.5)] animate-pulse";
 
           return (
-            <div className={`w-40 h-48 rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}>
+            <div key={idx} className={`w-40 h-48 rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}>
               <div className="text-3xl font-black opacity-20">
                 {step.toString().padStart(2, '0')}
               </div>
@@ -358,6 +569,13 @@ export default function Dashboard() {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan/10 blur-[150px] rounded-full pointer-events-none" />
 
+      {/* Floating Settings Modal */}
+      {isSettingsOpen && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} />
+        </div>
+      )}
+
       {/* Header */}
       <header className="px-6 py-4 bg-black/20 backdrop-blur-md border-b border-white/10 z-10 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
@@ -369,52 +587,53 @@ export default function Dashboard() {
             <p className="text-xs text-cyan font-medium">OS Souverain v2.0</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-6">
-          {/* Windows-like App Icons */}
-          <div className="flex gap-3">
+      </header>
+
+      {/* Chat Area */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col">
+        <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
+          
+          {/* Mobile-style Home Screen Grid */}
+          <div className="flex justify-center gap-6 md:gap-12 pt-8 pb-4">
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className="group flex flex-col items-center gap-1"
+              className="group flex flex-col items-center gap-3"
             >
-              <div className="w-10 h-10 bg-glass border border-white/20 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 group-hover:border-pink group-hover:shadow-[0_0_15px_rgba(236,72,153,0.4)] transition-all">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-gray-800 to-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-pink/50 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all">
                 ⚙️
               </div>
-              <span className="text-[10px] text-white/70 font-bold">Réglages</span>
+              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Réglages</span>
             </button>
+            
             <button 
               onClick={() => {
                 setInput("Mes projets");
                 handleSend();
               }}
-              className="group flex flex-col items-center gap-1"
+              className="group flex flex-col items-center gap-3"
             >
-              <div className="w-10 h-10 bg-glass border border-white/20 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 group-hover:border-cyan group-hover:shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-blue-900 to-cyan-900 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all">
                 📁
               </div>
-              <span className="text-[10px] text-white/70 font-bold">Projets</span>
+              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
+            </button>
+            
+            <button 
+              onClick={() => {
+                setInput("Actualités IA");
+                handleSend();
+              }}
+              className="group flex flex-col items-center gap-3"
+            >
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-orange-600 to-red-900 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all">
+                📰
+              </div>
+              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
             </button>
           </div>
 
-          <div className="w-px h-8 bg-white/20 mx-2"></div>
+          <div className="w-full h-px bg-white/10 my-4"></div>
 
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-green-500 text-xs font-bold uppercase tracking-widest hidden md:inline">Connecté</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Floating Settings Modal (Windows Style) */}
-      {isSettingsOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} />
-        </div>
-      )}
-
-      {/* Chat Area */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col">
-        <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
               {/* Message Bubble */}
@@ -438,22 +657,47 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Input Area */}
-      <footer className="p-4 md:p-6 bg-black/40 backdrop-blur-xl border-t border-white/10 z-10">
-        <div className="max-w-4xl mx-auto relative">
+      {/* Input Area + Connection Status Bar */}
+      <footer className="bg-black/60 backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col">
+        {/* Connection Status Indicators */}
+        <div className="px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar text-[10px] font-bold tracking-wider uppercase">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
+            <span className="text-green-400">Online</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+            <span className="text-blue-400">Ext: Tiger</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
+            <span className="text-purple-400">LLM: DeepSeek</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
+            <span className="text-cyan">Electron</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 opacity-50">
+            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+            <span className="text-gray-400">Mobile (Capacitor)</span>
+          </div>
+        </div>
+
+        {/* Input Bar */}
+        <div className="p-4 md:p-6 relative max-w-4xl mx-auto w-full">
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Demandez à Tiger IA (ex: 'Mes projets', 'Actualités IA', 'Ouvre YouTube')..." 
-            className="w-full bg-white/5 border border-white/10 rounded-full pl-6 pr-16 py-4 text-white text-lg placeholder-gray-500 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan focus:bg-white/10 transition-all shadow-inner"
+            className="w-full bg-white/5 border border-white/10 rounded-full pl-6 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-500 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan focus:bg-white/10 transition-all shadow-inner"
           />
           <button 
             onClick={handleSend}
-            className="absolute right-2 top-2 bottom-2 aspect-square bg-white text-black rounded-full flex items-center justify-center hover:bg-cyan hover:text-white transition-colors shadow-lg"
+            className="absolute right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white text-black rounded-full flex items-center justify-center hover:bg-cyan hover:text-white transition-colors shadow-lg"
           >
-            <svg className="w-6 h-6 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 md:w-6 md:h-6 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
             </svg>
           </button>
