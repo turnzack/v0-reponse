@@ -19,7 +19,7 @@ const config: Config = {
         glassDark: "rgba(15, 12, 41, 0.75)"
       },
       backgroundImage: {
-        'gta-sunset': 'linear-gradient(160deg, #2a225e 0%, #643886 20%, #b2539f 40%, #ff8e75 70%, #ffb471 100%)',
+        'gta-sunset': 'linear-gradient(160deg, #6c80ba 0%, #b886b9 20%, #e6a0b3 40%, #fbc2a5 70%, #ffdf9f 100%)',
         'tiger-gradient': 'linear-gradient(90deg, #08b3c9, #e274a9, #f09a39)',
       }
     },

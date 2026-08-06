@@ -12,7 +12,37 @@ interface Message {
   widget?: WidgetType;
 }
 
+const getRandomGradient = (alpha = 1) => {
+  if (typeof window === 'undefined') return `linear-gradient(135deg, rgba(17,17,17,${alpha}), rgba(34,34,34,${alpha}))`;
+  const palettes = [
+    [[42, 42, 114], [0, 159, 253]], [[249, 83, 198], [185, 29, 115]], 
+    [[255, 153, 102], [255, 94, 98]], [[0, 180, 219], [0, 131, 176]], 
+    [[142, 45, 226], [74, 0, 224]], [[17, 153, 142], [56, 239, 125]], 
+    [[252, 74, 26], [247, 183, 51]], [[21, 153, 87], [21, 87, 153]], 
+    [[0, 0, 70], [28, 181, 224]], [[58, 28, 113], [215, 109, 119]], 
+    [[255, 126, 95], [254, 180, 123]], [[0, 201, 255], [146, 254, 157]],
+    [[191, 105, 105], [194, 112, 66]], [[163, 135, 185], [170, 107, 115]],
+    [[228, 163, 127], [191, 105, 105]], [[170, 107, 115], [194, 112, 66]],
+    [[5, 117, 230], [2, 27, 121]], [[255, 75, 31], [255, 144, 104]],
+    [[0, 210, 255], [58, 123, 213]], [[247, 151, 30], [255, 210, 0]],
+    [[19, 78, 94], [113, 178, 128]], [[195, 20, 50], [36, 11, 54]],
+    [[17, 153, 142], [56, 239, 125]], [[168, 192, 255], [63, 75, 150]] // from image 
+  ];
+  const [c1, c2] = palettes[Math.floor(Math.random() * palettes.length)];
+  const angle = Math.floor(Math.random() * 360);
+  return `linear-gradient(${angle}deg, rgba(${c1[0]},${c1[1]},${c1[2]},${alpha}) 0%, rgba(${c2[0]},${c2[1]},${c2[2]},${alpha}) 100%)`;
+};
+
 export default function Dashboard() {
+  const gradientCache = useRef<{ [key: string]: string }>({});
+  const getCachedGradient = (key: string, alpha = 1) => {
+    if (typeof window === 'undefined') return `linear-gradient(135deg, rgba(17,17,17,${alpha}), rgba(34,34,34,${alpha}))`;
+    if (!gradientCache.current[key]) {
+      gradientCache.current[key] = getRandomGradient(alpha);
+    }
+    return gradientCache.current[key];
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "init",
@@ -33,6 +63,28 @@ export default function Dashboard() {
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
   const [selectedLaunchProject, setSelectedLaunchProject] = useState<string>("");
   const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé."]);
+  const [realProjects, setRealProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
+
+  // Chargement des projets réels au montage
+  useEffect(() => {
+    fetch("http://localhost:5005/api/projects")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.projects) {
+          const cardStyles = [
+            "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md", // Rose to Burnt Orange
+            "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md", // Lavender to Mauve
+            "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md", // Peach to Rose
+            "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"  // Mauve to Burnt Orange
+          ];
+          setRealProjects(data.projects.map((p: string, i: number) => ({
+            name: p,
+            desc: "Environnement Local",
+            bg: cardStyles[i % cardStyles.length]
+          })));
+        }
+      }).catch(() => {});
+  }, []);
 
   // Chargement de l'historique
   useEffect(() => {
@@ -71,6 +123,22 @@ export default function Dashboard() {
     window.addEventListener('open-mouchard', handleOpenMouchard);
     return () => window.removeEventListener('open-mouchard', handleOpenMouchard);
   }, []);
+
+  // Polling des logs du Mouchard (Bridge Electron)
+  useEffect(() => {
+    if (!isClient) return;
+    const interval = setInterval(() => {
+      fetch("http://localhost:5005/api/bridge/logs")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.logs) {
+            setMouchardLogs(data.logs);
+          }
+        })
+        .catch(() => {});
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isClient]);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -344,42 +412,27 @@ Format attendu:
   );
 
   const WidgetProjects = () => {
-    const [realProjects, setRealProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
-    
-    useEffect(() => {
-      fetch("http://localhost:5005/api/projects")
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.projects) {
-            const colors = [
-              "bg-gradient-to-br from-blue-900 to-cyan-900",
-              "bg-gradient-to-br from-teal-900 to-green-900",
-              "bg-gradient-to-br from-purple-900 to-pink-900",
-              "bg-gradient-to-br from-gray-800 to-black"
-            ];
-            setRealProjects(data.projects.map((p: string, i: number) => ({
-              name: p,
-              desc: "Projet Kirov5 Local",
-              bg: colors[i % colors.length]
-            })));
-          }
-        }).catch(() => {
-          // Fallback silencieux si le bridge est off
-        });
-    }, []);
-
     if (realProjects.length === 0) {
-      return <div className="p-4 text-cyan text-sm italic">Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé).</div>;
+      return (
+        <div className="p-4 text-cyan text-sm italic">
+          Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
+        </div>
+      );
     }
 
     return renderCarousel(realProjects.map((p, i) => (
-      <div key={i} className={`w-64 h-48 ${p.bg} rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group`}>
-        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-0" />
+      <div key={i} className={`w-64 h-48 rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group`} style={{ background: isClient ? getCachedGradient('proj-'+i, 0.7) : 'rgba(0,0,0,0.5)' }}>
+        {/* Effet de grain / texture pour casser le côté "uni" */}
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
+        
+        <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
+        
         <div className="z-10 relative">
-          <div className="text-white/50 text-xs font-bold uppercase tracking-widest mb-1">PROJET LOCAL</div>
-          <h3 className="text-xl font-bold text-white mb-2 break-all">{p.name}</h3>
+          <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 drop-shadow-md">PROJET</div>
+          <h3 className="text-xl font-black text-white mb-2 break-all drop-shadow-lg leading-tight">{p.name}</h3>
         </div>
-        <div className="z-10 relative text-sm text-cyan font-medium mb-3">{p.desc}</div>
+        <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md">{p.desc}</div>
+        
         <button 
           onClick={async () => {
             try {
@@ -431,7 +484,7 @@ Format attendu:
 
     if (selectedArticle) {
       return (
-        <div className="w-full max-w-3xl bg-glassDark rounded-3xl p-6 md:p-8 border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.5)] mt-4 relative animate-fadeIn">
+        <div className="w-full max-w-3xl backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)] mt-4 relative animate-fadeIn" style={{ background: isClient ? getCachedGradient('news-detail', 0.9) : 'rgba(0,0,0,0.9)' }}>
           <button 
             onClick={() => setSelectedArticle(null)}
             className="absolute top-6 right-6 w-8 h-8 bg-white/10 hover:bg-red-500 rounded-full flex flex-col items-center justify-center text-white font-bold transition-colors z-20"
@@ -466,7 +519,7 @@ Format attendu:
     }
 
     return renderCarousel(news.map(n => (
-      <div key={n.id} className="w-72 h-48 bg-glassDark rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg">
+      <div key={n.id} className="w-72 h-48 rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-'+n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
         <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3">{n.tag}</span>
         <h3 className="text-lg font-bold text-white mb-2 leading-tight">{n.title}</h3>
         <p className="text-gray-400 text-sm flex-1">{n.desc}</p>
@@ -487,7 +540,7 @@ Format attendu:
       { title: "Android Bridge Capacitor", channel: "Mobile Dev", views: "800" },
     ];
     return renderCarousel(videos.map((v, i) => (
-      <div key={i} className="w-64 bg-black/60 rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg">
+      <div key={i} className="w-64 rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('yt-'+i, 0.6) : 'rgba(0,0,0,0.6)' }}>
         <div className="h-32 bg-gray-800 relative flex items-center justify-center">
           <div className="absolute inset-0 bg-gradient-to-tr from-red-900/40 to-transparent"></div>
           <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg z-10 cursor-pointer hover:scale-110 transition-transform">
@@ -575,10 +628,10 @@ Format attendu:
     ];
 
     return (
-      <div className={`w-full max-w-5xl bg-[#111111] rounded-3xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
+      <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
         
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-black/60 border-r border-white/10 flex flex-col">
+        <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
           <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
               <span className="text-cyan">🐯</span> SETTINGS
@@ -602,7 +655,7 @@ Format attendu:
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 bg-glassDark relative overflow-hidden flex flex-col">
+        <div className="flex-1 bg-gradient-to-br from-[#111111] to-black relative overflow-hidden flex flex-col">
           <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10 hide-scrollbar">
             
             {/* TABS CONTENT */}
@@ -621,7 +674,7 @@ Format attendu:
                     ].map(m => (
                       <button 
                         key={m.id} onClick={() => setExecMode(m.id)}
-                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${execMode === m.id ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.3)]' : 'bg-black/30 border-white/10 text-gray-500 hover:border-white/30'}`}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${execMode === m.id ? 'bg-gradient-to-br from-cyan/20 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.3)]' : 'bg-gradient-to-br from-black/30 to-black/50 border-white/10 text-gray-500 hover:border-white/30'}`}
                       >
                         <span className="text-2xl mb-1">{m.icon}</span>
                         <span className="font-bold text-xs">{m.title}</span>
@@ -636,12 +689,12 @@ Format attendu:
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Acteur Logique */}
-                      <div className="bg-black/30 p-4 rounded-xl border border-white/10 hover:border-cyan/50 transition-colors">
+                      <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-cyan/50 transition-colors">
                         <div className="text-[10px] text-cyan mb-2 font-bold flex items-center gap-2">🧠 Cerveau Logique (Backend)</div>
                         <div className="flex gap-2">
                           <select 
                             value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
-                            className="flex-1 bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
+                            className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
                           >
                             <option value="deepseek">🐋 DeepSeek Web</option>
                             <option value="chatgpt">🟢 ChatGPT Web</option>
@@ -666,12 +719,12 @@ Format attendu:
                       </div>
 
                       {/* Acteur UI */}
-                      <div className="bg-black/30 p-4 rounded-xl border border-white/10 hover:border-pink/50 transition-colors">
+                      <div className="bg-gradient-to-br from-gray-900/50 to-black/50 p-4 rounded-xl border border-white/10 hover:border-pink/50 transition-colors">
                         <div className="text-[10px] text-pink mb-2 font-bold flex items-center gap-2">🎨 Cerveau UI/UX (Frontend)</div>
                         <div className="flex gap-2">
                           <select 
                             value={targetUiAi} onChange={(e) => setTargetUiAi(e.target.value)}
-                            className="flex-1 bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-pink text-sm"
+                            className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-pink text-sm"
                           >
                             <option value="stitch">🧵 Stitch Google</option>
                             <option value="v0">▲ v0.dev (Vercel)</option>
@@ -700,11 +753,11 @@ Format attendu:
                     <div className="flex gap-3 bg-white/5 border border-white/20 p-3 rounded-xl mt-2 animate-fadeIn">
                       <div className="flex-1">
                         <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
-                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
+                        <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
                       </div>
                       <div className="flex-[2]">
                         <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
-                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
+                        <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
                       </div>
                     </div>
                   )}
@@ -713,7 +766,7 @@ Format attendu:
                   <>
                     <div className="space-y-2">
                       <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
-                      <select className="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
+                      <select className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
                         <option value="deepseek">🐋 DeepSeek</option>
                         <option value="openai">🟢 OpenAI (ChatGPT)</option>
                         <option value="gemini">✨ Google Gemini</option>
@@ -729,7 +782,7 @@ Format attendu:
                         <input 
                           type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                           placeholder="sk-..."
-                          className="flex-1 bg-black/50 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
+                          className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
                         />
                         <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">👁</button>
                       </div>
@@ -741,7 +794,7 @@ Format attendu:
                       </div>
                     </div>
 
-                    <div className="space-y-2 p-4 bg-black/30 border border-white/5 rounded-xl">
+                    <div className="space-y-2 p-4 bg-gradient-to-br from-black/30 to-black/50 border border-white/5 rounded-xl">
                       <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Modèle détecté</label>
                       <div className="text-gray-500 text-sm mb-2">Enregistrer la clé pour détecter</div>
                       <div className="flex items-center gap-4">
@@ -762,11 +815,11 @@ Format attendu:
                   <div className="space-y-4">
                     <div>
                       <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
-                      <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                      <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                     </div>
                     <div>
                       <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
-                      <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-black/50 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                      <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
@@ -783,11 +836,11 @@ Format attendu:
                 <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
                 
                 <div className="flex gap-2">
-                  <div className="flex-1 bg-cyan/20 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:bg-cyan/30 transition-colors">
+                  <div className="flex-1 bg-gradient-to-br from-cyan/30 to-cyan/10 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:from-cyan/40 hover:to-cyan/20 transition-colors">
                     <div className="text-white font-bold text-xs flex items-center gap-2">⚙️ Standard G5</div>
                     <div className="text-[10px] text-cyan mt-1 leading-tight">Génération de A à Z (Architecture, Design, Logique).</div>
                   </div>
-                  <div className="flex-1 bg-pink/20 border border-pink/50 p-2 rounded-lg cursor-pointer hover:bg-pink/30 transition-colors">
+                  <div className="flex-1 bg-gradient-to-br from-pink/30 to-pink/10 border border-pink/50 p-2 rounded-lg cursor-pointer hover:from-pink/40 hover:to-pink/20 transition-colors">
                     <div className="text-white font-bold text-xs flex items-center gap-2">🎨 Design-First</div>
                     <div className="text-[10px] text-pink mt-1 leading-tight">Stitch UI d'abord → L'IA câble la logique ensuite.</div>
                   </div>
@@ -829,7 +882,7 @@ Format attendu:
                   </div>
                   
                   <div className="flex gap-2">
-                    <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ background: '#10a37f', borderColor: '#10a37f' }}>
+                    <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ backgroundImage: 'linear-gradient(to right, #10a37f, #0d8a6a)', borderColor: '#10a37f' }}>
                       📦 Auto-Capture
                     </button>
                     <button 
@@ -847,7 +900,7 @@ Format attendu:
                           alert("Erreur de connexion au Moteur Electron : " + e.message);
                         }
                       }}
-                      className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-cyan hover:bg-cyan/80 transition-colors"
+                      className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-gradient-to-r from-cyan to-blue-500 hover:from-cyan/80 hover:to-blue-500/80 transition-colors"
                     >
                       🚀 Lancer l'Aperçu
                     </button>
@@ -858,15 +911,15 @@ Format attendu:
                   {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => {
                     const isCurrent = activePhase === (idx + 1);
                     return (
-                      <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-cyan/20 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-black/20 border-white/5 opacity-60'}`}>
-                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-cyan text-black' : 'bg-white/10'}`}>{idx}</div>
+                      <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-gradient-to-r from-cyan/30 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-gradient-to-r from-black/30 to-black/10 border-white/5 opacity-60'}`}>
+                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-gradient-to-br from-cyan to-blue-500 text-black' : 'bg-gradient-to-br from-white/20 to-white/5'}`}>{idx}</div>
                         <span className="text-sm font-medium">{phase}</span>
                       </div>
                     );
                   })}
                 </div>
                 
-                <div className="mt-2 bg-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
+                <div className="mt-2 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
                   <div>
                     {mouchardLogs.map((log, idx) => (
                       <div key={idx} className="mb-1 opacity-90 break-all">{log}</div>
@@ -888,15 +941,15 @@ Format attendu:
                   <textarea 
                     value={overridePrompt} onChange={(e) => setOverridePrompt(e.target.value)}
                     placeholder="Entrez le prompt à forcer dans DeepSeek..."
-                    className="w-full h-32 bg-black/50 text-white border border-white/20 rounded-xl p-3 outline-none focus:border-cyan text-sm resize-none"
+                    className="w-full h-32 bg-gradient-to-b from-gray-900/60 to-black/60 text-white border border-white/20 rounded-xl p-3 outline-none focus:border-cyan text-sm resize-none"
                   />
                   <div className="flex gap-3 pt-2">
-                    <button className="flex-1 py-2 bg-pink/20 hover:bg-pink/40 text-pink border border-pink/50 rounded-lg text-xs font-bold transition-all">💉 Forcer Injection</button>
-                    <button className="flex-1 py-2 bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border border-orange-500/50 rounded-lg text-xs font-bold transition-all">📦 Forcer Capture</button>
+                    <button className="flex-1 py-2 bg-gradient-to-r from-pink/30 to-pink/10 hover:from-pink/40 hover:to-pink/20 text-pink border border-pink/50 rounded-lg text-xs font-bold transition-all">💉 Forcer Injection</button>
+                    <button className="flex-1 py-2 bg-gradient-to-r from-orange-500/30 to-orange-500/10 hover:from-orange-500/40 hover:to-orange-500/20 text-orange-400 border border-orange-500/50 rounded-lg text-xs font-bold transition-all">📦 Forcer Capture</button>
                   </div>
                 </div>
                 
-                <div className="bg-black/60 border border-white/10 p-3 rounded-xl h-32 font-mono text-[10px] text-gray-400 overflow-y-auto">
+                <div className="bg-gradient-to-b from-black/50 to-black/70 border border-white/10 p-3 rounded-xl h-32 font-mono text-[10px] text-gray-400 overflow-y-auto">
                   <span className="text-white mb-2 block">Log Override</span>
                   En attente d'action manuelle...
                 </div>
@@ -910,9 +963,9 @@ Format attendu:
                   <p className="text-gray-400 text-xs mt-2">Surveillance en temps réel du flux de données.</p>
                 </div>
                 
-                <div className="flex-1 bg-black border border-white/10 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-2 relative">
+                <div className="flex-1 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-4 font-mono text-xs overflow-y-auto space-y-2 relative">
                   <div className="absolute top-2 right-2 flex gap-2">
-                    <button className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded hover:bg-red-500/40">[WIPE]</button>
+                    <button className="text-[10px] bg-gradient-to-r from-red-500/30 to-red-500/10 text-red-400 px-2 py-1 rounded hover:from-red-500/40 hover:to-red-500/20">[WIPE]</button>
                   </div>
                   <div className="text-white font-bold mb-3 border-b border-white/20 pb-1 inline-block">LOG_STREAM</div>
                   
@@ -934,7 +987,7 @@ Format attendu:
           </div>
 
           {/* Footer Actions */}
-          <div className="p-4 border-t border-white/10 bg-black/40 flex justify-between items-center relative z-10">
+          <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex justify-between items-center relative z-10">
             <button 
               onClick={() => setIsExtConnected(!isExtConnected)}
               className={`text-xs font-bold hover:underline flex items-center gap-1 ${isExtConnected ? 'text-green-500' : 'text-red-500'}`}
@@ -945,13 +998,13 @@ Format attendu:
             <div className="flex gap-3">
               {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
               {isModal && (
-                <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-white/5 hover:bg-white/10 transition-colors text-sm">
+                <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-white/10 to-transparent hover:from-white/20 transition-colors text-sm">
                   Fermer
                 </button>
               )}
               <button 
                 onClick={handleSave}
-                className="px-6 py-2 bg-cyan/80 hover:bg-cyan rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
+                className="px-6 py-2 bg-gradient-to-r from-cyan to-blue-500 rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
               >
                 💾 SAUVEGARDER_CONFIG
               </button>
@@ -1014,15 +1067,15 @@ Format attendu:
 
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}>
           <WidgetSettings isModal={true} onClose={() => setIsSettingsOpen(false)} initialTab={forceTab} />
         </div>
       )}
 
       {/* Header */}
-      <header className="px-6 py-4 bg-black/20 backdrop-blur-md border-b border-white/10 z-10 flex justify-between items-center shadow-lg">
+      <header className="px-6 py-4 backdrop-blur-md border-b border-white/10 z-10 flex justify-between items-center shadow-lg" style={{ background: isClient ? getCachedGradient('header', 0.3) : 'rgba(0,0,0,0.2)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan to-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(8,179,201,0.4)]">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(8,179,201,0.4)]" style={{ background: isClient ? getCachedGradient('logo', 1) : '#08b3c9' }}>
             <span className="text-xl">🐯</span>
           </div>
           <div>
@@ -1058,7 +1111,7 @@ Format attendu:
               onClick={() => setIsSettingsOpen(true)}
               className="group flex flex-col items-center gap-3"
             >
-              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-gray-800 to-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-pink/50 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all">
+              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-pink/50 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-settings', 0.8) : 'rgba(30,30,30,0.8)' }}>
                 ⚙️
               </div>
               <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Réglages</span>
@@ -1071,7 +1124,7 @@ Format attendu:
               }}
               className="group flex flex-col items-center gap-3"
             >
-              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-blue-900 to-cyan-900 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all">
+              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
                 📁
               </div>
               <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
@@ -1084,7 +1137,7 @@ Format attendu:
               }}
               className="group flex flex-col items-center gap-3"
             >
-              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-orange-600 to-red-900 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all">
+              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
                 📰
               </div>
               <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
@@ -1096,11 +1149,10 @@ Format attendu:
           {messages.map((msg) => (
             <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
               {/* Message Bubble */}
-              <div className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl ${
-                msg.role === "user" 
-                  ? "bg-gradient-to-r from-cyan to-blue-600 text-white font-medium rounded-br-sm shadow-[0_4px_20px_rgba(8,179,201,0.3)]" 
-                  : "bg-glassDark border border-white/10 rounded-bl-sm text-gray-200 shadow-xl"
-              }`}>
+              <div 
+                className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
+                style={{ background: isClient ? getCachedGradient('msg-'+msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
+              >
                 {msg.content}
               </div>
               
@@ -1118,26 +1170,36 @@ Format attendu:
 
       {/* Right Sidebar (Mouchard d'Installation) */}
       {isRightSidebarOpen && (
-        <aside className="w-80 bg-black/80 backdrop-blur-xl border-l border-white/10 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn">
-          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/50">
+        <aside className="w-80 backdrop-blur-2xl border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn shadow-[-10px_0_30px_rgba(0,0,0,0.5)]" style={{ background: isClient ? getCachedGradient('sidebar', 0.8) : 'rgba(0,0,0,0.8)' }}>
+          <div className="p-4 border-b border-white/10 flex justify-between items-center" style={{ background: isClient ? getCachedGradient('sidebar-head', 0.4) : 'rgba(0,0,0,0.5)' }}>
             <h3 className="text-cyan font-black text-sm uppercase tracking-widest flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
               Terminal
             </h3>
             <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
           </div>
-          <div className="flex-1 p-4 font-mono text-[10px] text-green-400 overflow-y-auto flex flex-col-reverse hide-scrollbar">
+          <div className="flex-1 p-4 font-mono text-xs overflow-y-auto flex flex-col-reverse hide-scrollbar" style={{ background: isClient ? getCachedGradient('sidebar-body', 0.9) : '#0a0a0a' }}>
             <div>
-              {mouchardLogs.map((log, idx) => (
-                <div key={idx} className="mb-1 opacity-90 break-words">{log}</div>
-              ))}
+              {mouchardLogs.map((log, idx) => {
+                let colorClass = "text-[#52c1c9]"; // Teal clair (Défaut)
+                if (log.includes("[INSTALL]")) colorClass = "text-[#f29f43]"; // Orange
+                if (log.includes("[SERVER]")) colorClass = "text-[#0ab7d4]"; // Cyan vif
+                if (log.includes("[IDE]")) colorClass = "text-[#e27396]"; // Rose
+                if (log.includes("WARN") || log.includes("ERR")) colorClass = "text-red-500";
+                
+                return (
+                  <div key={idx} className={`mb-1 opacity-90 break-words ${colorClass}`}>
+                    {log}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </aside>
       )}
 
       {/* Input Area + Connection Status Bar */}
-      <footer className="bg-black/60 backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col">
+      <footer className="backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col" style={{ background: isClient ? getCachedGradient('footer', 0.6) : 'rgba(0,0,0,0.6)' }}>
         {/* Connection Status Indicators */}
         <div className="px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar text-[10px] font-bold tracking-wider uppercase">
           <div className="flex items-center gap-2 shrink-0">
@@ -1191,11 +1253,13 @@ Format attendu:
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Demandez à Tiger IA, ou glissez un fichier HTML..." 
-            className="w-full bg-white/5 border border-white/10 rounded-full pl-14 md:pl-16 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-500 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan focus:bg-white/10 transition-all shadow-inner"
+            className="w-full border border-white/10 rounded-full pl-14 md:pl-16 pr-16 py-4 text-white text-base md:text-lg placeholder-gray-300 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-all shadow-inner"
+            style={{ background: isClient ? getCachedGradient('input', 0.3) : 'rgba(255,255,255,0.05)' }}
           />
           <button 
             onClick={handleSend}
-            className="absolute right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white text-black rounded-full flex items-center justify-center hover:bg-cyan hover:text-white transition-colors shadow-lg"
+            className="absolute right-6 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 text-white rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg"
+            style={{ background: isClient ? getCachedGradient('sendbtn', 1) : '#08b3c9' }}
           >
             <svg className="w-5 h-5 md:w-6 md:h-6 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
