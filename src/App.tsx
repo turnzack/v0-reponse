@@ -659,12 +659,30 @@ export default function Dashboard() {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const handleOpenMouchard = () => {
-      setIsRightSidebarOpen(true);
-    };
+    const handleOpenMouchard = () => setIsRightSidebarOpen(true);
     window.addEventListener('open-mouchard', handleOpenMouchard);
-    return () => window.removeEventListener('open-mouchard', handleOpenMouchard);
-  }, []);
+
+    // Écouteur pour le Moteur Mobile (WebView Fantôme Java)
+    const handleNativeMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'TIGER_CAPTURE') {
+        const extractedCode = event.data.data;
+        if (extractedCode) {
+          // Détection automatique du nom de fichier (comme App.tsx ou index.html)
+          let fileName = "index.html";
+          if (extractedCode.includes("import React")) fileName = "App.tsx";
+          
+          setActiveFile(fileName);
+          handleSaveFile(extractedCode);
+        }
+      }
+    };
+    window.addEventListener('message', handleNativeMessage);
+
+    return () => {
+      window.removeEventListener('open-mouchard', handleOpenMouchard);
+      window.removeEventListener('message', handleNativeMessage);
+    };
+  }, [activeProject, activeFile]);
 
   // Polling des logs du Mouchard (Bridge Electron)
   useEffect(() => {
@@ -749,38 +767,21 @@ export default function Dashboard() {
             return `https://chat.${id}.com/`;
           };
 
-            // Lancement parallèle : Mobile Natif (Capacitor) vs PC (Electron)
-            if (Capacitor.isNativePlatform()) {
-              // 📱 MOTEUR MOBILE : On utilise le plugin natif Capacitor pour ouvrir l'InAppBrowser, injecter le prompt et aspirer le code
-              const ScraperBridge = Capacitor.Plugins.ScraperBridge;
-              const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-              
-              if (ScraperBridge) {
-                // Etape 1 : Génération UI
-                ScraperBridge.openAndScrape({ 
-                  url: getUrl(uiAi, true), 
-                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend 
-                }).then((uiResult: any) => {
-                   if(uiResult.code) handleSaveFile(uiResult.code); // Sauvegarde automatique sur mobile !
-                });
-
-                // Etape 2 : Génération Logique (en parallèle)
-                setTimeout(() => {
-                  ScraperBridge.openAndScrape({
-                    url: getUrl(logicAi),
-                    prompt: "Prépare la structure backend et les états React pour un projet : " + textToSend
-                  }).then((logicResult: any) => {
-                     if(logicResult.code) handleSaveFile(logicResult.code); // Sauvegarde automatique sur mobile !
-                  });
-                }, 1500);
-              }
-            } else {
-              // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron
-              // OUVERTURE SYNCHRONE DES FENÊTRES POUR ÉVITER LE POPUP BLOCKER
-              window.open(getUrl(uiAi, true), "_blank");
-              window.open(getUrl(logicAi), "_blank");
-              
-              const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+          // Lancement parallèle réel via le Bridge Android (WebView Fantôme) ou Electron
+          const bridge = (window as any).AndroidBridge;
+          if (bridge && bridge.openAIWithPrompt) {
+            // 📱 MOTEUR MOBILE : On utilise l'incroyable WebView Fantôme codée en Java
+            bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend);
+            setTimeout(() => {
+              bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
+            }, 1500);
+          } else {
+            // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron
+            // OUVERTURE SYNCHRONE DES FENÊTRES POUR ÉVITER LE POPUP BLOCKER
+            window.open(getUrl(uiAi, true), "_blank");
+            window.open(getUrl(logicAi), "_blank");
+            
+            const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
               
               // On envoie le prompt UI au Bridge
               fetch("http://127.0.0.1:5005/bridge/prompt", {
