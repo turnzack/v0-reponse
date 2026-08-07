@@ -989,8 +989,18 @@ export default function Dashboard() {
 Stack / Structure : ${newProjectStack}.
 Description : ${newProjectDesc}.`;
 
-    const newProjectId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-    setActiveProject(newProjectId);
+    const newProjectId = activeProject || ("Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4));
+    
+    if (!activeProject) {
+      setActiveProject(newProjectId);
+      // Création automatique si non validé manuellement
+      fetch("http://127.0.0.1:5005/api/projects/create", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ projectId: newProjectId })
+      }).catch(e => console.error("[IDE] Erreur création auto du dossier", e));
+    }
+    
     if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
     
     const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
@@ -1164,7 +1174,7 @@ Format attendu:
 }
 \`\`\`
 `;
-          const designProjectId = "Design_" + mainHtml.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
+          const designProjectId = activeProject || "Design_" + mainHtml.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
           
           const bridge = (window as any).AndroidBridge;
           if (bridge && bridge.openAIWithPrompt) {
@@ -1302,7 +1312,7 @@ Format attendu:
       <div 
         key="new-v0"
         className={`w-64 h-48 rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
-        onClick={() => setIsNewProjectModalOpen(true)}
+        onClick={() => { setActiveProject(null); setNewProjectName(""); setIsNewProjectModalOpen(true); }}
       >
         <div className="absolute inset-0 bg-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
         <div className="text-5xl mb-3 drop-shadow-[0_0_10px_rgba(8,179,201,0.8)] group-hover:scale-110 transition-transform">✨</div>
@@ -1961,7 +1971,31 @@ Format attendu:
                 <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">
                   Nom du Projet
                 </label>
-                <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="Ex: Dashboard E-commerce" className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors" />
+                <div className="flex gap-2">
+                  <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors disabled:opacity-50" />
+                  <button 
+                    onClick={async () => {
+                      if (!newProjectName.trim()) return;
+                      const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+                      try {
+                        const res = await fetch("http://127.0.0.1:5005/api/projects/create", {
+                           method: "POST",
+                           headers: { "Content-Type": "application/json" },
+                           body: JSON.stringify({ projectId: genId })
+                        });
+                        if (res.ok) {
+                          setActiveProject(genId);
+                        }
+                      } catch (err) {
+                        alert("Erreur lors de la création du dossier : " + err);
+                      }
+                    }}
+                    disabled={!!activeProject || !newProjectName.trim()}
+                    className="px-6 py-3 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {activeProject ? '✅ Validé' : 'Valider'}
+                  </button>
+                </div>
               </div>
               
               <div>
