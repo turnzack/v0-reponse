@@ -494,7 +494,7 @@ const WidgetSettings = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex justify-between items-center relative z-10">
+        <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex flex-wrap justify-between items-center gap-4 relative z-10">
           <button 
             onClick={() => setIsExtConnected(!isExtConnected)}
             className={`text-xs font-bold hover:underline flex items-center gap-1 ${isExtConnected ? 'text-green-500' : 'text-red-500'}`}
@@ -502,18 +502,18 @@ const WidgetSettings = ({
             <span className={`w-2 h-2 rounded-full animate-pulse ${isExtConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
             {isExtConnected ? 'Extension Connectée' : 'Extension Déconnectée'}
           </button>
-          <div className="flex gap-3">
-            {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé & Propagé</span>}
+          <div className="flex flex-wrap items-center gap-3">
+            {savedMsg && <span className="text-green-400 font-bold text-xs flex items-center mr-2 animate-pulse">✓ Sauvegardé</span>}
             {isModal && (
-              <button onClick={onClose} className="px-6 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-white/10 to-transparent hover:from-white/20 transition-colors text-sm">
+              <button onClick={onClose} className="px-4 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-white/10 to-transparent hover:from-white/20 transition-colors text-sm">
                 Fermer
               </button>
             )}
             <button 
               onClick={handleSave}
-              className="px-6 py-2 bg-gradient-to-r from-cyan to-blue-500 rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)]"
+              className="px-4 py-2 bg-gradient-to-r from-cyan to-blue-500 rounded-xl text-black font-black uppercase tracking-wider transition-all text-sm shadow-[0_0_15px_rgba(8,179,201,0.5)] whitespace-nowrap"
             >
-              💾 SAUVEGARDER_CONFIG
+              💾 SAUVER
             </button>
           </div>
         </div>
@@ -802,12 +802,17 @@ export default function Dashboard() {
         }).catch(err => console.log("Erreur de connexion au Bridge local pour l'injection", err));
         
       } 
-      // 2. DÉTECTION NOUVEAU PROJET
-      else if ((normalizedInput.includes("stitch") || normalizedInput.includes("design")) && (normalizedInput.includes("projet") || normalizedInput.includes("cree") || normalizedInput.includes("lance"))) {
-        responseMsg.content = "🚀 DÉMARRAGE PARALLÈLE KIROV5 🚀\n\n1️⃣ [UI/UX] Ouverture de Stitch avec le prompt de design enrichi...\n2️⃣ [LOGIQUE] Préparation de DeepSeek et création du dossier projet local...\n\nDeepSeek est informé et en attente. Une fois le design terminé sur Stitch, glissez l'HTML ici pour lancer le câblage React final en phase 5.";
+      // 2. DÉTECTION NOUVEAU PROJET (PIPELINE COMPLET)
+      else if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("projet") || normalizedInput.includes("generation")) {
+        responseMsg.content = "🚀 DÉMARRAGE PARALLÈLE KIROV5 🚀\n\n1️⃣ [UI/UX] Ouverture de l'assistant Design avec le prompt UI enrichi...\n2️⃣ [LOGIQUE] Préparation de l'assistant Logique et création du dossier projet local...\n\nLes intelligences artificielles sont informées et en attente. Une fois le design terminé, glissez l'HTML ici pour lancer le câblage final en phase 5.";
         responseMsg.widget = "phases";
         
         setActivePhase(1);
+        
+        // Création du nom de projet et ouverture dynamique de l'arborescence à gauche !
+        const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+        setActiveProject(newProjectId);
+        if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
         
         if (typeof window !== "undefined") {
           const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
@@ -869,46 +874,7 @@ export default function Dashboard() {
             }
           }
 
-      } else if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
-        responseMsg.content = "🚀 Initialisation du pipeline de création... Ouverture de la structure hiérarchique !";
-        responseMsg.widget = "phases";
-        
-        // 1. Création du nom de projet et ouverture dynamique de l'arborescence à gauche !
-        const genProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-        setActiveProject(genProjectId);
-        if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", genProjectId);
-        
-        // 2. Déclenchement de l'IA via la WebView Fantôme (Mobile) ou Navigateur (PC)
-        if (typeof window !== "undefined") {
-          const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-          const aiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
-          
-          const bridge = (window as any).AndroidBridge;
-          if (bridge && bridge.openAIWithPrompt) {
-            bridge.openAIWithPrompt(aiUrl, "Génère l'architecture complète et le code pour ce projet : " + textToSend);
-          } else {
-            // Fallback PC
-            fetch("http://127.0.0.1:5005/bridge/prompt", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                target_ai: logicAi, 
-                prompt: "Génère l'architecture complète pour : " + textToSend, 
-                auto_submit: true,
-                project_id: genProjectId,
-                phase_num: 1
-              })
-            })
-            .then(() => {
-              console.log("Prompt envoyé avec succès au Bridge PC");
-              window.open(aiUrl, "_blank");
-            })
-            .catch((err) => {
-              console.error("Erreur Bridge PC:", err);
-              window.open(aiUrl, "_blank");
-            });
-          }
-        }
+
 
         // 3. Simulation visuelle des phases
         setActivePhase(1);
@@ -1336,7 +1302,13 @@ Format attendu:
 
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}>
+        <div 
+          className="absolute inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md" 
+          style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsSettingsOpen(false);
+          }}
+        >
           <WidgetSettings 
             isModal={true} 
             onClose={() => setIsSettingsOpen(false)} 
@@ -1559,8 +1531,8 @@ Format attendu:
               {msg.widget === "projects" && <WidgetProjects />}
               {msg.widget === "news" && <WidgetNews />}
               {msg.widget === "youtube" && <WidgetYouTube />}
-              {msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} />}
-              {msg.widget === "phases" && <WidgetPhases />}
+              {msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
+              {msg.widget === "phases" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} initialTab="pipeline" />}
             </div>
           ))}
           <div ref={chatEndRef} />
