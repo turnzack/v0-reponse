@@ -667,12 +667,23 @@ export default function Dashboard() {
       if (event.data && event.data.type === 'TIGER_CAPTURE') {
         const extractedCode = event.data.data;
         if (extractedCode) {
-          // Détection automatique du nom de fichier (comme App.tsx ou index.html)
+          // Détection automatique du nom de fichier
           let fileName = "index.html";
-          if (extractedCode.includes("import React")) fileName = "App.tsx";
+          if (extractedCode.includes("import React") || extractedCode.includes("export default")) fileName = "App.tsx";
+          if (extractedCode.includes("tailwindcss")) fileName = "index.css";
           
           setActiveFile(fileName);
           handleSaveFile(extractedCode);
+
+          // MISE A JOUR DYNAMIQUE VISUELLE DE L'ARBORESCENCE !
+          setFsTree((prev: any) => {
+            const newFileNode = { name: fileName, path: fileName, type: 'file' };
+            if (!prev) return { name: "Mobile_Storage", type: 'directory', children: [newFileNode] };
+            
+            const exists = prev.children?.find((c: any) => c.name === fileName);
+            if (!exists) return { ...prev, children: [...(prev.children || []), newFileNode] };
+            return prev;
+          });
         }
       }
     };
