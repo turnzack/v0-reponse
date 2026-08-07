@@ -4,6 +4,18 @@ import React, { useState, useEffect, useRef } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Diamond, Bot, FolderGit2, X, CheckCircle2, ShoppingCart, ShieldCheck, Layout, Smartphone, Newspaper, Trophy, CreditCard } from 'lucide-react';
+
+const AVAILABLE_PACKS = [
+  { id: 'prd_auth_gateway', name: 'Auth Gateway Security', icon: ShieldCheck, color: 'bg-red-500/10 text-red-500' },
+  { id: 'prd_ecom_catalog', name: 'E-commerce Catalog', icon: ShoppingCart, color: 'bg-blue-500/10 text-blue-500' },
+  { id: 'prd_ecom_checkout', name: 'E-commerce Checkout', icon: CreditCard, color: 'bg-emerald-500/10 text-emerald-500' },
+  { id: 'prd_saas_billing_pro', name: 'SaaS Billing Pro', icon: CreditCard, color: 'bg-purple-500/10 text-purple-500' },
+  { id: 'prd_layout_bento', name: 'Layout Bento', icon: Layout, color: 'bg-orange-500/10 text-orange-500' },
+  { id: 'prd_mobile_social', name: 'Mobile Social', icon: Smartphone, color: 'bg-pink-500/10 text-pink-500' },
+  { id: 'prd_blog_magazine', name: 'Blog Magazine', icon: Newspaper, color: 'bg-yellow-500/10 text-yellow-500' },
+  { id: 'prd_game_leaderboard', name: 'Game Leaderboard', icon: Trophy, color: 'bg-amber-500/10 text-amber-500' },
+];
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -578,6 +590,12 @@ export default function Dashboard() {
   const [realProjects, setRealProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
 
   // --- NOUVEAUX ETATS : IDE & TROMBONE ---
+  const [isPrdModalOpen, setIsPrdModalOpen] = useState(false);
+  const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
+
+  const togglePack = (packId: string) => {
+    setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
+  };
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [fsTree, setFsTree] = useState<any>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -1550,6 +1568,22 @@ Format attendu:
               <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
             </button>
             
+            {/* NOUVEAU BOUTON : PACKS PRD */}
+            <button 
+              onClick={() => setIsPrdModalOpen(true)}
+              className="group flex flex-col items-center gap-3 relative"
+            >
+              {selectedPacks.length > 0 && (
+                <div className="absolute -top-2 -right-2 bg-indigo-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white/20 z-10">
+                  {selectedPacks.length}
+                </div>
+              )}
+              <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-indigo-500/50 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-[0_0_20px_rgba(79,70,229,0.4)] group-hover:scale-105 group-hover:border-indigo-400 group-hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] transition-all bg-indigo-900/60 backdrop-blur-md">
+                💎
+              </div>
+              <span className="text-xs md:text-sm text-indigo-300 font-bold tracking-wider drop-shadow-md">Packs PRD</span>
+            </button>
+
             <button 
               onClick={() => {
                 handleSend("Actualités IA");
@@ -1707,6 +1741,54 @@ Format attendu:
           </div>
         </div>
       </footer>
+
+      {/* MODALE DE SÉLECTION DES PACKS PRD */}
+      {isPrdModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-800">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <Diamond className="text-cyan-400" /> Bibliothèque d'Architecture
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">Cochez les contrats d'interface (PRD) à injecter dans le moteur "Trombone".</p>
+              </div>
+              <button onClick={() => setIsPrdModalOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors text-slate-300">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-950/50 hide-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {AVAILABLE_PACKS.map((pack) => {
+                  const isSelected = selectedPacks.includes(pack.id);
+                  return (
+                    <div 
+                      key={pack.id} onClick={() => togglePack(pack.id)}
+                      className={\`cursor-pointer relative p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col gap-3 group \${isSelected ? 'border-indigo-500 bg-indigo-900/20 shadow-[0_0_20px_rgba(79,70,229,0.2)]' : 'border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/80'}\`}
+                    >
+                      <div className={\`absolute top-4 right-4 transition-transform \${isSelected ? 'scale-100 text-indigo-500' : 'scale-0 text-transparent'}\`}>
+                        <CheckCircle2 size={24} className="fill-indigo-500/20" />
+                      </div>
+                      <div className={\`w-12 h-12 rounded-xl flex items-center justify-center \${pack.color}\`}><pack.icon size={24} /></div>
+                      <div>
+                        <h3 className="text-white font-semibold">{pack.name}</h3>
+                        <p className="text-slate-500 text-xs mt-1 font-mono">{pack.id}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="p-6 border-t border-slate-800 flex justify-between items-center bg-slate-900">
+              <div className="text-sm text-slate-400"><span className="font-bold text-white">{selectedPacks.length}</span> pack(s) prêt(s) pour l'injection.</div>
+              <button onClick={() => setIsPrdModalOpen(false)} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+                Valider la Sélection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
