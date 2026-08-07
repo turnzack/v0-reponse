@@ -727,15 +727,33 @@ export default function Dashboard() {
             return `https://chat.${id}.com/`;
           };
 
-          // Lancement parallèle réel via le Bridge (ou window.open en fallback)
-          const bridge = (window as any).AndroidBridge;
-            if (bridge && bridge.openAIWithPrompt) {
-              bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend);
-              setTimeout(() => {
-                bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
-              }, 1500);
+            // Lancement parallèle : Mobile Natif (Capacitor) vs PC (Electron)
+            if (Capacitor.isNativePlatform()) {
+              // 📱 MOTEUR MOBILE : On utilise le plugin natif Capacitor pour ouvrir l'InAppBrowser, injecter le prompt et aspirer le code
+              const ScraperBridge = Capacitor.Plugins.ScraperBridge;
+              const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+              
+              if (ScraperBridge) {
+                // Etape 1 : Génération UI
+                ScraperBridge.openAndScrape({ 
+                  url: getUrl(uiAi, true), 
+                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend 
+                }).then((uiResult: any) => {
+                   if(uiResult.code) handleSaveFile(uiResult.code); // Sauvegarde automatique sur mobile !
+                });
+
+                // Etape 2 : Génération Logique (en parallèle)
+                setTimeout(() => {
+                  ScraperBridge.openAndScrape({
+                    url: getUrl(logicAi),
+                    prompt: "Prépare la structure backend et les états React pour un projet : " + textToSend
+                  }).then((logicResult: any) => {
+                     if(logicResult.code) handleSaveFile(logicResult.code); // Sauvegarde automatique sur mobile !
+                  });
+                }, 1500);
+              }
             } else {
-              // Fallback pour navigateur standard (Chrome, Edge, Electron, etc.)
+              // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron
               // OUVERTURE SYNCHRONE DES FENÊTRES POUR ÉVITER LE POPUP BLOCKER
               window.open(getUrl(uiAi, true), "_blank");
               window.open(getUrl(logicAi), "_blank");
