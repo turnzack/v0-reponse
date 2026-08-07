@@ -1045,37 +1045,73 @@ Description : ${newProjectDesc}.`;
     });
   };
 
-  const handleFileUpload = (file: File) => {
-    if (!file.name.endsWith('.html')) {
-      alert("Système Kirov5 : Veuillez déposer un fichier .html généré par Stitch ou un outil similaire.");
+  const handleFileUpload = async (files: FileList | File[] | File) => {
+    const fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
+    
+    // Separate HTML from other files
+    const htmlFiles = fileArray.filter(f => f.name.endsWith('.html'));
+    const otherFiles = fileArray.filter(f => !f.name.endsWith('.html') && (f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') || f.name.endsWith('.md') || f.name.endsWith('.json') || f.name.endsWith('.txt')));
+
+    if (htmlFiles.length === 0 && otherFiles.length === 0) {
+      alert("Système Kirov5 : Format non supporté. Veuillez déposer au moins un .html, .md, ou .png.");
       return;
     }
 
-    // 1. Message de l'utilisateur (Upload visuel)
-    const uploadMsg: Message = { 
-      id: Date.now().toString(), 
-      role: "user", 
-      content: `📁 Fichier de design déposé : ${file.name}\nAnalyse de la structure UI en cours...` 
-    };
-    setMessages((prev) => [...prev, uploadMsg]);
+    let appendedToTrombone = [...tromboneFiles];
 
-    // Lecture du fichier HTML pour automatiser l'injection
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const htmlContent = e.target?.result as string;
+    // Process contextual files (.md, .png, etc.)
+    for (const f of otherFiles) {
+      const isImage = f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg');
+      const content = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        if (isImage) reader.readAsDataURL(f);
+        else reader.readAsText(f);
+      });
       
-      // 2. Activation automatique du mode Design-First
+      const newContext = { path: f.name, content: isImage ? `[Image jointe visuellement : ${f.name} (Binaire ignoré pour économie de tokens)]` : content };
+      
+      // Avoid duplicates
+      if (!appendedToTrombone.some(ext => ext.path === f.name)) {
+        appendedToTrombone.push(newContext);
+      }
+      
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString() + "_" + Math.random(), 
+        role: "user", 
+        content: `📎 Fichier de contexte ajouté au Trombone : ${f.name}` 
+      }]);
+    }
+
+    setTromboneFiles(appendedToTrombone);
+
+    // If there is an HTML file, we trigger the build process
+    if (htmlFiles.length > 0) {
+      const mainHtml = htmlFiles[0];
+
+      const uploadMsg: Message = { 
+        id: Date.now().toString() + "_main", 
+        role: "user", 
+        content: `📁 Fichier de design déposé : ${mainHtml.name}\nAnalyse de la structure UI et assemblage du contexte en cours...` 
+      };
+      setMessages((prev) => [...prev, uploadMsg]);
+
+      const htmlContent = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsText(mainHtml);
+      });
+      
       setTimeout(() => {
         const responseMsg: Message = { 
           id: (Date.now() + 1).toString(), 
           role: "assistant", 
-          content: `Mode "Design-First" activé automatiquement. 🎨\n\nTransmission du design au LLM avec la directive d'architecture intégrée.\nCâblage en cours...`,
+          content: `Mode "Design-First" activé. 🎨\n\nTransmission du design au LLM avec les ${appendedToTrombone.length} fichiers du Trombone intégrés.\nCâblage en cours...`,
           widget: "phases"
         };
-        setActivePhase(5); // Phase 5 correspond à "Génération / Câblage"
+        setActivePhase(5);
         setMessages((prev) => [...prev, responseMsg]);
         
-        // Simuler l'avancement visuel des phases pour l'expérience utilisateur
         let currentDropPhase = 5;
         const dropInterval = setInterval(() => {
           currentDropPhase++;
@@ -1084,17 +1120,23 @@ Description : ${newProjectDesc}.`;
           } else {
             setActivePhase(currentDropPhase);
           }
-        }, 3000); // Avance d'une phase toutes les 3 secondes
-
+        }, 3000);
         
-        // Notification au bridge mobile (optionnel)
         if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
           (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
         }
 
-        // ENVOI AUTOMATIQUE AU BRIDGE POUR INJECTION DANS DEEPSEEK
         if (typeof window !== "undefined") {
           const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+          
+          let contextualData = "";
+          if (appendedToTrombone.length > 0) {
+            contextualData = "\n\n--- Fichiers de contexte complémentaires (Trombone) ---\n";
+            appendedToTrombone.forEach(f => {
+              contextualData += `\n[Fichier: ${f.path}]\n\`\`\`\n${f.content.substring(0, 3000)}\n\`\`\`\n`;
+            });
+          }
+
           const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.
 Ta mission est de créer un projet React (Vite + TSX) COMPLET et autonome à partir de ce design.
 
@@ -1106,12 +1148,10 @@ Tu DOIS impérativement générer TOUS les fichiers nécessaires pour que le pro
 5. Tous les composants React déduits du HTML (dans \`src/components/\`)
 6. Le CSS (dans \`src/styles/\` ou similaire)
           
-CODE HTML ORIGINE:
-          
 CODE HTML:
 \`\`\`html
 ${htmlContent}
-\`\`\`
+\`\`\`${contextualData}
 
 RÈGLE ABSOLUE POUR LA RÉPONSE (KIROV5) :
 Tu dois UNIQUEMENT répondre avec un objet JSON valide contenant les fichiers générés. Aucun texte explicatif avant ou après le JSON.
@@ -1124,13 +1164,13 @@ Format attendu:
 }
 \`\`\`
 `;
-          const designProjectId = "Design_" + file.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
+          const designProjectId = "Design_" + mainHtml.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
           
           const bridge = (window as any).AndroidBridge;
           if (bridge && bridge.openAIWithPrompt) {
              const logicAiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
              bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
-             if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur DeepSeek !");
+             if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
           } else {
             fetch("http://127.0.0.1:5005/bridge/prompt", {
               method: "POST",
@@ -1143,13 +1183,12 @@ Format attendu:
                 phase_num: 5
               })
             })
-            .then(res => console.log("[Bridge] Prompt HTML envoyé avec succès, status:", res.status))
-            .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt HTML:", err));
+            .then(res => console.log("[Bridge] Prompt HTML + Contexte envoyé avec succès, status:", res.status))
+            .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt:", err));
           }
         }
       }, 1200);
-    };
-    reader.readAsText(file);
+    }
   };
 
   // --- WIDGET COMPONENTS ---
@@ -1620,13 +1659,14 @@ Format attendu:
           onDrop={(e) => {
             e.preventDefault();
             setIsDragging(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) handleFileUpload(file);
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+              handleFileUpload(e.dataTransfer.files);
+            }
           }}
         >
         {isDragging && (
           <div className="absolute inset-0 z-50 bg-cyan/20 backdrop-blur-sm border-4 border-dashed border-cyan rounded-3xl m-4 flex items-center justify-center pointer-events-none">
-            <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre fichier Stitch (.html)<br/>pour lancer le câblage !</h2>
+            <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre projet Stitch (.html, .md, .png)<br/>pour préparer le câblage !</h2>
           </div>
         )}
 
@@ -1816,10 +1856,12 @@ Format attendu:
               type="file" 
               ref={fileInputRef} 
               className="hidden" 
-              accept=".html" 
+              multiple
+              accept=".html,.md,.png,.jpg,.jpeg,.json,.txt" 
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file);
+                if (e.target.files && e.target.files.length > 0) {
+                  handleFileUpload(e.target.files);
+                }
                 // Reset input
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }} 
