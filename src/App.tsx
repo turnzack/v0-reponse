@@ -127,7 +127,7 @@ const WidgetSettings = ({
             <span className="text-cyan">🐯</span> SETTINGS
           </h3>
           {isModal && (
-            <button onClick={onClose} className="md:hidden w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold">✕</button>
+            <button onClick={onClose} className="md:hidden w-8 h-8 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-500 font-bold hover:bg-red-500 hover:text-white transition-colors">✕</button>
           )}
         </div>
         <div className="flex-1 overflow-y-auto py-4 hide-scrollbar flex md:flex-col gap-1 px-4">
@@ -825,56 +825,54 @@ export default function Dashboard() {
             return `https://chat.${id}.com/`;
           };
 
-          // Lancement parallèle réel via le Bridge Android (WebView Fantôme) ou Electron
+          // Lancement réel via le Bridge Android (WebView Fantôme) ou Electron
           const bridge = (window as any).AndroidBridge;
           if (bridge && bridge.openAIWithPrompt) {
-            // 📱 MOTEUR MOBILE : On utilise l'incroyable WebView Fantôme codée en Java
-            bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend);
-            setTimeout(() => {
-              bridge.openAIWithPrompt(getUrl(logicAi), "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.");
-            }, 1500);
+            // 📱 MOTEUR MOBILE : La WebView Fantôme est unique, on lance directement DeepSeek
+            bridge.openAIWithPrompt(getUrl(logicAi), "Génère l'architecture complète, l'interface UI/UX, et la logique React pour ce projet : " + textToSend);
           } else {
-            // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron
-            // OUVERTURE SYNCHRONE DES FENÊTRES POUR ÉVITER LE POPUP BLOCKER
-            window.open(getUrl(uiAi, true), "_blank");
-            window.open(getUrl(logicAi), "_blank");
-            
-            const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-            localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
-              
-              // On envoie le prompt UI au Bridge
+            // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron (Multifenêtrage)
+            // On envoie le prompt UI au Bridge
+            fetch("http://127.0.0.1:5005/bridge/prompt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                target_ai: uiAi,
+                prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                auto_submit: true,
+                project_id: newProjectId,
+                phase_num: 1
+              })
+            }).then(() => {
+              console.log("Prompt UI envoyé au Bridge");
+              window.open(getUrl(uiAi, true), "_blank");
+            }).catch(() => {
+              window.open(getUrl(uiAi, true), "_blank");
+            });
+
+            // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
+            setTimeout(() => {
               fetch("http://127.0.0.1:5005/bridge/prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  target_ai: uiAi,
-                  prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                  target_ai: logicAi,
+                  prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
                   auto_submit: true,
                   project_id: newProjectId,
                   phase_num: 1
                 })
-              }).catch(() => {});
-
-              // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
-              setTimeout(() => {
-                fetch("http://127.0.0.1:5005/bridge/prompt", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    target_ai: logicAi,
-                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
-                    auto_submit: true,
-                    project_id: newProjectId,
-                    phase_num: 1
-                  })
-                }).catch(() => {});
-              }, 500); 
+              }).then(() => {
+                console.log("Prompt Logique envoyé au Bridge");
+                window.open(getUrl(logicAi), "_blank");
+              }).catch(() => {
+                window.open(getUrl(logicAi), "_blank");
+              });
+            }, 500); 
               
-              console.log("Les IA ont été ouvertes. Les prompts ont été envoyés au Bridge local pour injection via l'extension.");
-            }
+            console.log("Les IA ont été ouvertes. Les prompts ont été envoyés au Bridge local pour injection via l'extension.");
           }
-
-
+        }
 
         // 3. Simulation visuelle des phases
         setActivePhase(1);
