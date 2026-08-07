@@ -1055,6 +1055,35 @@ Description : ${newProjectDesc}.`;
     });
   };
 
+  const handleModalFileUpload = async (files: FileList | File[]) => {
+    if (!newProjectName.trim()) {
+      alert("Veuillez donner un nom à votre projet avant d'importer une archive.");
+      return;
+    }
+    const genId = activeProject || "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+    
+    if (!activeProject) {
+      try {
+        const res = await fetch("http://localhost:5005/api/projects/create", {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ projectId: genId })
+        });
+        if (res.ok) {
+          setActiveProject(genId);
+        }
+      } catch (err) {
+        console.error("Erreur de création du dossier projet:", err);
+      }
+    }
+    
+    setIsNewProjectModalOpen(false);
+    localStorage.setItem("tiger_targetAi", newProjectLogicAi);
+    if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", genId);
+    
+    handleFileUpload(files);
+  };
+
   const handleFileUpload = async (files: FileList | File[] | File) => {
     let fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
     
@@ -2005,7 +2034,7 @@ Format attendu:
                       if (!newProjectName.trim()) return;
                       const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
                       try {
-                        const res = await fetch("http://127.0.0.1:5005/api/projects/create", {
+                        const res = await fetch("http://localhost:5005/api/projects/create", {
                            method: "POST",
                            headers: { "Content-Type": "application/json" },
                            body: JSON.stringify({ projectId: genId })
@@ -2061,6 +2090,23 @@ Format attendu:
                      💎 Packs PRD ({selectedPacks.length})
                    </button>
                 </div>
+              </div>
+              
+              <div className="mt-4 border-2 border-dashed border-slate-700 hover:border-cyan/50 bg-slate-900/50 rounded-2xl p-6 flex flex-col items-center justify-center transition-colors relative overflow-hidden group">
+                <input 
+                  type="file" 
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                  accept=".zip"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleModalFileUpload(e.target.files);
+                    }
+                  }}
+                />
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay pointer-events-none"></div>
+                <div className="text-4xl mb-2 group-hover:scale-110 transition-transform drop-shadow-[0_0_15px_rgba(8,179,201,0.5)]">📎</div>
+                <div className="text-cyan font-bold mb-1 text-center">Trombone Rapide : Déposez votre .zip ici</div>
+                <div className="text-slate-500 text-[11px] text-center max-w-[80%]">Câblage express : ignore la phase UI et lance automatiquement la génération du backend DeepSeek avec les fichiers de votre archive.</div>
               </div>
             </div>
             
