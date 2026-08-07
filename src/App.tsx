@@ -570,7 +570,10 @@ export default function Dashboard() {
     if (content === undefined || !activeProject || !activeFile) return;
     setFileContent(content);
     
-    if (Capacitor.isNativePlatform()) {
+    // Détection Mobile Blindée
+    const isMobileNative = Capacitor.isNativePlatform() || !!(window as any).AndroidBridge;
+
+    if (isMobileNative) {
       // 📱 MOTEUR NATIF ANDROID
       try {
         await Filesystem.writeFile({
@@ -618,7 +621,10 @@ export default function Dashboard() {
         "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
       ];
 
-      if (Capacitor.isNativePlatform()) {
+      // Détection Mobile Blindée (Vérifie Capacitor OU la présence de la WebView Fantôme Java)
+      const isMobileNative = Capacitor.isNativePlatform() || !!(window as any).AndroidBridge;
+
+      if (isMobileNative) {
         try {
           const result = await Filesystem.readdir({
             path: 'v0-moteur-mobile/projetv0',
