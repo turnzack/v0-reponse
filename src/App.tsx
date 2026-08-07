@@ -816,10 +816,32 @@ export default function Dashboard() {
           }
 
       } else if (normalizedInput.includes("cree") || normalizedInput.includes("lance") || normalizedInput.includes("nouveau projet") || normalizedInput.includes("generation")) {
-        responseMsg.content = "Initialisation du pipeline de création G5 en 11 phases. Démarrage...";
+        responseMsg.content = "🚀 Initialisation du pipeline de création... Ouverture de la structure hiérarchique !";
         responseMsg.widget = "phases";
         
-        // Simuler l'avancement des phases
+        // 1. Création du nom de projet et ouverture dynamique de l'arborescence à gauche !
+        const genProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+        setActiveProject(genProjectId);
+        
+        // 2. Déclenchement de l'IA via la WebView Fantôme (Mobile) ou Navigateur (PC)
+        if (typeof window !== "undefined") {
+          const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+          const aiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+          
+          const bridge = (window as any).AndroidBridge;
+          if (bridge && bridge.openAIWithPrompt) {
+            bridge.openAIWithPrompt(aiUrl, "Génère l'architecture complète et le code pour ce projet : " + textToSend);
+          } else {
+            // Fallback PC
+            fetch("http://127.0.0.1:5005/bridge/prompt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ target_ai: logicAi, prompt: "Génère l'architecture complète pour : " + textToSend, auto_submit: true })
+            }).catch(() => window.open(aiUrl, "_blank"));
+          }
+        }
+
+        // 3. Simulation visuelle des phases
         setActivePhase(1);
         let current = 1;
         const interval = setInterval(() => {
