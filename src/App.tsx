@@ -1060,6 +1060,10 @@ Description : ${newProjectDesc}.`;
       alert("Veuillez donner un nom à votre projet avant d'importer une archive.");
       return;
     }
+    
+    // Fermeture de la modale instantanée pour confirmer à l'utilisateur que l'action est prise en compte
+    setIsNewProjectModalOpen(false);
+    
     const genId = activeProject || "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
     
     if (!activeProject) {
@@ -1077,7 +1081,6 @@ Description : ${newProjectDesc}.`;
       }
     }
     
-    setIsNewProjectModalOpen(false);
     localStorage.setItem("tiger_targetAi", newProjectLogicAi);
     if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", genId);
     
@@ -2028,7 +2031,7 @@ Format attendu:
                   Nom du Projet
                 </label>
                 <div className="flex gap-2">
-                  <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors disabled:opacity-50" />
+                  <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className={`flex-1 text-white border rounded-xl px-4 py-3 outline-none transition-colors ${activeProject ? 'border-green-500/50 bg-green-500/10 text-green-400' : 'bg-slate-800/50 border-slate-700 focus:border-cyan focus:bg-slate-800 disabled:opacity-50'}`} />
                   <button 
                     onClick={async () => {
                       if (!newProjectName.trim()) return;
@@ -2047,11 +2050,16 @@ Format attendu:
                       }
                     }}
                     disabled={!!activeProject || !newProjectName.trim()}
-                    className="px-6 py-3 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`px-6 py-3 rounded-xl font-bold transition-all disabled:cursor-not-allowed ${activeProject ? 'bg-green-500/20 text-green-400 border border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 disabled:opacity-50'}`}
                   >
-                    {activeProject ? '✅ Validé' : 'Valider'}
+                    {activeProject ? '✅ Créé sur le Disque !' : 'Valider'}
                   </button>
                 </div>
+                {activeProject && (
+                  <div className="text-green-400 text-xs font-bold mt-2 ml-1 flex items-center gap-1">
+                    ✅ Dossier prêt : C:\\Users\\patri\\Documents\\Tiger_IA_Projects\\{activeProject}
+                  </div>
+                )}
               </div>
               
               <div>
