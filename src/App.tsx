@@ -608,25 +608,47 @@ export default function Dashboard() {
       }).catch(() => {});
   };
 
-  // Chargement des projets réels au montage
+  // Chargement des projets réels au montage (Hybride)
   useEffect(() => {
-    fetch("http://localhost:5005/api/projects")
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.projects) {
-          const cardStyles = [
-            "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md", // Rose to Burnt Orange
-            "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md", // Lavender to Mauve
-            "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md", // Peach to Rose
-            "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"  // Mauve to Burnt Orange
-          ];
-          setRealProjects(data.projects.map((p: string, i: number) => ({
+    const loadProjects = async () => {
+      const cardStyles = [
+        "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
+      ];
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const result = await Filesystem.readdir({
+            path: 'v0-moteur-mobile/projetv0',
+            directory: Directory.Documents
+          });
+          // Capacitor 6 returns an array of FileInfo in result.files
+          const projectNames = result.files.map(f => f.name || (f as any).toString());
+          setRealProjects(projectNames.map((p: string, i: number) => ({
             name: p,
-            desc: "Environnement Local",
+            desc: "Mémoire Téléphone",
             bg: cardStyles[i % cardStyles.length]
           })));
+        } catch (e) {
+          console.log("Aucun projet mobile trouvé ou dossier inexistant.");
         }
-      }).catch(() => {});
+      } else {
+        fetch("http://localhost:5005/api/projects")
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.projects) {
+              setRealProjects(data.projects.map((p: string, i: number) => ({
+                name: p,
+                desc: "Environnement Local",
+                bg: cardStyles[i % cardStyles.length]
+              })));
+            }
+          }).catch(() => {});
+      }
+    };
+    loadProjects();
   }, []);
 
   // Chargement de l'historique
