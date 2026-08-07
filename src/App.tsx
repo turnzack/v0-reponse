@@ -4,18 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Diamond, Bot, FolderGit2, X, CheckCircle2, ShoppingCart, ShieldCheck, Layout, Smartphone, Newspaper, Trophy, CreditCard } from 'lucide-react';
-
-const AVAILABLE_PACKS = [
-  { id: 'prd_auth_gateway', name: 'Auth Gateway Security', icon: ShieldCheck, color: 'bg-red-500/10 text-red-500' },
-  { id: 'prd_ecom_catalog', name: 'E-commerce Catalog', icon: ShoppingCart, color: 'bg-blue-500/10 text-blue-500' },
-  { id: 'prd_ecom_checkout', name: 'E-commerce Checkout', icon: CreditCard, color: 'bg-emerald-500/10 text-emerald-500' },
-  { id: 'prd_saas_billing_pro', name: 'SaaS Billing Pro', icon: CreditCard, color: 'bg-purple-500/10 text-purple-500' },
-  { id: 'prd_layout_bento', name: 'Layout Bento', icon: Layout, color: 'bg-orange-500/10 text-orange-500' },
-  { id: 'prd_mobile_social', name: 'Mobile Social', icon: Smartphone, color: 'bg-pink-500/10 text-pink-500' },
-  { id: 'prd_blog_magazine', name: 'Blog Magazine', icon: Newspaper, color: 'bg-yellow-500/10 text-yellow-500' },
-  { id: 'prd_game_leaderboard', name: 'Game Leaderboard', icon: Trophy, color: 'bg-amber-500/10 text-amber-500' },
-];
+import { Diamond, X, CheckCircle2 } from 'lucide-react';
+import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -881,22 +871,43 @@ export default function Dashboard() {
 
             // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
             setTimeout(() => {
-              fetch("http://127.0.0.1:5005/bridge/prompt", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  target_ai: logicAi,
-                  prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
-                  auto_submit: true,
-                  project_id: newProjectId,
-                  phase_num: 1
-                })
-              }).then(() => {
-                console.log("Prompt Logique envoyé au Bridge");
-                window.open(getUrl(logicAi), "_blank");
-              }).catch(() => {
-                window.open(getUrl(logicAi), "_blank");
-              });
+              if (selectedPacks && selectedPacks.length > 0) {
+                // TROMBONE PIPELINE (PRD)
+                fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_ai: logicAi,
+                    user_prompt: textToSend,
+                    packs: selectedPacks,
+                    target_project: newProjectId
+                  })
+                }).then(() => {
+                  console.log("Méga-Prompt Trombone envoyé !");
+                  window.open(getUrl(logicAi), "_blank");
+                }).catch(err => {
+                  console.log("Erreur Trombone Bridge:", err);
+                  window.open(getUrl(logicAi), "_blank");
+                });
+              } else {
+                // STANDARD PIPELINE
+                fetch("http://127.0.0.1:5005/bridge/prompt", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_ai: logicAi,
+                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
+                    auto_submit: true,
+                    project_id: newProjectId,
+                    phase_num: 1
+                  })
+                }).then(() => {
+                  console.log("Prompt Logique envoyé au Bridge");
+                  window.open(getUrl(logicAi), "_blank");
+                }).catch(() => {
+                  window.open(getUrl(logicAi), "_blank");
+                });
+              }
             }, 500); 
               
             console.log("Les IA ont été ouvertes. Les prompts ont été envoyés au Bridge local pour injection via l'extension.");
@@ -1764,12 +1775,12 @@ Format attendu:
                   return (
                     <div 
                       key={pack.id} onClick={() => togglePack(pack.id)}
-                      className={\`cursor-pointer relative p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col gap-3 group \${isSelected ? 'border-indigo-500 bg-indigo-900/20 shadow-[0_0_20px_rgba(79,70,229,0.2)]' : 'border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/80'}\`}
+                      className={`cursor-pointer relative p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col gap-3 group ${isSelected ? 'border-indigo-500 bg-indigo-900/20 shadow-[0_0_20px_rgba(79,70,229,0.2)]' : 'border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/80'}`}
                     >
-                      <div className={\`absolute top-4 right-4 transition-transform \${isSelected ? 'scale-100 text-indigo-500' : 'scale-0 text-transparent'}\`}>
+                      <div className={`absolute top-4 right-4 transition-transform ${isSelected ? 'scale-100 text-indigo-500' : 'scale-0 text-transparent'}`}>
                         <CheckCircle2 size={24} className="fill-indigo-500/20" />
                       </div>
-                      <div className={\`w-12 h-12 rounded-xl flex items-center justify-center \${pack.color}\`}><pack.icon size={24} /></div>
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pack.color}`}><pack.icon size={24} /></div>
                       <div>
                         <h3 className="text-white font-semibold">{pack.name}</h3>
                         <p className="text-slate-500 text-xs mt-1 font-mono">{pack.id}</p>
