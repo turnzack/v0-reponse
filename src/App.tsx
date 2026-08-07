@@ -799,6 +799,7 @@ export default function Dashboard() {
             window.open(getUrl(logicAi), "_blank");
             
             const newProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+            localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
               
               // On envoie le prompt UI au Bridge
               fetch("http://127.0.0.1:5005/bridge/prompt", {
@@ -839,6 +840,7 @@ export default function Dashboard() {
         // 1. Création du nom de projet et ouverture dynamique de l'arborescence à gauche !
         const genProjectId = "Projet_" + textToSend.substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
         setActiveProject(genProjectId);
+        if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", genProjectId);
         
         // 2. Déclenchement de l'IA via la WebView Fantôme (Mobile) ou Navigateur (PC)
         if (typeof window !== "undefined") {
@@ -1235,10 +1237,21 @@ Format attendu:
           
           let cardBg = "bg-glass border-white/10 opacity-50"; 
           if (isDone) cardBg = "bg-gradient-to-br from-green-900/60 to-emerald-900/60 border-green-500/50 text-green-100 shadow-[0_0_15px_rgba(34,197,94,0.2)]";
-          if (isCurrent) cardBg = "bg-gradient-to-br from-cyan/20 to-blue-900/40 border-cyan text-white shadow-[0_0_20px_rgba(8,179,201,0.5)] animate-pulse";
+          if (isCurrent) cardBg = "bg-gradient-to-br from-cyan/20 to-blue-900/40 border-cyan text-white shadow-[0_0_20px_rgba(8,179,201,0.5)] animate-pulse hover:scale-105 cursor-pointer";
 
           return (
-            <div key={idx} className={`w-40 h-48 rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}>
+            <div 
+              key={idx} 
+              onClick={() => {
+                if (p === "Build" || isCurrent || isDone) {
+                  // Ouvre l'IDE sur le projet qui vient d'être lancé
+                  const lastProj = localStorage.getItem("tiger_lastGeneratedProject");
+                  if (lastProj) setActiveProject(lastProj);
+                }
+              }}
+              className={`w-40 h-48 rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}
+              title={p === "Build" ? "Cliquez pour ouvrir l'IDE sur le projet généré" : ""}
+            >
               <div className="text-3xl font-black opacity-20">
                 {step.toString().padStart(2, '0')}
               </div>
@@ -1251,6 +1264,11 @@ Format attendu:
               {isCurrent && (
                 <div className="w-full h-1 bg-white/20 rounded-full mt-2 overflow-hidden">
                   <div className="h-full bg-cyan w-1/2 animate-ping rounded-full"></div>
+                </div>
+              )}
+              {p === "Build" && (
+                <div className="mt-2 text-[10px] text-cyan font-bold uppercase tracking-widest flex items-center gap-1 bg-black/40 px-2 py-1 rounded">
+                  <span>🚀</span> Ouvrir IDE
                 </div>
               )}
             </div>
