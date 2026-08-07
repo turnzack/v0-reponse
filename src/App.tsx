@@ -46,7 +46,8 @@ const WidgetSettings = ({
   availableProjects,
   setAvailableProjects,
   selectedLaunchProject,
-  setSelectedLaunchProject
+  setSelectedLaunchProject,
+  isMobileNative
 }: any) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   
@@ -298,49 +299,41 @@ const WidgetSettings = ({
 
               {/* SECTION BRIDGE PC vs MOBILE NATIF */}
               <div className="pt-4 border-t border-white/10">
-                {(() => {
-                  const isMobileNative = typeof window !== "undefined" && ((window as any).Capacitor?.isNativePlatform?.() || !!(window as any).AndroidBridge);
-                  
-                  if (isMobileNative) {
-                    return (
-                      <div className="space-y-4">
-                        <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-2">
-                          📱 Moteur Mobile Natif
-                          <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Connecté</span>
-                        </h3>
-                        <p className="text-xs text-gray-400 leading-relaxed">
-                          La configuration automatique est active. Les prompts sont injectés via la WebView Fantôme Java et les fichiers sont sauvegardés nativement sur votre téléphone.
-                          <br /><br />
-                          <strong>Aucun Bridge Electron PC n'est requis.</strong> L'OS Souverain est 100% autonome dans votre poche.
-                        </p>
+                {isMobileNative ? (
+                  <div className="space-y-4">
+                    <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-2">
+                      📱 Moteur Mobile Natif
+                      <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Connecté</span>
+                    </h3>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      La configuration automatique est active. Les prompts sont injectés via la WebView Fantôme Java et les fichiers sont sauvegardés nativement sur votre téléphone.
+                      <br /><br />
+                      <strong>Aucun Bridge Electron PC n'est requis.</strong> L'OS Souverain est 100% autonome dans votre poche.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
+                      🔗 Bridge (:5005 / Vercel)
+                      <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
+                        <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
-                    );
-                  }
-
-                  return (
-                    <>
-                      <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
-                        🔗 Bridge (:5005 / Vercel)
-                        <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
-                      </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
-                          <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
-                        </div>
-                        <div>
-                          <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
-                          <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
-                        </div>
+                      <div>
+                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
+                        <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
-                      <div className="flex gap-3 mt-4">
-                        <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors">🔗 Tester</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-lg text-xs font-bold uppercase transition-colors">💾 SAUVEGARDER_CONFIG</button>
-                      </div>
-                      <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
-                    </>
-                  );
-                })()}
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                      <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors">🔗 Tester</button>
+                      <button onClick={handleSave} className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-lg text-xs font-bold uppercase transition-colors">💾 SAUVEGARDER_CONFIG</button>
+                    </div>
+                    <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -555,6 +548,24 @@ export default function Dashboard() {
   // Simulation des phases de création
   const [activePhase, setActivePhase] = useState(1);
   const [isClient, setIsClient] = useState(false);
+  const [isMobileNative, setIsMobileNative] = useState(false);
+
+  useEffect(() => {
+    // Détection agressive de l'environnement Mobile (Boucle de vérification)
+    let attempts = 0;
+    const checkMobile = setInterval(() => {
+      if (typeof window !== "undefined") {
+        const hasCapacitor = (window as any).Capacitor?.isNativePlatform?.();
+        const hasAndroidBridge = !!(window as any).AndroidBridge;
+        if (hasCapacitor || hasAndroidBridge) {
+          setIsMobileNative(true);
+          clearInterval(checkMobile);
+        }
+      }
+      if (attempts++ > 10) clearInterval(checkMobile); // Arrêt après 1 seconde
+    }, 100);
+    return () => clearInterval(checkMobile);
+  }, []);
 
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
   const [selectedLaunchProject, setSelectedLaunchProject] = useState<string>("");
@@ -1324,6 +1335,7 @@ Format attendu:
             setAvailableProjects={setAvailableProjects}
             selectedLaunchProject={selectedLaunchProject}
             setSelectedLaunchProject={setSelectedLaunchProject}
+            isMobileNative={isMobileNative}
           />
         </div>
       )}
@@ -1456,7 +1468,7 @@ Format attendu:
         <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
           
           {/* Mobile-style Home Screen Grid */}
-          <div className="flex justify-center gap-6 md:gap-12 pt-8 pb-4">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-12 pt-8 pb-4">
             <button 
               onClick={() => setIsSettingsOpen(true)}
               className="group flex flex-col items-center gap-3"
@@ -1491,6 +1503,29 @@ Format attendu:
                 📰
               </div>
               <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
+            </button>
+
+            {/* NOUVEAU BOUTON : ASSISTANT IA DIRECT */}
+            <button 
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+                  const aiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+                  
+                  const bridge = (window as any).AndroidBridge;
+                  if (bridge && bridge.openAIWithPrompt) {
+                    bridge.openAIWithPrompt(aiUrl, "Bonjour ! Je viens d'ouvrir l'Assistant IA depuis le menu principal de Tiger IA.");
+                  } else {
+                    window.open(aiUrl, "_blank");
+                  }
+                }
+              }}
+              className="group flex flex-col items-center gap-3"
+            >
+              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-purple-500/50 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-ai', 0.8) : 'rgba(80,20,200,0.8)' }}>
+                🧠
+              </div>
+              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Assistant IA</span>
             </button>
           </div>
 
