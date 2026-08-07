@@ -582,6 +582,13 @@ export default function Dashboard() {
   // --- NOUVEAUX ETATS : IDE & TROMBONE ---
   const [isPrdModalOpen, setIsPrdModalOpen] = useState(false);
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
+  
+  // MODAL NOUVEAU PROJET V0
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectStack, setNewProjectStack] = useState("Vite + React + Tailwind + TS");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
+  const [newProjectLogicAi, setNewProjectLogicAi] = useState("deepseek");
 
   const togglePack = (packId: string) => {
     setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
@@ -852,17 +859,34 @@ export default function Dashboard() {
           } else {
             // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron (Multifenêtrage)
             // On envoie le prompt UI au Bridge
-            fetch("http://127.0.0.1:5005/bridge/prompt", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                target_ai: uiAi,
-                prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
-                auto_submit: true,
-                project_id: newProjectId,
-                phase_num: 1
-              })
-            }).then(() => {
+            const sendUiPrompt = () => {
+              if (selectedPacks && selectedPacks.length > 0) {
+                return fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_ai: uiAi,
+                    user_prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                    packs: selectedPacks,
+                    target_project: newProjectId
+                  })
+                });
+              } else {
+                return fetch("http://127.0.0.1:5005/bridge/prompt", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_ai: uiAi,
+                    prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                    auto_submit: true,
+                    project_id: newProjectId,
+                    phase_num: 1
+                  })
+                });
+              }
+            };
+
+            sendUiPrompt().then(() => {
               console.log("Prompt UI envoyé au Bridge");
               window.open(getUrl(uiAi, true), "_blank");
             }).catch(() => {
@@ -953,6 +977,72 @@ export default function Dashboard() {
     }, 600);
 
     setInput("");
+  };
+
+  const handleStartNewV0Project = () => {
+    if (!newProjectName.trim()) return alert("Veuillez donner un nom à votre projet");
+    
+    setIsNewProjectModalOpen(false);
+    localStorage.setItem("tiger_targetAi", newProjectLogicAi);
+    
+    const promptText = `Génère l'interface UI/UX complète et moderne pour le projet : ${newProjectName}.
+Stack / Structure : ${newProjectStack}.
+Description : ${newProjectDesc}.`;
+
+    const newProjectId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+    setActiveProject(newProjectId);
+    if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
+    
+    const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
+    const getUrl = (id: string, isUi: boolean = false) => {
+      if (id === "custom") return localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/";
+      if (id === "stitch") return "https://stitch.withgoogle.com/";
+      if (id === "v0") return "https://v0.dev/";
+      return `https://chat.${id}.com/`;
+    };
+
+    const msg: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: `🚀 Lancement de la phase UI pour "${newProjectName}".\nL'assistant Logique (${newProjectLogicAi.toUpperCase()}) prendra le relais quand vous glisserez le fichier HTML final dans le chat.`,
+      widget: "phases"
+    };
+    setActivePhase(1);
+    setMessages(prev => [...prev, { id: Date.now().toString() + "_u", role: "user", content: `Nouveau projet : ${newProjectName}` }, msg]);
+
+    const sendUiPrompt = () => {
+      if (selectedPacks && selectedPacks.length > 0) {
+        return fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_ai: uiAi,
+            user_prompt: promptText,
+            packs: selectedPacks,
+            target_project: newProjectId
+          })
+        });
+      } else {
+        return fetch("http://127.0.0.1:5005/bridge/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_ai: uiAi,
+            prompt: promptText,
+            auto_submit: true,
+            project_id: newProjectId,
+            phase_num: 1
+          })
+        });
+      }
+    };
+
+    sendUiPrompt().then(() => {
+      console.log("Prompt UI envoyé au Bridge");
+      window.open(getUrl(uiAi, true), "_blank");
+    }).catch(() => {
+      window.open(getUrl(uiAi, true), "_blank");
+    });
   };
 
   const handleFileUpload = (file: File) => {
@@ -1169,7 +1259,18 @@ Format attendu:
       );
     }
 
-    return renderCarousel(liveProjects.map((p, i) => (
+    return renderCarousel([
+      <div 
+        key="new-v0"
+        className={`w-64 h-48 rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
+        onClick={() => setIsNewProjectModalOpen(true)}
+      >
+        <div className="absolute inset-0 bg-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+        <div className="text-5xl mb-3 drop-shadow-[0_0_10px_rgba(8,179,201,0.8)] group-hover:scale-110 transition-transform">✨</div>
+        <h3 className="text-lg font-black text-white text-center">Nouveau Projet (v0)</h3>
+        <p className="text-xs text-cyan font-bold text-center mt-2 tracking-widest uppercase">Lancer l'UI/UX</p>
+      </div>,
+      ...liveProjects.map((p, i) => (
       <div 
         key={i} 
         className={`w-64 h-48 rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`} 
@@ -1208,7 +1309,7 @@ Format attendu:
           🚀 Installer & Lancer
         </button>
       </div>
-    )));
+    ))]);
   };
 
   const WidgetNews = () => {
@@ -1755,7 +1856,7 @@ Format attendu:
 
       {/* MODALE DE SÉLECTION DES PACKS PRD */}
       {isPrdModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-800">
               <div>
@@ -1794,6 +1895,76 @@ Format attendu:
               <div className="text-sm text-slate-400"><span className="font-bold text-white">{selectedPacks.length}</span> pack(s) prêt(s) pour l'injection.</div>
               <button onClick={() => setIsPrdModalOpen(false)} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)]">
                 Valider la Sélection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE NOUVEAU PROJET V0 */}
+      {isNewProjectModalOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b border-slate-800 bg-[#050505]">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <span className="text-cyan">✨</span> Nouveau Projet Intelligent
+              </h2>
+              <button onClick={() => setIsNewProjectModalOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh] hide-scrollbar bg-slate-950/80">
+              <div>
+                <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">
+                  Nom du Projet
+                </label>
+                <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="Ex: Dashboard E-commerce" className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors" />
+              </div>
+              
+              <div>
+                <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">
+                  Stack & Structure Hiérarchique
+                </label>
+                <input type="text" value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} placeholder="Ex: Vite + React + Tailwind" className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors" />
+              </div>
+              
+              <div>
+                <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">
+                  Descriptif & Objectifs (UI/UX)
+                </label>
+                <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez l'application de vos rêves..." className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 h-32 resize-none transition-colors"></textarea>
+              </div>
+              
+              <div className="flex flex-col md:flex-row items-center gap-4 pt-2">
+                <div className="w-full md:flex-1">
+                  <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">
+                    Assistant IA Logique (Backend)
+                  </label>
+                  <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 transition-colors">
+                    <option value="deepseek">🐋 DeepSeek</option>
+                    <option value="openai">🟢 OpenAI (ChatGPT)</option>
+                    <option value="kimi">🌙 Kimi</option>
+                    <option value="gemini">✨ Gemini</option>
+                    <option value="claude">🟣 Claude</option>
+                  </select>
+                </div>
+                
+                <div className="w-full md:flex-none mt-2 md:mt-5">
+                   <button 
+                     onClick={() => setIsPrdModalOpen(true)}
+                     className="w-full px-5 py-3 bg-indigo-900/40 border border-indigo-500/50 hover:bg-indigo-800 hover:border-indigo-400 text-indigo-300 rounded-xl font-bold flex items-center justify-center gap-3 transition-all"
+                   >
+                     💎 Packs PRD ({selectedPacks.length})
+                   </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-slate-800 bg-[#050505] flex justify-end gap-3">
+              <button onClick={() => setIsNewProjectModalOpen(false)} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-colors">Annuler</button>
+              <button onClick={handleStartNewV0Project} className="px-6 py-3 bg-cyan hover:bg-cyan/80 text-black rounded-xl font-bold shadow-[0_0_15px_rgba(8,179,201,0.4)] flex items-center gap-2 transition-all">
+                Lancer Création UI 🚀
               </button>
             </div>
           </div>
