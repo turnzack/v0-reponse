@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Head from "next/head";
 import Editor from '@monaco-editor/react';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
