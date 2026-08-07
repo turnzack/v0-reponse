@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Editor from '@monaco-editor/react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -563,15 +565,32 @@ export default function Dashboard() {
     }
   }, [activeProject, activeFile]);
 
-  // Sauvegarde manuelle du fichier
-  const handleSaveFile = (content: string | undefined) => {
+  // Sauvegarde manuelle du fichier (Hybride PC / Mobile)
+  const handleSaveFile = async (content: string | undefined) => {
     if (content === undefined || !activeProject || !activeFile) return;
     setFileContent(content);
-    fetch("http://localhost:5005/api/fs/write", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project: activeProject, file: activeFile, content })
-    }).catch(() => {});
+    
+    if (Capacitor.isNativePlatform()) {
+      // 📱 MOTEUR NATIF ANDROID
+      try {
+        await Filesystem.writeFile({
+          path: `v0-moteur-mobile/projetv0/${activeProject}/${activeFile}`,
+          data: content,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+          recursive: true
+        });
+      } catch (e) {
+        console.error("Erreur de sauvegarde mobile:", e);
+      }
+    } else {
+      // 💻 MOTEUR ELECTRON (PC)
+      fetch("http://localhost:5005/api/fs/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: activeProject, file: activeFile, content })
+      }).catch(() => {});
+    }
   };
 
   // Attacher au trombone
