@@ -891,8 +891,22 @@ export default function Dashboard() {
             fetch("http://127.0.0.1:5005/bridge/prompt", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ target_ai: logicAi, prompt: "Génère l'architecture complète pour : " + textToSend, auto_submit: true })
-            }).catch(() => window.open(aiUrl, "_blank"));
+              body: JSON.stringify({ 
+                target_ai: logicAi, 
+                prompt: "Génère l'architecture complète pour : " + textToSend, 
+                auto_submit: true,
+                project_id: genProjectId,
+                phase_num: 1
+              })
+            })
+            .then(() => {
+              console.log("Prompt envoyé avec succès au Bridge PC");
+              window.open(aiUrl, "_blank");
+            })
+            .catch((err) => {
+              console.error("Erreur Bridge PC:", err);
+              window.open(aiUrl, "_blank");
+            });
           }
         }
 
@@ -1348,7 +1362,7 @@ Format attendu:
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-white tracking-wider">TIGER IA</h1>
-            <p className="text-xs text-cyan font-medium">OS Souverain v2.0</p>
+            <p className="text-xs text-cyan font-medium">OS Souverain v2.1</p>
           </div>
         </div>
       </header>
@@ -1468,41 +1482,15 @@ Format attendu:
         <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
           
           {/* Mobile-style Home Screen Grid */}
-          <div className="flex flex-wrap justify-center gap-6 md:gap-12 pt-8 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-8 pt-8 pb-4 max-w-3xl mx-auto w-full px-4">
             <button 
               onClick={() => setIsSettingsOpen(true)}
               className="group flex flex-col items-center gap-3"
             >
-              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-pink/50 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-settings', 0.8) : 'rgba(30,30,30,0.8)' }}>
+              <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-pink/50 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-settings', 0.8) : 'rgba(30,30,30,0.8)' }}>
                 ⚙️
               </div>
-              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Réglages</span>
-            </button>
-            
-            <button 
-              onClick={() => {
-                handleSend("Mes projets");
-                setInput("");
-              }}
-              className="group flex flex-col items-center gap-3"
-            >
-              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
-                📁
-              </div>
-              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
-            </button>
-            
-            <button 
-              onClick={() => {
-                handleSend("Actualités IA");
-                setInput("");
-              }}
-              className="group flex flex-col items-center gap-3"
-            >
-              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
-                📰
-              </div>
-              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
+              <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Réglages</span>
             </button>
 
             {/* NOUVEAU BOUTON : ASSISTANT IA DIRECT */}
@@ -1522,10 +1510,36 @@ Format attendu:
               }}
               className="group flex flex-col items-center gap-3"
             >
-              <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-white/10 rounded-3xl flex items-center justify-center text-4xl shadow-2xl group-hover:scale-105 group-hover:border-purple-500/50 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-ai', 0.8) : 'rgba(80,20,200,0.8)' }}>
+              <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-purple-500/50 group-hover:shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-ai', 0.8) : 'rgba(80,20,200,0.8)' }}>
                 🧠
               </div>
-              <span className="text-sm text-white font-bold tracking-wider drop-shadow-md">Assistant IA</span>
+              <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Assistant IA</span>
+            </button>
+            
+            <button 
+              onClick={() => {
+                handleSend("Mes projets");
+                setInput("");
+              }}
+              className="group flex flex-col items-center gap-3"
+            >
+              <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
+                📁
+              </div>
+              <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
+            </button>
+            
+            <button 
+              onClick={() => {
+                handleSend("Actualités IA");
+                setInput("");
+              }}
+              className="group flex flex-col items-center gap-3"
+            >
+              <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
+                📰
+              </div>
+              <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
             </button>
           </div>
 
