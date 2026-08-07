@@ -782,8 +782,13 @@ export default function Dashboard() {
 
       const normalizedInput = lowerInput.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+      // 0. DÉTECTION LISTE DES PROJETS (Doit passer AVANT la création)
+      if (normalizedInput === "mes projets" || normalizedInput.includes("liste des projet") || normalizedInput === "projet" || normalizedInput === "projets") {
+        responseMsg.content = "Voici la liste de vos projets récents :";
+        responseMsg.widget = "projects";
+      }
       // 1. DÉTECTION MODIFICATION (Projet Existant / Reprise)
-      if ((normalizedInput.includes("stitch") || normalizedInput.includes("deepseek") || normalizedInput.includes("design") || normalizedInput.includes("logique")) && 
+      else if ((normalizedInput.includes("stitch") || normalizedInput.includes("deepseek") || normalizedInput.includes("design") || normalizedInput.includes("logique")) && 
           (normalizedInput.includes("modifi") || normalizedInput.includes("ajoute") || normalizedInput.includes("change") || normalizedInput.includes("mise a jour") || normalizedInput.includes("evolue") || normalizedInput.includes("reprends") || normalizedInput.includes("continue"))) {
         
         // Extraction du nom de projet si fourni entre crochets (ex: [Portfolio React Vite])
@@ -892,9 +897,6 @@ export default function Dashboard() {
           }
         }, 1500);
 
-      } else if (normalizedInput.includes("projet")) {
-        responseMsg.content = "Voici la liste de vos projets récents :";
-        responseMsg.widget = "projects";
       } else if (normalizedInput.includes("youtube") || normalizedInput.includes("video")) {
         responseMsg.content = "Voici les résultats YouTube pour votre recherche :";
         responseMsg.widget = "youtube";
@@ -1100,7 +1102,37 @@ Format attendu:
 
 
   const WidgetProjects = () => {
-    if (realProjects.length === 0) {
+    const [liveProjects, setLiveProjects] = useState<{name: string, desc: string, bg: string}[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+      const cardStyles = [
+        "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
+        "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
+      ];
+      fetch("http://localhost:5005/api/projects")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.projects) {
+            setLiveProjects(data.projects.map((p: string, i: number) => ({
+              name: p,
+              desc: "Environnement Local",
+              bg: cardStyles[i % cardStyles.length]
+            })));
+          }
+          setIsLoading(false);
+        }).catch(() => {
+          setIsLoading(false);
+        });
+    }, []);
+
+    if (isLoading) {
+      return <div className="p-4 text-cyan text-sm italic">Actualisation de la liste des projets...</div>;
+    }
+
+    if (liveProjects.length === 0) {
       return (
         <div className="p-4 text-cyan text-sm italic">
           Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
@@ -1108,22 +1140,27 @@ Format attendu:
       );
     }
 
-    return renderCarousel(realProjects.map((p, i) => (
-      <div key={i} className={`w-64 h-48 rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group`} style={{ background: isClient ? getCachedGradient('proj-'+i, 0.7) : 'rgba(0,0,0,0.5)' }}>
+    return renderCarousel(liveProjects.map((p, i) => (
+      <div 
+        key={i} 
+        className={`w-64 h-48 rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`} 
+        style={{ background: isClient ? getCachedGradient('proj-'+i, 0.7) : 'rgba(0,0,0,0.5)' }}
+        onClick={() => setActiveProject(p.name)}
+      >
         {/* Effet de grain / texture pour casser le côté "uni" */}
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
         
         <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
         
-        <div className="z-10 relative">
+        <div className="z-10 relative pointer-events-none">
           <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 drop-shadow-md">PROJET</div>
           <h3 className="text-xl font-black text-white mb-2 break-all drop-shadow-lg leading-tight">{p.name}</h3>
         </div>
-        <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md">{p.desc}</div>
+        <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md pointer-events-none">{p.desc}</div>
         
         <button 
-          onClick={async () => {
-            setActiveProject(p.name);
+          onClick={async (e) => {
+            e.stopPropagation();
             try {
               window.dispatchEvent(new CustomEvent('open-mouchard'));
               const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
@@ -1132,13 +1169,14 @@ Format attendu:
                 body: JSON.stringify({ project_id: p.name })
               });
               const data = await res.json();
-            } catch (e: any) {
-              alert("Erreur de lancement : " + e.message);
+            } catch (err: any) {
+              alert("Erreur de lancement : " + err.message);
             }
           }}
           className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
+          title="Installer les dépendances et Lancer le projet"
         >
-          🚀 Lancer l'IDE
+          🚀 Installer & Lancer
         </button>
       </div>
     )));
