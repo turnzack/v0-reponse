@@ -1056,14 +1056,49 @@ Description : ${newProjectDesc}.`;
   };
 
   const handleFileUpload = async (files: FileList | File[] | File) => {
-    const fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
+    let fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
     
+    // 1. Décompression des ZIP à la volée
+    const zipFiles = fileArray.filter(f => f.name.endsWith('.zip'));
+    let extractedFiles: File[] = [];
+    
+    if (zipFiles.length > 0) {
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString() + "_zip", 
+        role: "user", 
+        content: `📦 Extraction de l'archive ZIP en cours...` 
+      }]);
+      
+      try {
+        const JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
+        for (const zf of zipFiles) {
+          const zip = new JSZip();
+          const zipData = await zip.loadAsync(zf);
+          
+          for (const [filename, zipEntry] of Object.entries(zipData.files)) {
+            // Ignorer les dossiers et fichiers cachés
+            if (!zipEntry.dir && !filename.includes('__MACOSX') && !filename.split('/').pop()?.startsWith('.')) {
+              const blob = await zipEntry.async("blob");
+              const extFile = new File([blob], filename.split('/').pop() || filename, { type: blob.type });
+              extractedFiles.push(extFile);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erreur décompression ZIP:", err);
+        alert("Système Kirov5 : Impossible de lire l'archive ZIP.");
+      }
+    }
+    
+    // Remplacer les ZIP par leur contenu décompressé
+    fileArray = [...fileArray.filter(f => !f.name.endsWith('.zip')), ...extractedFiles];
+
     // Separate HTML from other files
     const htmlFiles = fileArray.filter(f => f.name.endsWith('.html'));
     const otherFiles = fileArray.filter(f => !f.name.endsWith('.html') && (f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') || f.name.endsWith('.md') || f.name.endsWith('.json') || f.name.endsWith('.txt')));
 
     if (htmlFiles.length === 0 && otherFiles.length === 0) {
-      alert("Système Kirov5 : Format non supporté. Veuillez déposer au moins un .html, .md, ou .png.");
+      alert("Système Kirov5 : Format non supporté. Veuillez déposer au moins un .html, .md, .png, ou un .zip.");
       return;
     }
 
@@ -1298,14 +1333,6 @@ Format attendu:
 
     if (isLoading) {
       return <div className="p-4 text-cyan text-sm italic">Actualisation de la liste des projets...</div>;
-    }
-
-    if (liveProjects.length === 0) {
-      return (
-        <div className="p-4 text-cyan text-sm italic">
-          Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
-        </div>
-      );
     }
 
     return renderCarousel([
@@ -1676,7 +1703,7 @@ Format attendu:
         >
         {isDragging && (
           <div className="absolute inset-0 z-50 bg-cyan/20 backdrop-blur-sm border-4 border-dashed border-cyan rounded-3xl m-4 flex items-center justify-center pointer-events-none">
-            <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre projet Stitch (.html, .md, .png)<br/>pour préparer le câblage !</h2>
+            <h2 className="text-3xl font-black text-cyan drop-shadow-lg text-center px-4">Glissez votre projet Stitch (.zip, .html, .md, .png)<br/>pour préparer le câblage !</h2>
           </div>
         )}
 
@@ -1867,7 +1894,7 @@ Format attendu:
               ref={fileInputRef} 
               className="hidden" 
               multiple
-              accept=".html,.md,.png,.jpg,.jpeg,.json,.txt" 
+              accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
                   handleFileUpload(e.target.files);
