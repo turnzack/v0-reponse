@@ -37,6 +37,7 @@ const getRandomGradient = (alpha = 1) => {
 
 const WidgetSettings = ({ 
   isModal = false, 
+  isEmbedded = false,
   onClose, 
   initialTab = "connexion",
   isClient,
@@ -118,10 +119,11 @@ const WidgetSettings = ({
   ];
 
   return (
-    <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-[650px] ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
+    <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row ${isEmbedded ? 'h-[450px]' : 'h-[80vh] md:h-[650px]'} ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
       
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
+      {!isEmbedded && (
+        <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
           <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
             <span className="text-cyan">🐯</span> SETTINGS
@@ -143,6 +145,7 @@ const WidgetSettings = ({
           ))}
         </div>
       </div>
+      )}
 
       {/* Content Area */}
       <div className="flex-1 bg-gradient-to-br from-[#111111] to-black relative overflow-hidden flex flex-col">
@@ -494,6 +497,7 @@ const WidgetSettings = ({
         </div>
 
         {/* Footer Actions */}
+        {!isEmbedded && (
         <div className="p-4 border-t border-white/10 bg-gradient-to-b from-black/30 to-black/50 flex flex-wrap justify-between items-center gap-4 relative z-10">
           <button 
             onClick={() => setIsExtConnected(!isExtConnected)}
@@ -517,6 +521,7 @@ const WidgetSettings = ({
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -828,8 +833,9 @@ export default function Dashboard() {
           // Lancement réel via le Bridge Android (WebView Fantôme) ou Electron
           const bridge = (window as any).AndroidBridge;
           if (bridge && bridge.openAIWithPrompt) {
-            // 📱 MOTEUR MOBILE : La WebView Fantôme est unique, on lance directement DeepSeek
-            bridge.openAIWithPrompt(getUrl(logicAi), "Génère l'architecture complète, l'interface UI/UX, et la logique React pour ce projet : " + textToSend);
+            // 📱 MOTEUR MOBILE : On lance Stitch d'abord. DeepSeek sera lancé après le Trombone.
+            bridge.openAIWithPrompt(getUrl(uiAi, true), "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend);
+            if (bridge.showToast) bridge.showToast("Stitch s'ouvre. Générez le HTML, puis utilisez le Trombone.");
           } else {
             // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron (Multifenêtrage)
             // On envoie le prompt UI au Bridge
@@ -999,19 +1005,26 @@ Format attendu:
 `;
           const designProjectId = "Design_" + file.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
           
-          fetch("http://127.0.0.1:5005/bridge/prompt", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              target_ai: logicAi,
-              prompt: finalPrompt,
-              auto_submit: true,
-              project_id: designProjectId,
-              phase_num: 5
+          const bridge = (window as any).AndroidBridge;
+          if (bridge && bridge.openAIWithPrompt) {
+             const logicAiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+             bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
+             if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur DeepSeek !");
+          } else {
+            fetch("http://127.0.0.1:5005/bridge/prompt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                target_ai: logicAi,
+                prompt: finalPrompt,
+                auto_submit: true,
+                project_id: designProjectId,
+                phase_num: 5
+              })
             })
-          })
-          .then(res => console.log("[Bridge] Prompt HTML envoyé avec succès, status:", res.status))
-          .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt HTML:", err));
+            .then(res => console.log("[Bridge] Prompt HTML envoyé avec succès, status:", res.status))
+            .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt HTML:", err));
+          }
         }
       }, 1200);
     };
@@ -1530,7 +1543,7 @@ Format attendu:
               {msg.widget === "news" && <WidgetNews />}
               {msg.widget === "youtube" && <WidgetYouTube />}
               {msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-              {msg.widget === "phases" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} initialTab="pipeline" />}
+              {msg.widget === "phases" && <WidgetPhases />}
             </div>
           ))}
           <div ref={chatEndRef} />
