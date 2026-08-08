@@ -67,6 +67,7 @@ const WidgetSettings = ({
   const [customAiUrl, setCustomAiUrl] = useState("");
   const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
   const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
+  const [defaultPreviewUrl, setDefaultPreviewUrl] = useState("http://127.0.0.1:5173");
   const [apiKey, setApiKey] = useState("");
   const [overridePrompt, setOverridePrompt] = useState("");
   const [savedMsg, setSavedMsg] = useState(false);
@@ -80,11 +81,12 @@ const WidgetSettings = ({
     setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
     setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
+    setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5173");
     setApiKey(localStorage.getItem("tiger_apiKey") || "");
   }, []);
 
   const handleSave = () => {
-    const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, apiKey };
+    const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, defaultPreviewUrl, apiKey };
     
     localStorage.setItem("tiger_execMode", execMode);
     localStorage.setItem("tiger_targetAi", targetAi);
@@ -93,6 +95,7 @@ const WidgetSettings = ({
     localStorage.setItem("tiger_customAiUrl", customAiUrl);
     localStorage.setItem("tiger_bridgeUrl", bridgeUrl);
     localStorage.setItem("tiger_vercelUrl", vercelUrl);
+    localStorage.setItem("tiger_defaultPreviewUrl", defaultPreviewUrl);
     localStorage.setItem("tiger_apiKey", apiKey);
     
     if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
@@ -330,6 +333,10 @@ const WidgetSettings = ({
                       <div>
                         <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
                         <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                      </div>
+                      <div>
+                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Preview par défaut</label>
+                        <input type="text" value={defaultPreviewUrl} onChange={(e) => setDefaultPreviewUrl(e.target.value)} placeholder="http://127.0.0.1:3000" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
                     </div>
                     <div className="flex gap-3 mt-4">
@@ -779,6 +786,7 @@ export default function Dashboard() {
             const serverReadyLog = data.logs.find((log: string) => log.includes("URL_PREVIEW="));
             if (serverReadyLog) {
                 const url = serverReadyLog.split('URL_PREVIEW=')[1];
+                
                 if (url !== lastPreviewUrlRef.current) {
                     lastPreviewUrlRef.current = url;
                     setPreviewUrl(url);
