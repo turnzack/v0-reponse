@@ -1446,15 +1446,19 @@ Format attendu:
 
   // --- WIDGET COMPONENTS ---
 
-  const renderCarousel = (items: React.ReactNode[]) => (
-    <div className="flex overflow-x-auto gap-4 py-4 px-2 snap-x snap-mandatory hide-scrollbar">
-      {items.map((item, idx) => (
-        <div key={idx} className="snap-center shrink-0">
-          {item}
-        </div>
-      ))}
-    </div>
-  );
+  const renderCarousel = (items: React.ReactNode[]) => {
+    // Simulation d'une boucle infinie pour le défilement horizontal
+    const infiniteItems = [...items, ...items, ...items, ...items, ...items];
+    return (
+      <div className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 snap-x snap-mandatory hide-scrollbar">
+        {infiniteItems.map((item, idx) => (
+          <div key={idx} className="snap-center shrink-0">
+            {item}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // --- HELPERS IDE ---
   const renderFsTree = (node: any, level = 0) => {
@@ -1554,7 +1558,7 @@ Format attendu:
     return renderCarousel([
       <div
         key="new-v0"
-        className={`w-64 h-48 rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
+        className={`design-carte-carrousel rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
         onClick={() => { setActiveProject(null); setNewProjectName(""); setIsNewProjectModalOpen(true); }}
       >
         <div className="absolute inset-0 bg-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
@@ -1565,7 +1569,7 @@ Format attendu:
       ...liveProjects.map((p, i) => (
         <div
           key={i}
-          className={`w-64 h-48 rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`}
+          className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`}
           style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
           onClick={() => setActiveProject(p.name)}
         >
@@ -1668,7 +1672,7 @@ Format attendu:
     }
 
     return renderCarousel(news.map(n => (
-      <div key={n.id} className="w-72 h-48 rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-' + n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
+      <div key={n.id} className="design-carte-carrousel rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-' + n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
         <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3">{n.tag}</span>
         <h3 className="text-lg font-bold text-white mb-2 leading-tight">{n.title}</h3>
         <p className="text-gray-400 text-sm flex-1">{n.desc}</p>
@@ -1689,8 +1693,8 @@ Format attendu:
       { title: "Android Bridge Capacitor", channel: "Mobile Dev", views: "800" },
     ];
     return renderCarousel(videos.map((v, i) => (
-      <div key={i} className="w-64 rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('yt-' + i, 0.6) : 'rgba(0,0,0,0.6)' }}>
-        <div className="h-32 bg-gray-800 relative flex items-center justify-center">
+      <div key={i} className="design-carte-carrousel rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg flex flex-col" style={{ background: isClient ? getCachedGradient('yt-' + i, 0.6) : 'rgba(0,0,0,0.6)' }}>
+        <div className="flex-1 bg-gray-800 relative flex items-center justify-center min-h-[50%]">
           <div className="absolute inset-0 bg-gradient-to-tr from-red-900/40 to-transparent"></div>
           <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg z-10 cursor-pointer hover:scale-110 transition-transform">
             <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1"></div>
@@ -1736,7 +1740,7 @@ Format attendu:
                   if (lastProj) setActiveProject(lastProj);
                 }
               }}
-              className={`w-40 h-48 rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}
+              className={`design-carte-carrousel rounded-2xl p-4 border flex flex-col justify-between transition-all duration-500 ${cardBg}`}
               title={p === "Build" ? "Cliquez pour ouvrir l'IDE sur le projet généré" : ""}
             >
               <div className="text-3xl font-black opacity-20">
@@ -2150,10 +2154,10 @@ Format attendu:
             </div>
           )}
 
-          <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-[140px]">
+          <div className="design-chat-layout max-w-5xl mx-auto w-full flex flex-col pb-[140px]">
 
             {/* Mobile-style Home Screen Grid */}
-            <div className="design-grille grid grid-cols-2 sm:grid-cols-4 w-full px-4 mx-auto">
+            <div className="design-grille w-full px-4 mx-auto hide-scrollbar">
               <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="group flex flex-col items-center gap-3"
@@ -2194,10 +2198,10 @@ Format attendu:
                 }}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-cyan/50 group-hover:shadow-[0_0_30px_rgba(8,179,201,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
                   📁
                 </div>
-                <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Projets</span>
+                <span className="design-app-texte drop-shadow-md">Projets</span>
               </button>
 
               {/* NOUVEAU BOUTON : PACKS PRD */}
@@ -2210,10 +2214,10 @@ Format attendu:
                     {selectedPacks.length}
                   </div>
                 )}
-                <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-indigo-500/50 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-[0_0_20px_rgba(79,70,229,0.4)] group-hover:scale-105 group-hover:border-indigo-400 group-hover:shadow-[0_0_40px_rgba(79,70,229,0.6)] transition-all bg-indigo-900/60 backdrop-blur-md">
+                <div className="design-app-icone flex items-center justify-center shadow-2xl bg-indigo-900/60 backdrop-blur-md">
                   💎
                 </div>
-                <span className="text-xs md:text-sm text-indigo-300 font-bold tracking-wider drop-shadow-md">Packs PRD</span>
+                <span className="design-app-texte drop-shadow-md">Packs PRD</span>
               </button>
 
               <button
@@ -2223,33 +2227,37 @@ Format attendu:
                 }}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-white/10 rounded-[20px] md:rounded-3xl flex items-center justify-center text-3xl md:text-4xl shadow-2xl group-hover:scale-105 group-hover:border-orange-500/50 group-hover:shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
                   📰
                 </div>
-                <span className="text-xs md:text-sm text-white font-bold tracking-wider drop-shadow-md">Actualités</span>
+                <span className="design-app-texte drop-shadow-md">Actualités</span>
               </button>
             </div>
 
-            <div className="w-full h-px bg-white/10 my-4"></div>
+            <div className="design-chat-separateur w-full h-px bg-white/10"></div>
 
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                {/* Message Bubble */}
-                <div
-                  className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
-                  style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
-                >
-                  {msg.content}
+            {messages.map((msg, index) => {
+              const isLastOfType = msg.widget && index === messages.map(m => m.widget).lastIndexOf(msg.widget);
+              
+              return (
+                <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                  {/* Message Bubble */}
+                  <div
+                    className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
+                    style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
+                  >
+                    {msg.content}
+                  </div>
+
+                  {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE) */}
+                  {isLastOfType && msg.widget === "projects" && <WidgetProjects />}
+                  {isLastOfType && msg.widget === "news" && <WidgetNews />}
+                  {isLastOfType && msg.widget === "youtube" && <WidgetYouTube />}
+                  {isLastOfType && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
+                  {isLastOfType && msg.widget === "phases" && <WidgetPhases />}
                 </div>
-
-                {/* Dynamic Widgets Injected into Chat */}
-                {msg.widget === "projects" && <WidgetProjects />}
-                {msg.widget === "news" && <WidgetNews />}
-                {msg.widget === "youtube" && <WidgetYouTube />}
-                {msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-                {msg.widget === "phases" && <WidgetPhases />}
-              </div>
-            ))}
+              );
+            })}
             <div ref={chatEndRef} />
           </div>
         </main>

@@ -1,181 +1,13 @@
 import React, { useState, useEffect } from 'react';
-
-const defaultDesign = {
-  // 1. ARCHITECTURE
-  appLargeurMax: "100vw",
-  appHauteurMax: "100vh",
-  headerPosition: "relative",
-  headerHauteur: "72px",
-  footerPosition: "absolute",
-  footerBas: "0px",
-  footerGauche: "0px",
-  footerLargeur: "100%",
-  sidebarDroitePosition: "absolute",
-  sidebarDroiteTop: "72px",
-  sidebarDroiteBas: "48px",
-  sidebarDroiteLargeur: "320px",
-
-  // 2. FONDS & COULEURS
-  appBgTop: "#0f0f0f",
-  appBgBottom: "#000000",
-  couleurTextePrincipal: "#ffffff",
-  couleurTexteSecondaire: "#9ca3af",
-  couleurAccentCyan: "#08b3c9",
-  couleurAccentRose: "#e274a9",
-  couleurAccentVert: "#22c55e",
-  couleurAccentViolet: "#a855f7",
-  flouGlobalArrierePlan: "blur(12px)",
-
-  // 3. TYPOGRAPHIE
-  fontPrincipale: "'Inter', sans-serif",
-  fontTitre: "'Inter', sans-serif",
-  fontCode: "'Consolas', monospace",
-  tailleTexteNano: "10px",
-  tailleTexteMini: "12px",
-  tailleTexteBase: "14px",
-  tailleTexteTitre: "20px",
-  tailleTexteGeant: "24px",
-
-  // 4. EN-TÊTE
-  headerPadding: "1rem 1.5rem",
-  headerBgCouleur: "rgba(0, 0, 0, 0.4)",
-  headerBordureBas: "1px solid rgba(255, 255, 255, 0.1)",
-  headerOmbre: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-  logoTaille: "40px",
-  logoArrondi: "12px",
-  logoBgCouleur: "#08b3c9",
-  logoOmbre: "0 0 15px rgba(8, 179, 201, 0.4)",
-  logoEmojiTaille: "20px",
-  titrePoids: "900",
-  titreCouleur: "#ffffff",
-  titreEspacement: "0.05em",
-  sousTitreCouleur: "#08b3c9",
-  sousTitrePoids: "500",
-
-  // 5. MENU D'ACCUEIL
-  grilleMaxLargeur: "1024px",
-  grilleMargeHaut: "2rem",
-  grilleMargeBas: "140px",
-  grilleGapX: "2rem",
-  grilleGapY: "2rem",
-  appIconeLargeur: "96px",
-  appIconeHauteur: "96px",
-  appIconeArrondi: "24px",
-  appIconeBordure: "2px solid rgba(255, 255, 255, 0.1)",
-  appIconeOmbre: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
-  appIconeOmbreSurvol: "0 0 30px rgba(255, 255, 255, 0.2)",
-  appIconeScaleSurvol: "1.05",
-  appIconeEmojiTaille: "36px",
-  appIconeTransition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-  appTexteTaille: "14px",
-  appTexteCouleur: "#ffffff",
-  appTextePoids: "700",
-  appTexteMargeHaut: "12px",
-
-  // 6. CHAT & FOOTER
-  chatMainPosition: "relative",
-  chatMainTop: "0",
-  chatMainBottom: "0",
-  chatMainRight: "0",
-  chatMainWidth: "100%",
-  chatConteneurBg: "rgba(0, 0, 0, 0.6)",
-  chatConteneurFlou: "blur(24px)",
-  chatConteneurBordureHaut: "1px solid rgba(255, 255, 255, 0.1)",
-  chatConteneurPaddingHaut: "8px",
-  chatConteneurPaddingBas: "12px",
-  chatConteneurPaddingX: "24px",
-  statutPadding: "8px 24px",
-  statutBg: "transparent",
-  statutBordureBas: "1px solid rgba(255, 255, 255, 0.05)",
-  statutGap: "24px",
-  statutTexteTaille: "10px",
-  statutTextePoids: "700",
-  statutTexteEspacement: "0.1em",
-  statutPastilleTaille: "8px",
-  inputHauteur: "48px",
-  inputLargeur: "100%",
-  inputBgCouleur: "rgba(255, 255, 255, 0.05)",
-  inputBordureCouleur: "rgba(255, 255, 255, 0.1)",
-  inputTexteTaille: "14px",
-  inputTexteCouleur: "#ffffff",
-  inputPlaceholderCouleur: "#9ca3af",
-  inputArrondi: "9999px",
-  inputPaddingGauche: "24px",
-  inputPaddingDroite: "64px",
-  inputOmbreInterne: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)",
-  btnEnvoiTaille: "40px",
-  btnEnvoiBg: "#08b3c9",
-  btnEnvoiCouleur: "#ffffff",
-  btnEnvoiArrondi: "9999px",
-  btnEnvoiIconeTaille: "20px",
-  btnEnvoiPositionDroite: "8px",
-
-  // 7. IDE ESPACE TRAVAIL
-  ideToolbarHauteur: "56px",
-  ideToolbarBg: "linear-gradient(to right, rgba(49, 46, 129, 0.4), rgba(0, 0, 0, 0.8))",
-  ideToolbarBordure: "1px solid rgba(99, 102, 241, 0.2)",
-  ideBtnActionTaille: "40px",
-  ideBtnActionArrondi: "12px",
-  ideBtnActionBg: "rgba(255, 255, 255, 0.05)",
-  ideBtnActionBordure: "1px solid rgba(255, 255, 255, 0.1)",
-  ideBtnActionEmoji: "20px",
-  explorateurLargeur: "256px",
-  explorateurBg: "rgba(10, 10, 10, 0.95)",
-  explorateurBordureDroite: "1px solid rgba(255, 255, 255, 0.1)",
-  explorateurTexteTaille: "12px",
-  explorateurDossierCouleur: "#60a5fa",
-  explorateurFichierCouleur: "#9ca3af",
-  editeurBg: "#1e1e1e",
-  editeurOngletHauteur: "48px",
-  editeurOngletBg: "#252526",
-  editeurOngletBordure: "1px solid #000000",
-  previewBg: "#ffffff",
-  previewLargeur: "50%",
-  previewBordureGauche: "1px solid #000000",
-
-  // 8. MOUCHARD (TERMINAL)
-  mouchardBg: "#000000",
-  mouchardBordureGauche: "1px solid rgba(255, 255, 255, 0.2)",
-  mouchardOmbre: "-10px 0 30px rgba(0, 0, 0, 0.5)",
-  mouchardEnteteBg: "#050505",
-  mouchardEnteteHauteur: "48px",
-  mouchardTitreCouleur: "#08b3c9",
-  mouchardTexteTaille: "12px",
-  mouchardTexteCouleurDefaut: "#52c1c9",
-  mouchardTexteCouleurErreur: "#ef4444",
-
-  // 9. FENÊTRES MODALES
-  modalFondAssombrissement: "rgba(0, 0, 0, 0.6)",
-  modalFondFlou: "blur(8px)",
-  modalLargeurMax: "1024px",
-  modalHauteurMax: "85vh",
-  modalBgTop: "rgba(132, 94, 124, 0.95)",
-  modalBgBottom: "rgba(108, 48, 80, 0.95)",
-  modalBordure: "1px solid rgba(255, 255, 255, 0.1)",
-  modalArrondi: "24px",
-  modalOmbre: "0 0 50px rgba(0, 0, 0, 0.8)",
-  modalPrdBg: "rgba(0, 0, 0, 0.95)",
-  modalPrdBordure: "1px solid rgba(79, 70, 229, 0.5)",
-  modalPrdEnteteBg: "rgba(49, 46, 129, 0.3)",
-  modalPrdTitreCouleur: "#a5b4fc",
-  modalSidebarLargeur: "256px",
-  modalSidebarBg: "linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6))",
-  modalOngletPadding: "12px 16px",
-  modalOngletArrondi: "12px",
-  modalOngletGap: "12px",
-  modalOngletBgActif: "rgba(8, 179, 201, 0.2)",
-  modalOngletBordureActif: "1px solid rgba(8, 179, 201, 0.5)",
-  modalOngletCouleurActif: "#ffffff",
-  modalOngletCouleurInactif: "#9ca3af"
-};
+import defaultDesign from './design-tokens.json';
 
 const categories = {
   '1. ARCHITECTURE': ['appLargeurMax', 'appHauteurMax', 'headerPosition', 'headerHauteur', 'footerPosition', 'footerBas', 'footerGauche', 'footerLargeur', 'sidebarDroitePosition', 'sidebarDroiteTop', 'sidebarDroiteBas', 'sidebarDroiteLargeur'],
   '2. FONDS & COULEURS': ['appBgTop', 'appBgBottom', 'couleurTextePrincipal', 'couleurTexteSecondaire', 'couleurAccentCyan', 'couleurAccentRose', 'couleurAccentVert', 'couleurAccentViolet', 'flouGlobalArrierePlan'],
   '3. TYPOGRAPHIE': ['fontPrincipale', 'fontTitre', 'fontCode', 'tailleTexteNano', 'tailleTexteMini', 'tailleTexteBase', 'tailleTexteTitre', 'tailleTexteGeant'],
   '4. EN-TÊTE': ['headerPadding', 'headerBgCouleur', 'headerBordureBas', 'headerOmbre', 'logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille', 'titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
-  '5. MENU ACCUEIL': ['grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
-  '6. CHAT & FOOTER': ['chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX', 'statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille', 'inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'btnEnvoiPositionDroite'],
+  '5. MENU ACCUEIL': ['grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'carteCarrouselHauteur', 'carteCarrouselLargeur', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
+  '6. CHAT & FOOTER': ['chatLayoutGap', 'chatSeparateurMargeY', 'chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX', 'statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille', 'inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'btnEnvoiPositionDroite'],
   '7. IDE ESPACE TRAVAIL': ['ideToolbarHauteur', 'ideToolbarBg', 'ideToolbarBordure', 'ideBtnActionTaille', 'ideBtnActionArrondi', 'ideBtnActionBg', 'ideBtnActionBordure', 'ideBtnActionEmoji', 'explorateurLargeur', 'explorateurBg', 'explorateurBordureDroite', 'explorateurTexteTaille', 'explorateurDossierCouleur', 'explorateurFichierCouleur', 'editeurBg', 'editeurOngletHauteur', 'editeurOngletBg', 'editeurOngletBordure', 'previewBg', 'previewLargeur', 'previewBordureGauche'],
   '8. MOUCHARD': ['mouchardBg', 'mouchardBordureGauche', 'mouchardOmbre', 'mouchardEnteteBg', 'mouchardEnteteHauteur', 'mouchardTitreCouleur', 'mouchardTexteTaille', 'mouchardTexteCouleurDefaut', 'mouchardTexteCouleurErreur'],
   '9. MODALES': ['modalFondAssombrissement', 'modalFondFlou', 'modalLargeurMax', 'modalHauteurMax', 'modalBgTop', 'modalBgBottom', 'modalBordure', 'modalArrondi', 'modalOmbre', 'modalPrdBg', 'modalPrdBordure', 'modalPrdEnteteBg', 'modalPrdTitreCouleur', 'modalSidebarLargeur', 'modalSidebarBg', 'modalOngletPadding', 'modalOngletArrondi', 'modalOngletGap', 'modalOngletBgActif', 'modalOngletBordureActif', 'modalOngletCouleurActif', 'modalOngletCouleurInactif']
@@ -253,6 +85,10 @@ body {
 }
 
 .design-grille {
+   display: var(--grille-display) !important;
+   flex-wrap: var(--grille-flex-wrap) !important;
+   justify-content: var(--grille-justify) !important;
+   overflow-x: var(--grille-overflow-x) !important;
    max-width: var(--grille-max-largeur) !important;
    margin-top: var(--grille-marge-haut) !important;
    margin-bottom: var(--grille-marge-bas) !important;
@@ -296,6 +132,20 @@ body {
    bottom: var(--chat-main-bottom) !important;
    right: var(--chat-main-right) !important;
    width: var(--chat-main-width) !important;
+}
+
+.design-chat-layout {
+   gap: var(--chat-layout-gap) !important;
+}
+
+.design-carte-carrousel {
+   height: var(--carte-carrousel-hauteur) !important;
+   width: var(--carte-carrousel-largeur) !important;
+}
+
+.design-chat-separateur {
+   margin-top: var(--chat-separateur-marge-y) !important;
+   margin-bottom: var(--chat-separateur-marge-y) !important;
 }
 
 .design-chat-input {
@@ -357,6 +207,15 @@ body {
     setLockedSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const saveToSource = () => {
+    fetch("http://localhost:5005/api/fs/write", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: "../../v0-interface-versel", file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
+    })
+    .then(() => alert("✅ Réglages GRAVÉS dans le code source de l'application !"))
+    .catch(err => alert("❌ Erreur lors de la sauvegarde : " + err.message));
+  };
+
   const isColor = (val: string) => val.startsWith('#') || val.startsWith('rgba') || val.startsWith('rgb');
 
   return (
@@ -366,9 +225,17 @@ body {
           <span className="text-2xl">👑</span>
           <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">TIGER OMNI-ADMIN STUDIO</h1>
         </div>
-        <div className="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full text-green-400 border border-green-500/30 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-          100% PARAMÈTRES DÉBLOQUÉS (HMR)
+        <div className="flex items-center gap-4">
+          <div className="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full text-green-400 border border-green-500/30 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            100% PARAMÈTRES DÉBLOQUÉS (HMR)
+          </div>
+          <button 
+            onClick={saveToSource}
+            className="text-xs font-black bg-cyan hover:bg-cyan/80 text-black px-4 py-2 rounded-lg border border-cyan/50 flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(8,179,201,0.4)] hover:scale-105"
+          >
+            💾 GRAVER DANS LE MARBRE
+          </button>
         </div>
       </header>
 

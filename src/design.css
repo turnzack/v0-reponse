@@ -1,17 +1,17 @@
 /* Tiger IA Design - Admin Studio FULL */
 :root {
-  --app-largeur-max: 112vw;
-  --app-hauteur-max: 131vh;
-  --header-position: relative;
-  --header-hauteur: 72px;
-  --footer-position: absolute;
-  --footer-bas: 0px;
-  --footer-gauche: 0px;
+  --app-largeur-max: 121vw;
+  --app-hauteur-max: 135vh;
+  --header-position: absolute;
+  --header-hauteur: 379px;
+  --footer-position: static;
+  --footer-bas: 36px;
+  --footer-gauche: 60px;
   --footer-largeur: 100%;
-  --sidebar-droite-position: absolute;
-  --sidebar-droite-top: 72px;
-  --sidebar-droite-bas: 48px;
-  --sidebar-droite-largeur: 320px;
+  --sidebar-droite-position: fixed;
+  --sidebar-droite-top: 22px;
+  --sidebar-droite-bas: 43px;
+  --sidebar-droite-largeur: 440px;
   --app-bg-top: #0f0f0f;
   --app-bg-bottom: #000000;
   --couleur-texte-principal: #ffffff;
@@ -27,40 +27,48 @@
   --taille-texte-nano: 10px;
   --taille-texte-mini: 12px;
   --taille-texte-base: 14px;
-  --taille-texte-titre: 20px;
-  --taille-texte-geant: 24px;
+  --taille-texte-titre: 29px;
+  --taille-texte-geant: -77px;
   --header-padding: 1rem 1.5rem;
   --header-bg-couleur: rgba(0, 0, 0, 0.4);
   --header-bordure-bas: 1px solid rgba(255, 255, 255, 0.1);
   --header-ombre: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --logo-taille: 40px;
-  --logo-arrondi: 12px;
-  --logo-bg-couleur: #08b3c9;
+  --logo-taille: 70px;
+  --logo-arrondi: 272px;
+  --logo-bg-couleur: #ffb3e3;
   --logo-ombre: 0 0 15px rgba(8, 179, 201, 0.4);
-  --logo-emoji-taille: 20px;
+  --logo-emoji-taille: 46px;
   --titre-poids: 900;
   --titre-couleur: #ffffff;
-  --titre-espacement: 0.05em;
+  --titre-espacement: -0.05em;
   --sous-titre-couleur: #08b3c9;
   --sous-titre-poids: 500;
-  --grille-max-largeur: 1024px;
-  --grille-marge-haut: 2rem;
-  --grille-marge-bas: 140px;
-  --grille-gap-x: 2rem;
+  --grille-display: flex;
+  --grille-flex-wrap: nowrap;
+  --grille-justify: center;
+  --grille-overflow-x: auto;
+  --grille-max-largeur: 1500px;
+  --grille-marge-haut: 15rem;
+  --grille-marge-bas: 19px;
+  --grille-gap-x: -12rem;
   --grille-gap-y: 2rem;
-  --app-icone-largeur: 96px;
-  --app-icone-hauteur: 96px;
-  --app-icone-arrondi: 24px;
+  --app-icone-largeur: 170px;
+  --app-icone-hauteur: 262px;
+  --app-icone-arrondi: 115px;
   --app-icone-bordure: 2px solid rgba(255, 255, 255, 0.1);
   --app-icone-ombre: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
   --app-icone-ombre-survol: 0 0 30px rgba(255, 255, 255, 0.2);
-  --app-icone-scale-survol: 1.05;
+  --app-icone-scale-survol: 1.65;
   --app-icone-emoji-taille: 36px;
   --app-icone-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --app-texte-taille: 14px;
+  --app-texte-taille: 16px;
   --app-texte-couleur: #ffffff;
-  --app-texte-poids: 700;
-  --app-texte-marge-haut: 12px;
+  --app-texte-poids: 600;
+  --app-texte-marge-haut: -121px;
+  --carte-carrousel-hauteur: 197px;
+  --carte-carrousel-largeur: 259px;
+  --chat-layout-gap: 32px;
+  --chat-separateur-marge-y: 16px;
   --chat-main-position: relative;
   --chat-main-top: 0;
   --chat-main-bottom: 0;
@@ -97,15 +105,15 @@
   --btn-envoi-arrondi: 9999px;
   --btn-envoi-icone-taille: 20px;
   --btn-envoi-position-droite: 8px;
-  --ide-toolbar-hauteur: 56px;
+  --ide-toolbar-hauteur: -125px;
   --ide-toolbar-bg: linear-gradient(to right, rgba(49, 46, 129, 0.4), rgba(0, 0, 0, 0.8));
   --ide-toolbar-bordure: 1px solid rgba(99, 102, 241, 0.2);
-  --ide-btn-action-taille: 40px;
+  --ide-btn-action-taille: 36px;
   --ide-btn-action-arrondi: 12px;
   --ide-btn-action-bg: rgba(255, 255, 255, 0.05);
   --ide-btn-action-bordure: 1px solid rgba(255, 255, 255, 0.1);
-  --ide-btn-action-emoji: 20px;
-  --explorateur-largeur: 256px;
+  --ide-btn-action-emoji: 33px;
+  --explorateur-largeur: 207px;
   --explorateur-bg: rgba(10, 10, 10, 0.95);
   --explorateur-bordure-droite: 1px solid rgba(255, 255, 255, 0.1);
   --explorateur-texte-taille: 12px;
@@ -122,7 +130,7 @@
   --mouchard-bordure-gauche: 1px solid rgba(255, 255, 255, 0.2);
   --mouchard-ombre: -10px 0 30px rgba(0, 0, 0, 0.5);
   --mouchard-entete-bg: #050505;
-  --mouchard-entete-hauteur: 48px;
+  --mouchard-entete-hauteur: 12px;
   --mouchard-titre-couleur: #08b3c9;
   --mouchard-texte-taille: 12px;
   --mouchard-texte-couleur-defaut: #52c1c9;
@@ -204,6 +212,10 @@ body {
 }
 
 .design-grille {
+   display: var(--grille-display) !important;
+   flex-wrap: var(--grille-flex-wrap) !important;
+   justify-content: var(--grille-justify) !important;
+   overflow-x: var(--grille-overflow-x) !important;
    max-width: var(--grille-max-largeur) !important;
    margin-top: var(--grille-marge-haut) !important;
    margin-bottom: var(--grille-marge-bas) !important;
@@ -247,6 +259,20 @@ body {
    bottom: var(--chat-main-bottom) !important;
    right: var(--chat-main-right) !important;
    width: var(--chat-main-width) !important;
+}
+
+.design-chat-layout {
+   gap: var(--chat-layout-gap) !important;
+}
+
+.design-carte-carrousel {
+   height: var(--carte-carrousel-hauteur) !important;
+   width: var(--carte-carrousel-largeur) !important;
+}
+
+.design-chat-separateur {
+   margin-top: var(--chat-separateur-marge-y) !important;
+   margin-bottom: var(--chat-separateur-marge-y) !important;
 }
 
 .design-chat-input {
