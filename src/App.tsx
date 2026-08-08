@@ -601,6 +601,7 @@ export default function Dashboard() {
   const [fileContent, setFileContent] = useState<string>("");
   const [tromboneFiles, setTromboneFiles] = useState<{path: string, content: string}[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewInput, setPreviewInput] = useState<string>("");
   const lastPreviewUrlRef = useRef<string | null>(null);
   
   useEffect(() => {
@@ -781,6 +782,7 @@ export default function Dashboard() {
                 if (url !== lastPreviewUrlRef.current) {
                     lastPreviewUrlRef.current = url;
                     setPreviewUrl(url);
+                    setPreviewInput(url);
                 }
             }
           }
@@ -1816,11 +1818,15 @@ Format attendu:
                       </div>
                       <input 
                         type="text" 
-                        value={previewUrl} 
-                        onChange={(e) => setPreviewUrl(e.target.value)} 
+                        value={previewInput} 
+                        onChange={(e) => setPreviewInput(e.target.value)} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setPreviewUrl(previewInput);
+                        }}
                         className="bg-black/50 border border-green-500/30 text-green-400 text-[10px] px-2 py-1 rounded outline-none focus:border-green-400 w-40 font-mono shadow-[0_0_10px_rgba(34,197,94,0.1)] transition-all"
-                        title="Modifier l'URL / Port de la Preview"
+                        title="Modifier et taper Entrée"
                       />
+                      <button onClick={() => setPreviewUrl(previewInput)} className="text-[10px] bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white px-2 py-1 rounded font-bold border border-green-500/30">Go</button>
                     </div>
                   )}
                   <button 
