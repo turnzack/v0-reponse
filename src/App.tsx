@@ -1662,7 +1662,7 @@ Format attendu:
   };
 
   return (
-    <div className="h-screen w-full bg-gta-sunset flex flex-col overflow-hidden relative">
+    <div className="h-screen w-full bg-gradient-to-br from-[#1e1e1e] to-black flex flex-col overflow-hidden relative">
       {/* Decorative Background Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan/10 blur-[150px] rounded-full pointer-events-none" />
@@ -2098,7 +2098,7 @@ Format attendu:
         </div>
 
         {/* Input Bar */}
-        <div className="px-4 pb-2 pt-2 md:px-6 md:pb-2 md:pt-3 relative w-full flex flex-col gap-2">
+        <div className="px-4 pb-0 pt-2 md:px-6 md:pb-0 md:pt-3 relative w-full flex flex-col gap-2">
           
           {/* LE TROMBONE (Fichiers attachés) */}
           {tromboneFiles.length > 0 && (
