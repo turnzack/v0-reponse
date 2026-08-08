@@ -600,6 +600,13 @@ export default function Dashboard() {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [tromboneFiles, setTromboneFiles] = useState<{path: string, content: string}[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const lastPreviewUrlRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    lastPreviewUrlRef.current = null;
+    setPreviewUrl(null);
+  }, [activeProject]);
 
   // Chargement de l'arborescence quand un projet est actif
   useEffect(() => {
@@ -768,6 +775,14 @@ export default function Dashboard() {
         .then(data => {
           if (data.success && data.logs) {
             setMouchardLogs(data.logs);
+            const serverReadyLog = data.logs.find((log: string) => log.includes("URL_PREVIEW="));
+            if (serverReadyLog) {
+                const url = serverReadyLog.split('URL_PREVIEW=')[1];
+                if (url !== lastPreviewUrlRef.current) {
+                    lastPreviewUrlRef.current = url;
+                    setPreviewUrl(url);
+                }
+            }
           }
         })
         .catch(() => {});
@@ -1154,6 +1169,14 @@ Description : ${newProjectDesc}.`;
         content: `📁 Fichier de design déposé : ${mainHtml.name}\nAnalyse de la structure UI et assemblage du contexte en cours...` 
       };
       setMessages((prev) => [...prev, uploadMsg]);
+    }
+
+    // Add dummy zip representation for UI feedback
+    const originalZipFiles = (Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files])).filter(f => f.name.endsWith('.zip'));
+    for (const zf of originalZipFiles) {
+      if (!appendedToTrombone.some(ext => ext.path === zf.name)) {
+        appendedToTrombone.push({ path: zf.name, content: "ZIP_ARCHIVE_DUMMY" });
+      }
     }
 
     setTromboneFiles(appendedToTrombone);
@@ -1747,7 +1770,18 @@ Format attendu:
 
               <div className="flex-1"></div>
 
-              <button title="Lancer Preview" onClick={() => {}} className="w-10 h-10 rounded-full bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-xl border border-green-500/30 hover:border-green-500 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] group relative">
+              <button 
+                title="Lancer Preview" 
+                onClick={() => {
+                  if (!activeProject) return;
+                  fetch("http://localhost:5005/api/bridge/launch-project", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: activeProject })
+                  }).catch(e => console.error("Erreur lacement preview:", e));
+                }} 
+                className="w-10 h-10 rounded-full bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-xl border border-green-500/30 hover:border-green-500 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] group relative"
+              >
                 🚀
                 <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-green-400 pointer-events-none transition-opacity font-bold">Lancer Preview</span>
               </button>
@@ -1767,42 +1801,73 @@ Format attendu:
               </div>
             </div>
 
-            {/* 3. Editeur Monaco */}
+            {/* 3. Editeur Monaco et Preview Split */}
             <div className="flex-1 flex flex-col bg-[#1e1e1e] z-20 shadow-2xl relative">
               <div className="h-12 bg-[#252526] border-b border-black flex justify-between items-center px-4">
                 <div className="flex items-center gap-3">
                   <span className="text-blue-400 text-lg">{activeFile ? '📄' : '📁'}</span>
                   <span className="text-sm text-gray-300 font-mono">{activeFile || 'Aucun fichier sélectionné'}</span>
                 </div>
-                <button 
-                  onClick={() => handleSaveFile(fileContent)} 
-                  disabled={!activeFile}
-                  className={`px-4 py-1.5 rounded text-xs font-bold transition-all ${activeFile ? 'bg-cyan/20 text-cyan hover:bg-cyan hover:text-black border border-cyan/30 shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}
-                >
-                  SAUVEGARDER (CTRL+S)
-                </button>
+                <div className="flex gap-4 items-center">
+                  {previewUrl && (
+                    <div className="text-xs text-green-400 animate-pulse font-bold flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-400 rounded-full"></span> SERVER RUNNING ({previewUrl})
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => handleSaveFile(fileContent)} 
+                    disabled={!activeFile}
+                    className={`px-4 py-1.5 rounded text-xs font-bold transition-all ${activeFile ? 'bg-cyan/20 text-cyan hover:bg-cyan hover:text-black border border-cyan/30 shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}
+                  >
+                    SAUVEGARDER (CTRL+S)
+                  </button>
+                </div>
               </div>
               
-              <div className="flex-1 relative">
-                {activeFile ? (
-                  <Editor 
-                    height="100%" 
-                    theme="vs-dark" 
-                    path={activeFile}
-                    language={activeFile.endsWith('.tsx') || activeFile.endsWith('.ts') ? 'typescript' : activeFile.endsWith('.css') ? 'css' : activeFile.endsWith('.html') ? 'html' : activeFile.endsWith('.json') ? 'json' : 'javascript'} 
-                    value={fileContent} 
-                    onChange={(val) => setFileContent(val || "")} 
-                    options={{ 
-                      minimap: { enabled: false }, 
-                      fontSize: 14,
-                      wordWrap: "on",
-                      padding: { top: 16 }
-                    }}
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
-                    <span className="text-6xl opacity-20">🐯</span>
-                    <span className="font-medium tracking-wide">Sélectionnez un fichier dans l'explorateur pour l'éditer</span>
+              <div className="flex-1 relative flex">
+                {/* Section Code */}
+                <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
+                  {activeFile ? (
+                    <Editor 
+                      height="100%" 
+                      theme="vs-dark" 
+                      path={activeFile}
+                      language={activeFile.endsWith('.tsx') || activeFile.endsWith('.ts') ? 'typescript' : activeFile.endsWith('.css') ? 'css' : activeFile.endsWith('.html') ? 'html' : activeFile.endsWith('.json') ? 'json' : 'javascript'} 
+                      value={fileContent} 
+                      onChange={(val) => setFileContent(val || "")} 
+                      options={{ 
+                        minimap: { enabled: false }, 
+                        fontSize: 14,
+                        wordWrap: "on",
+                        padding: { top: 16 }
+                      }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
+                      <span className="text-6xl opacity-20">🐯</span>
+                      <span className="font-medium tracking-wide">Sélectionnez un fichier dans l'explorateur pour l'éditer</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section Preview Iframe */}
+                {previewUrl && (
+                  <div className="w-1/2 relative bg-white">
+                    <iframe src={previewUrl} className="w-full h-full border-none" />
+                    <button 
+                      onClick={() => setPreviewUrl(null)} 
+                      className="absolute top-2 right-4 bg-black/80 border border-white/20 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-lg z-50"
+                      title="Fermer la Preview"
+                    >
+                      ✕
+                    </button>
+                    <button 
+                      onClick={() => window.open(previewUrl, '_blank')} 
+                      className="absolute top-2 right-14 bg-black/80 border border-white/20 text-white rounded-full px-3 h-8 flex items-center justify-center hover:bg-cyan hover:text-black transition-all shadow-lg z-50 text-xs font-bold"
+                      title="Ouvrir dans un nouvel onglet"
+                    >
+                      ↗ Ouvrir
+                    </button>
                   </div>
                 )}
               </div>
@@ -2038,26 +2103,6 @@ Format attendu:
                    </select>
                  </div>
                  
-                 <div className="flex gap-2">
-                   <input 
-                     type="file" 
-                     id="trombone-creation-upload"
-                     className="hidden" 
-                     multiple
-                     accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
-                     onChange={(e) => {
-                       if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
-                       if (e.target) e.target.value = '';
-                     }} 
-                   />
-                   <button 
-                     onClick={() => document.getElementById('trombone-creation-upload')?.click()} 
-                     className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-900/40 to-pink-800/20 border border-pink-500/50 text-pink-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-pink-800 transition-colors shadow-[0_0_15px_rgba(236,72,153,0.2)]"
-                   >
-                     📎 Joindre ZIP (Stitch) ou Fichiers
-                   </button>
-                 </div>
-                 
                  <div>
                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">📝 INSTRUCTIONS SPÉCIFIQUES :</label>
                    <textarea 
@@ -2197,6 +2242,26 @@ Format attendu:
                     <div className="mt-5">
                       <button onClick={() => setIsPrdModalOpen(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
                         💎 Packs PRD ({selectedPacks.length})
+                      </button>
+                    </div>
+                    
+                    <div className="mt-5">
+                      <input 
+                        type="file" 
+                        id="trombone-creation-upload"
+                        className="hidden" 
+                        multiple
+                        accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+                          if (e.target) e.target.value = '';
+                        }} 
+                      />
+                      <button 
+                        onClick={() => document.getElementById('trombone-creation-upload')?.click()} 
+                        className="px-4 py-2 bg-pink-900/40 border border-pink-500/50 text-pink-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-pink-800 transition-colors"
+                      >
+                        📎 Joindre ZIP (Stitch)
                       </button>
                     </div>
 
