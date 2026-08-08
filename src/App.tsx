@@ -1810,8 +1810,17 @@ Format attendu:
                 </div>
                 <div className="flex gap-4 items-center">
                   {previewUrl && (
-                    <div className="text-xs text-green-400 animate-pulse font-bold flex items-center gap-2">
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span> SERVER RUNNING ({previewUrl})
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-green-400 animate-pulse font-bold flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-400 rounded-full"></span> SERVER:
+                      </div>
+                      <input 
+                        type="text" 
+                        value={previewUrl} 
+                        onChange={(e) => setPreviewUrl(e.target.value)} 
+                        className="bg-black/50 border border-green-500/30 text-green-400 text-[10px] px-2 py-1 rounded outline-none focus:border-green-400 w-40 font-mono shadow-[0_0_10px_rgba(34,197,94,0.1)] transition-all"
+                        title="Modifier l'URL / Port de la Preview"
+                      />
                     </div>
                   )}
                   <button 
