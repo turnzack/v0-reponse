@@ -609,6 +609,7 @@ export default function Dashboard() {
   const [tromboneFiles, setTromboneFiles] = useState<{path: string, content: string}[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewInput, setPreviewInput] = useState<string>("");
+  const [isIdeFullscreen, setIsIdeFullscreen] = useState(false);
   const lastPreviewUrlRef = useRef<string | null>(null);
   
   useEffect(() => {
@@ -1781,6 +1782,17 @@ Format attendu:
               <div className="flex-1"></div>
 
               <button 
+                title={isIdeFullscreen ? "Réduire (Afficher le Chat)" : "Pleine Page (Masquer le Chat)"}
+                onClick={() => setIsIdeFullscreen(!isIdeFullscreen)} 
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isIdeFullscreen ? 'bg-cyan text-black border-cyan' : 'bg-white/5 hover:bg-cyan/20 text-cyan border-white/10 hover:border-cyan'}`}
+              >
+                {isIdeFullscreen ? '🗗' : '🗖'}
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-cyan pointer-events-none transition-opacity">
+                  {isIdeFullscreen ? 'Mode Normal' : 'Pleine Page'}
+                </span>
+              </button>
+
+              <button 
                 title="Lancer Preview" 
                 onClick={() => {
                   if (!activeProject) return;
@@ -1901,7 +1913,7 @@ Format attendu:
 
         {/* Chat Area (Responsive) */}
         <main 
-          className={`${activeProject ? 'w-96 min-w-[24rem] border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]' : 'flex-1'} overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative transition-all duration-500 ease-in-out`}
+          className={`${activeProject ? (isIdeFullscreen ? 'hidden w-0' : 'w-96 min-w-[24rem]') : 'flex-1'} border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative transition-all duration-500 ease-in-out`}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={(e) => {
