@@ -19,20 +19,13 @@ body {
   overflow-x: hidden;
 }
 
-/* Scrollbar styling */
+/* Scrollbar globale masquée pour un look "Zero-Touch OS" */
 ::-webkit-scrollbar {
-  width: 8px;
+  display: none;
+  width: 0px;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--teal-dark);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--cyan);
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -3,7 +3,7 @@
   --app-largeur-max: 120vw;
   --app-hauteur-max: 136vh;
   --header-position: fixed;
-  --header-top: -109px;
+  --header-top: -107px;
   --header-left: 17px;
   --header-largeur: 0%;
   --header-z-index: 100;
@@ -29,11 +29,11 @@
   --font-principale: 'Inter', sans-serif;
   --font-titre: 'Inter', sans-serif;
   --font-code: 'Consolas', monospace;
-  --taille-texte-nano: 10px;
-  --taille-texte-mini: 12px;
-  --taille-texte-base: 14px;
-  --taille-texte-titre: 29px;
-  --taille-texte-geant: -77px;
+  --taille-texte-nano: 17px;
+  --taille-texte-mini: 17px;
+  --taille-texte-base: 17px;
+  --taille-texte-titre: 17px;
+  --taille-texte-geant: 1px;
   --header-padding: 0rem 0.0rem;
   --header-bg-couleur: rgba(0, 0, 0, 0.4);
   --header-bordure-bas: 1px solid rgba(255, 255, 255, 0.1);
@@ -75,7 +75,7 @@
   --app-texte-couleur: #ffffff;
   --app-texte-poids: 600;
   --app-texte-marge-haut: -40px;
-  --carte-carrousel-hauteur: 131px;
+  --carte-carrousel-hauteur: 157px;
   --carte-carrousel-largeur: 323px;
   --chat-bulles-espacement: 1px;
   --chat-layout-gap: 107px;

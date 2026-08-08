@@ -550,7 +550,7 @@ export default function Dashboard() {
     {
       id: "init",
       role: "assistant",
-      content: "Système Tiger IA initialisé. L'interface unique est active. Que souhaitez-vous faire ?",
+      content: "Système v0-reponses initialisé. L'interface unique est active. Que souhaitez-vous faire ?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -598,6 +598,13 @@ export default function Dashboard() {
   const [newProjectLogicAi, setNewProjectLogicAi] = useState("deepseek");
   const [newProjectInstructions, setNewProjectInstructions] = useState("");
   const [isAutoPilotOn, setIsAutoPilotOn] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState<any>(null);
+
+  // --- WIDGET NEWS (LIVE API) ---
+  const [liveNewsData, setLiveNewsData] = useState<any[]>([]);
+  const [isFetchingNews, setIsFetchingNews] = useState(false);
+  const [deepseekApiKey, setDeepseekApiKey] = useState("");
+  const [isAskingApiKey, setIsAskingApiKey] = useState(false);
 
   // --- WIDGET THEMES COLOR SAVER ---
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
@@ -607,6 +614,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loaded = localStorage.getItem("tiger_saved_themes");
+    const loadedApiKey = localStorage.getItem("tiger_deepseek_api_key");
+    if (loadedApiKey) setDeepseekApiKey(loadedApiKey);
+
     if (loaded) {
       try {
         setSavedThemes(JSON.parse(loaded));
@@ -984,6 +994,46 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
     scrollToBottom();
   }, [messages]);
 
+  const fetchLiveNews = async (apiKey: string) => {
+    if (!apiKey) {
+      setIsAskingApiKey(true);
+      return;
+    }
+    setIsAskingApiKey(false);
+    setIsFetchingNews(true);
+    try {
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            {
+              role: "system",
+              content: "Tu es un journaliste IA spécialisé en technologie. Rédige 3 actualités RÉELLES, récentes et détaillées sur l'Intelligence Artificielle (Modèles, Frameworks, Tech). Tu DOIS retourner UNIQUEMENT un objet JSON strictement valide avec cette exacte structure : {\"news\": [{\"id\": 1, \"title\": \"Titre court\", \"desc\": \"Brève description\", \"tag\": \"Catégorie\", \"content\": \"Texte complet de l'article très détaillé avec des paragraphes...\"}]}"
+            }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+      const data = await res.json();
+      if (data.choices && data.choices[0]) {
+        const content = JSON.parse(data.choices[0].message.content);
+        if (content && content.news) {
+          setLiveNewsData(content.news);
+        }
+      }
+    } catch (e) {
+      console.error("Erreur DeepSeek News API", e);
+      alert("Erreur de connexion à l'API DeepSeek. Vérifiez votre clé ou votre connexion.");
+    } finally {
+      setIsFetchingNews(false);
+    }
+  };
+
   const handleSend = (overrideText?: any) => {
     // Si overrideText est un événement (ex: depuis onClick ou onKeyDown), on l'ignore.
     const textToSend = (typeof overrideText === 'string') ? overrideText : input;
@@ -1156,9 +1206,10 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
       } else if (normalizedInput.includes("youtube") || normalizedInput.includes("video")) {
         responseMsg.content = "Voici les résultats YouTube pour votre recherche :";
         responseMsg.widget = "youtube";
-      } else if (normalizedInput.includes("actualite") || normalizedInput.includes("ia") || normalizedInput.includes("news")) {
-        responseMsg.content = "Voici les dernières actualités sur l'Intelligence Artificielle :";
+      } else if (normalizedInput.includes("actualite") || normalizedInput.includes("ia") || normalizedInput.includes("news") || normalizedInput.includes("recherche")) {
+        responseMsg.content = deepseekApiKey ? "Recherche des dernières actualités en direct via DeepSeek API..." : "Clé API DeepSeek requise pour la recherche en direct.";
         responseMsg.widget = "news";
+        fetchLiveNews(deepseekApiKey);
       } else if (normalizedInput.includes("parametre") || normalizedInput.includes("reglage") || normalizedInput.includes("configuration") || normalizedInput.includes("setting")) {
         responseMsg.content = "Ouverture du panneau de configuration système :";
         responseMsg.widget = "settings";
@@ -1665,8 +1716,6 @@ Format attendu:
   };
 
   const WidgetNews = () => {
-    const [selectedArticle, setSelectedArticle] = useState<any>(null);
-
     const news = [
       {
         id: 1,
@@ -1914,8 +1963,7 @@ Format attendu:
             <span>🐯</span>
           </div>
           <div>
-            <h1 className="design-titre">v0.reponse</h1>
-            <p className="design-sous-titre font-medium">OS Souverain v0.1.0 - idecode-2026</p>
+            <h1 className="design-titre whitespace-nowrap">v0.reponse : OS Souverain v0.1.0 - idecode-2026</h1>
           </div>
         </div>
       </header>
