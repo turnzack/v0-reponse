@@ -10,13 +10,17 @@
   --orange: #f09a39;
 }
 
-body {
+body, html, #root {
   margin: 0;
   padding: 0;
+  width: 100vw;
+  height: 100vh;
   font-family: 'Inter', sans-serif;
   color: white;
   background-color: #0d1117;
-  overflow-x: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar styling */

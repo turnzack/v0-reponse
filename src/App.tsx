@@ -124,7 +124,7 @@ const WidgetSettings = ({
   ];
 
   return (
-    <div className={`w-full max-w-5xl bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row ${isEmbedded ? 'h-[450px]' : 'h-[80vh] md:h-[650px]'} ${isModal ? 'pointer-events-auto' : 'mt-2'}`}>
+    <div className={`w-full h-screen bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl border-none shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row pointer-events-auto`}>
       
       {/* Sidebar */}
       {!isEmbedded && (
@@ -615,6 +615,11 @@ export default function Dashboard() {
   useEffect(() => {
     lastPreviewUrlRef.current = null;
     setPreviewUrl(null);
+    if (activeProject) {
+      setIsIdeFullscreen(true);
+    } else {
+      setIsIdeFullscreen(false);
+    }
   }, [activeProject]);
 
   // Chargement de l'arborescence quand un projet est actif
