@@ -536,6 +536,33 @@ const WidgetSettings = ({
   );
 };
 
+const Carousel = ({ items }: { items: React.ReactNode[] }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const infiniteItems = [...items, ...items, ...items, ...items, ...items, ...items, ...items];
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      // Centrer le scroll au milieu pour permettre d'aller à gauche ET à droite
+      const centerPosition = scrollRef.current.scrollWidth / 2 - scrollRef.current.clientWidth / 2;
+      scrollRef.current.scrollLeft = centerPosition;
+    }
+  }, []);
+
+  return (
+    <div 
+      ref={scrollRef}
+      className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
+      style={{ scrollBehavior: 'smooth' }}
+    >
+      {infiniteItems.map((item, idx) => (
+        <div key={idx} className="shrink-0 transition-transform duration-300 hover:scale-[1.02]">
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const gradientCache = useRef<{ [key: string]: string }>({});
   const getCachedGradient = (key: string, alpha = 1) => {
@@ -603,8 +630,6 @@ export default function Dashboard() {
   // --- WIDGET NEWS (LIVE API) ---
   const [liveNewsData, setLiveNewsData] = useState<any[]>([]);
   const [isFetchingNews, setIsFetchingNews] = useState(false);
-  const [deepseekApiKey, setDeepseekApiKey] = useState("");
-  const [isAskingApiKey, setIsAskingApiKey] = useState(false);
 
   // --- WIDGET THEMES COLOR SAVER ---
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
@@ -614,9 +639,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loaded = localStorage.getItem("tiger_saved_themes");
-    const loadedApiKey = localStorage.getItem("tiger_deepseek_api_key");
-    if (loadedApiKey) setDeepseekApiKey(loadedApiKey);
-
+    
     if (loaded) {
       try {
         setSavedThemes(JSON.parse(loaded));
@@ -996,10 +1019,9 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
 
   const fetchLiveNews = async (apiKey: string) => {
     if (!apiKey) {
-      setIsAskingApiKey(true);
+      alert("Veuillez configurer votre clé API DeepSeek dans les réglages (Connexion) pour utiliser la recherche en direct.");
       return;
     }
-    setIsAskingApiKey(false);
     setIsFetchingNews(true);
     try {
       const res = await fetch("https://api.deepseek.com/chat/completions", {
@@ -1013,7 +1035,7 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
           messages: [
             {
               role: "system",
-              content: "Tu es un journaliste IA spécialisé en technologie. Rédige 3 actualités RÉELLES, récentes et détaillées sur l'Intelligence Artificielle (Modèles, Frameworks, Tech). Tu DOIS retourner UNIQUEMENT un objet JSON strictement valide avec cette exacte structure : {\"news\": [{\"id\": 1, \"title\": \"Titre court\", \"desc\": \"Brève description\", \"tag\": \"Catégorie\", \"content\": \"Texte complet de l'article très détaillé avec des paragraphes...\"}]}"
+              content: "Tu es un journaliste IA spécialisé en technologie. Rédige 6 actualités RÉELLES, récentes et détaillées sur l'Intelligence Artificielle (Modèles, Frameworks, Tech). Tu DOIS retourner UNIQUEMENT un objet JSON strictement valide avec cette exacte structure : {\"news\": [{\"id\": 1, \"title\": \"Titre court\", \"desc\": \"Brève description\", \"tag\": \"Catégorie\", \"content\": \"Texte complet de l'article très détaillé avec des paragraphes...\"}]}"
             }
           ],
           response_format: { type: "json_object" }
@@ -1207,9 +1229,10 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
         responseMsg.content = "Voici les résultats YouTube pour votre recherche :";
         responseMsg.widget = "youtube";
       } else if (normalizedInput.includes("actualite") || normalizedInput.includes("ia") || normalizedInput.includes("news") || normalizedInput.includes("recherche")) {
-        responseMsg.content = deepseekApiKey ? "Recherche des dernières actualités en direct via DeepSeek API..." : "Clé API DeepSeek requise pour la recherche en direct.";
+        const currentApiKey = localStorage.getItem("tiger_apiKey");
+        responseMsg.content = currentApiKey ? "Recherche des dernières actualités en direct via DeepSeek API..." : "Veuillez configurer votre clé API DeepSeek dans les réglages.";
         responseMsg.widget = "news";
-        fetchLiveNews(deepseekApiKey);
+        if (currentApiKey) fetchLiveNews(currentApiKey);
       } else if (normalizedInput.includes("parametre") || normalizedInput.includes("reglage") || normalizedInput.includes("configuration") || normalizedInput.includes("setting")) {
         responseMsg.content = "Ouverture du panneau de configuration système :";
         responseMsg.widget = "settings";
@@ -1315,6 +1338,7 @@ Description : ${newProjectDesc}.`;
 
   const handleFileUpload = async (files: FileList | File[] | File) => {
     let fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
+    let originalZipFile: File | null = null; // On garde le ZIP original pour le mode Multi-Batch
 
     // 1. Décompression des ZIP à la volée
     const zipFiles = fileArray.filter(f => f.name.endsWith('.zip'));
@@ -1330,6 +1354,7 @@ Description : ${newProjectDesc}.`;
       try {
         const JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
         for (const zf of zipFiles) {
+          originalZipFile = zf; // Sauvegarder le ZIP original
           const zip = new JSZip();
           const zipData = await zip.loadAsync(zf);
 
@@ -1418,7 +1443,62 @@ Description : ${newProjectDesc}.`;
 
     setTromboneFiles(appendedToTrombone);
 
-    // If there is an HTML file, we trigger the build process
+    // Si le ZIP original avait plus de 3 fichiers HTML -> MODE HERMES MULTI-BATCH
+    const totalHtmlFiles = htmlFiles.length + extractedFiles.filter(f => f.name.endsWith('.html')).length;
+    if (originalZipFile && totalHtmlFiles > 3) {
+      const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+      const genId = "Projet_ZIP_" + originalZipFile.name.replace(/[^a-zA-Z0-9]/g, '_').replace('.zip','') + '_' + Date.now().toString().slice(-4);
+      const designProjectId = activeProject || genId;
+      if (!activeProject) setActiveProject(designProjectId);
+
+      setMessages(prev => [...prev, {
+        id: Date.now().toString() + "_batch",
+        role: "assistant",
+        content: `🤖 KIROV5 MULTI-BATCH DÉTECTÉ !
+
+Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage automatique en lots de 3 fichiers en cours...\nDémarrage de l'automatisation séquentielle via DeepSeek !`,
+        widget: "phases"
+      }]);
+      setActivePhase(1);
+
+      // Lire le ZIP en base64 et l'envoyer à Hermes
+      const zipBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
+        reader.readAsDataURL(originalZipFile!);
+      });
+
+      fetch("http://localhost:5005/api/bridge/trombone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zip_base64: zipBase64,
+          zip_mode: true,
+          target_ai: logicAi,
+          target_project: designProjectId,
+          user_prompt: newProjectName.trim() ? `${newProjectName} - ${newProjectDesc}` : `Application multi-pages issue de ${originalZipFile.name}`
+        })
+      }).then(async res => {
+        const data = await res.json();
+        if (data.success) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString() + "_hermes",
+            role: "assistant",
+            content: `✅ ${data.message}\n\n📡 Lot 1/${data.total_batches} transmis à DeepSeek. Les lots suivants s'enchaîneront automatiquement !\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
+          }]);
+          // Ouvrir DeepSeek pour que l'extension capte le premier prompt
+          window.open(`https://chat.${logicAi}.com/`, '_blank');
+        } else {
+          alert('Erreur Hermes : ' + (data.error || 'Inconnue'));
+        }
+      }).catch(err => {
+        alert(`Erreur de connexion au Moteur Local : ${err.message}`);
+      });
+
+      return; // Stopper le flux classique
+    }
+
+    // Si là y a des fichiers HTML classiques (<= 3), comportement normal
     if (htmlFiles.length > 0) {
       // NE PAS AUTO-LANCER SI ON EST EN MODE CREATION INLINE
       if (document.getElementById('creation-mode-container')) {
@@ -1563,19 +1643,7 @@ Format attendu:
 
   // --- WIDGET COMPONENTS ---
 
-  const renderCarousel = (items: React.ReactNode[]) => {
-    // Simulation d'une boucle infinie pour le défilement horizontal
-    const infiniteItems = [...items, ...items, ...items, ...items, ...items];
-    return (
-      <div className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 snap-x snap-mandatory hide-scrollbar">
-        {infiniteItems.map((item, idx) => (
-          <div key={idx} className="snap-center shrink-0">
-            {item}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  // --- WIDGET COMPONENTS ---
 
   // --- HELPERS IDE ---
   const renderFsTree = (node: any, level = 0) => {
@@ -1672,7 +1740,7 @@ Format attendu:
       );
     }
 
-    return renderCarousel([
+    return <Carousel items={[
       ...liveProjects.map((p, i) => (
         <div
           key={i}
@@ -1712,33 +1780,18 @@ Format attendu:
             🚀 Installer & Lancer
           </button>
         </div>
-      ))]);
+      ))]} />
   };
 
   const WidgetNews = () => {
-    const news = [
-      {
-        id: 1,
-        title: "DeepSeek V3",
-        desc: "Le nouveau modèle surpasse GPT-4 sur les tests logiques.",
-        tag: "LLM",
-        content: "DeepSeek a annoncé aujourd'hui la sortie de la version V3 de son modèle phare. Il présente des avancées majeures en logique formelle, générant du code complexe avec une précision inégalée.\n\nL'architecture Mixture of Experts (MoE) a été drastiquement optimisée pour réduire la latence de moitié tout en gardant une consommation mémoire réduite. Ce modèle Open Source promet de bousculer la domination de l'écosystème fermé de OpenAI."
-      },
-      {
-        id: 2,
-        title: "React 19",
-        desc: "Le compilateur React est enfin disponible en version beta.",
-        tag: "Frontend",
-        content: "Après des années d'attente, le projet 'React Forget' est officiellement publié sous le nom de React Compiler dans React 19.\n\nFini les useMemo et useCallback manuels : le compilateur gère désormais l'optimisation des rendus automatiquement à l'étape du build. Cela simplifie considérablement le code des développeurs tout en garantissant des performances maximales côté client."
-      },
-      {
-        id: 3,
-        title: "Next.js 15",
-        desc: "Mise à jour majeure du cache et de l'architecture App Router.",
-        tag: "Framework",
-        content: "Vercel a lancé Next.js 15 avec de nombreux changements profonds.\n\nLe système de cache par défaut de (fetch) n'est plus agressif, répondant enfin aux retours de la communauté qui le trouvait trop imprévisible. De plus, l'expérience développeur (DX) lors de l'utilisation du turbopack a été grandement améliorée, rendant les rechargements à chaud (HMR) quasi instantanés sur les très gros projets."
-      },
-    ];
+    if (isFetchingNews) {
+      return (
+        <div className="w-full p-8 flex flex-col items-center justify-center gap-4 animate-fadeIn">
+          <div className="w-12 h-12 border-4 border-cyan/20 border-t-cyan rounded-full animate-spin"></div>
+          <div className="text-cyan font-bold animate-pulse text-sm">Interrogation de l'API DeepSeek en cours...</div>
+        </div>
+      );
+    }
 
     if (selectedArticle) {
       return (
@@ -1764,7 +1817,7 @@ Format attendu:
           </div>
 
           <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
-            <span className="text-xs text-gray-500 font-mono">SOURCE: TIGER NEWS NETWORK</span>
+            <span className="text-xs text-cyan font-mono font-bold tracking-widest">GÉNÉRÉ PAR DEEPSEEK API</span>
             <button
               onClick={() => setSelectedArticle(null)}
               className="px-6 py-3 bg-white/5 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/10 hover:border-cyan"
@@ -1776,7 +1829,11 @@ Format attendu:
       );
     }
 
-    return renderCarousel(news.map(n => (
+    if (!liveNewsData || liveNewsData.length === 0) {
+      return null;
+    }
+
+    return <Carousel items={liveNewsData.map(n => (
       <div key={n.id} className="design-carte-carrousel rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-' + n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
         <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3">{n.tag}</span>
         <h3 className="text-lg font-bold text-white mb-2 leading-tight">{n.title}</h3>
@@ -1788,7 +1845,7 @@ Format attendu:
           Lire l&apos;article →
         </button>
       </div>
-    )));
+    ))} />
   };
 
   const WidgetYouTube = () => {
@@ -1797,7 +1854,7 @@ Format attendu:
       { title: "React Tailwind Masterclass", channel: "UI Design", views: "5.4k" },
       { title: "Android Bridge Capacitor", channel: "Mobile Dev", views: "800" },
     ];
-    return renderCarousel(videos.map((v, i) => (
+    return <Carousel items={videos.map((v, i) => (
       <div key={i} className="design-carte-carrousel rounded-2xl overflow-hidden border border-red-500/30 hover:border-red-500 transition-colors shadow-lg flex flex-col" style={{ background: isClient ? getCachedGradient('yt-' + i, 0.6) : 'rgba(0,0,0,0.6)' }}>
         <div className="flex-1 bg-gray-800 relative flex items-center justify-center min-h-[50%]">
           <div className="absolute inset-0 bg-gradient-to-tr from-red-900/40 to-transparent"></div>
@@ -1813,7 +1870,7 @@ Format attendu:
           </div>
         </div>
       </div>
-    )));
+    ))} />
   };
 
   // --- RENDERING PRINCIPAL ---
@@ -1826,7 +1883,7 @@ Format attendu:
 
     return (
       <div className="mt-2">
-        {renderCarousel(allPhases.map((p, idx) => {
+        <Carousel items={allPhases.map((p, idx) => {
           const step = idx + 1;
           const isDone = step < activePhase;
           const isCurrent = step === activePhase;
@@ -1869,7 +1926,7 @@ Format attendu:
               )}
             </div>
           );
-        }))}
+        })} />
       </div>
     );
   };
@@ -2092,12 +2149,22 @@ Format attendu:
                 <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
                   {isDesignMode ? (
                     <div className="flex-1 overflow-y-auto bg-[#1a1a1a] p-6 hide-scrollbar flex flex-col gap-6">
-                      <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                        <span className="text-3xl">🎨</span>
-                        <div>
-                          <h2 className="text-xl font-black text-pink-500 tracking-widest uppercase">Design v0</h2>
-                          <p className="text-xs text-gray-400">Éditeur visuel en temps réel</p>
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">🎨</span>
+                          <div>
+                            <h2 className="text-xl font-black text-pink-500 tracking-widest uppercase">Design v0</h2>
+                            <p className="text-xs text-gray-400">Éditeur visuel express</p>
+                          </div>
                         </div>
+                        <a 
+                          href="/admin-design.html" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-pink-600/20 hover:bg-pink-600 text-pink-400 hover:text-white border border-pink-500/30 font-bold text-xs rounded shadow-lg transition-all"
+                        >
+                          Ouvrir l'Éditeur Complet ↗
+                        </a>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-2 pb-20">
