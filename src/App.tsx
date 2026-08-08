@@ -782,15 +782,10 @@ export default function Dashboard() {
   }, [messages]);
 
   const handleSend = (overrideText?: any) => {
-    // Si l'utilisateur clique sur "Envoyer" et qu'un HTML est dans le trombone, on lance le pipeline complet de création !
-    if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
-      handleStartFullPipeline();
-      return;
-    }
-
     // Si overrideText est un événement (ex: depuis onClick ou onKeyDown), on l'ignore.
     const textToSend = (typeof overrideText === 'string') ? overrideText : input;
-    if (!textToSend.trim() && tromboneFiles.length === 0) return;
+    
+    if (!textToSend.trim()) return;
     
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: textToSend };
     setMessages((prev) => [...prev, userMsg]);
@@ -1152,38 +1147,47 @@ Description : ${newProjectDesc}.`;
         reader.readAsText(mainHtml);
       });
       
-      const newHtmlContext = { path: mainHtml.name, content: htmlContent };
-      if (!appendedToTrombone.some(ext => ext.path === mainHtml.name)) {
-        appendedToTrombone.push(newHtmlContext);
+      // NE PAS AUTO-LANCER SI ON EST EN MODE CREATION INLINE
+      if (document.getElementById('creation-mode-container')) {
+        return;
       }
       
-      setTromboneFiles(appendedToTrombone);
-      
-      // On n'auto-lance plus le pipeline, on attend que l'utilisateur clique sur Envoyer (▶ ou 🚀)
+      setTimeout(() => {
+        handleStartFullPipeline();
+      }, 1200);
     }
   };
 
-  const handleStartFullPipeline = async (forcedHtmlContent?: string, forcedTromboneFiles?: any[], forcedHtmlPath?: string) => {
+  const handleStartFullPipeline = async () => {
     setIsCreationMode(false);
-    
-    let htmlContent = "";
-    let appendedToTrombone = [];
-    let htmlFileName = "";
-
-    if (forcedHtmlContent) {
-      htmlContent = forcedHtmlContent;
-      appendedToTrombone = forcedTromboneFiles || [];
-      htmlFileName = forcedHtmlPath || "index.html";
-    } else {
-      const htmlFile = tromboneFiles.find(f => f.path.endsWith('.html'));
-      if (!htmlFile) {
-        alert("Aucun fichier HTML trouvé dans le Trombone !");
-        return;
-      }
-      htmlContent = htmlFile.content;
-      appendedToTrombone = tromboneFiles.filter(f => f.path !== htmlFile.path);
-      htmlFileName = htmlFile.path;
+    const htmlFile = tromboneFiles.find(f => f.path.endsWith('.html'));
+    if (!htmlFile) {
+      alert("Aucun fichier HTML trouvé dans le Trombone !");
+      return;
     }
+    
+    // Auto-create folder explicitely before sending to DeepSeek
+    const genId = newProjectName.trim() 
+      ? "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4)
+      : "Design_" + htmlFile.path.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
+      
+    const designProjectId = activeProject || genId;
+
+    if (!activeProject) {
+      setActiveProject(designProjectId);
+      try {
+        await fetch("http://127.0.0.1:5005/api/projects/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: designProjectId })
+        });
+      } catch (err) {
+        console.error("[IDE] Erreur création auto du dossier", err);
+      }
+    }
+    
+    const appendedToTrombone = tromboneFiles.filter(f => f.path !== htmlFile.path);
+    const htmlContent = htmlFile.content;
 
     const responseMsg: Message = { 
       id: (Date.now() + 1).toString(), 
@@ -1219,14 +1223,18 @@ Description : ${newProjectDesc}.`;
         });
       }
 
-      let projectContextString = "";
-      if (newProjectName && newProjectName.trim() !== "") {
-        projectContextString = `\n--- Contexte du Projet ---\nNom : ${newProjectName}\nStack Technique : ${newProjectStack}\nDescription / Objectifs : ${newProjectDesc}\n`;
+      let metadataBlock = "";
+      if (newProjectName.trim() || newProjectStack.trim() || newProjectDesc.trim()) {
+         metadataBlock = `\n--- MÉTADONNÉES DU PROJET ---
+Nom : ${newProjectName || "Non spécifié"}
+Stack / Structure : ${newProjectStack || "Non spécifiée"}
+Description & Objectifs : ${newProjectDesc || "Non spécifiés"}
+-----------------------------\n`;
       }
 
-      const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.
+      const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.${metadataBlock}
 Ta mission est de créer un projet React (Vite + TSX) COMPLET et autonome à partir de ce design.
-${projectContextString}
+
 Tu DOIS impérativement générer TOUS les fichiers nécessaires pour que le projet soit exécutable immédiatement, notamment :
 1. \`package.json\` (avec les scripts vite, et react/react-dom)
 2. \`index.html\` (le point d'entrée)
@@ -1251,21 +1259,6 @@ Format attendu:
 }
 \`\`\`
 `;
-      let designProjectId = activeProject;
-      if (!designProjectId) {
-        if (newProjectName && newProjectName.trim() !== "") {
-          designProjectId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-          // Création auto du dossier local
-          fetch("http://127.0.0.1:5005/api/projects/create", {
-             method: "POST",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify({ projectId: designProjectId })
-          }).catch(e => console.error("[IDE] Erreur création auto du dossier ZIP", e));
-          localStorage.setItem("tiger_lastGeneratedProject", designProjectId);
-        } else {
-          designProjectId = "Design_" + htmlFileName.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
-        }
-      }
       
       const bridge = (window as any).AndroidBridge;
       if (bridge && bridge.openAIWithPrompt) {
@@ -1617,61 +1610,6 @@ Format attendu:
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan/10 blur-[150px] rounded-full pointer-events-none" />
 
-      {/* Floating PRD Packs Modal */}
-      {isPrdModalOpen && (
-        <div 
-          className="absolute inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md" 
-          style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}
-          onClick={(e) => e.target === e.currentTarget && setIsPrdModalOpen(false)}
-        >
-          <div className="bg-black/90 border border-indigo-500/30 rounded-3xl p-6 w-[600px] max-w-full shadow-2xl relative animate-fadeIn flex flex-col max-h-[85vh]">
-            <button onClick={() => setIsPrdModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white p-2">✕</button>
-            
-            <h2 className="text-2xl font-black text-indigo-400 flex items-center gap-2 mb-2">
-              💎 Packs PRD (Contexte)
-            </h2>
-            <p className="text-sm text-slate-400 mb-6 border-b border-indigo-500/20 pb-4">
-              Sélectionnez les documents de référence (Product Requirements Documents) à injecter dans le cerveau de l'IA (Stitch / DeepSeek) pour ce projet.
-            </p>
-            
-            <div className="flex flex-col gap-3 overflow-y-auto pr-2 hide-scrollbar flex-1">
-              {[
-                { id: "prd_ecom_catalog", name: "E-Commerce : Catalogue", desc: "Architecture avancée de catalogue produits, filtres, recherche." },
-                { id: "prd_ecom_checkout", name: "E-Commerce : Checkout", desc: "Tunnel de conversion multi-étapes, Stripe, panier." },
-                { id: "prd_saas_auth", name: "SaaS B2B : Authentification", desc: "JWT, OAuth, Multi-tenant, Rôles et Permissions." },
-                { id: "prd_saas_dashboard", name: "SaaS B2B : Dashboard", desc: "Statistiques, Chart.js, KPIs, Export CSV." },
-                { id: "prd_social_feed", name: "Réseau Social : Feed", desc: "Fil d'actualité, pagination infinie, likes, commentaires." },
-                { id: "prd_mobile_pwa", name: "Mobile First (PWA)", desc: "Touch events, Offline mode, Service Workers, Manifest." },
-                { id: "prd_landing_premium", name: "Landing Page Premium", desc: "Animations 3D, Parallax, Conversion optimisée, SEO." }
-              ].map(pack => (
-                <div 
-                  key={pack.id} 
-                  onClick={() => togglePack(pack.id)}
-                  className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedPacks.includes(pack.id) ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/10 text-white hover:border-white/20 hover:bg-white/10'}`}
-                >
-                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center mr-4 mt-0.5 transition-all ${selectedPacks.includes(pack.id) ? 'bg-indigo-500 border-indigo-500 text-black' : 'border-slate-500'}`}>
-                    {selectedPacks.includes(pack.id) && <span>✓</span>}
-                  </div>
-                  <div>
-                    <h4 className="font-bold">{pack.name}</h4>
-                    <p className="text-xs opacity-70 mt-1">{pack.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="mt-6 flex justify-end pt-4 border-t border-indigo-500/20">
-              <button 
-                onClick={() => setIsPrdModalOpen(false)} 
-                className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-colors shadow-[0_0_15px_rgba(99,102,241,0.4)]"
-              >
-                Valider ({selectedPacks.length} sélectionnés)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
         <div 
@@ -1990,17 +1928,6 @@ Format attendu:
         <div className="p-4 md:p-6 relative w-full flex flex-col gap-2">
           
           {/* LE TROMBONE (Fichiers attachés) */}
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            multiple
-            accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
-              if (fileInputRef.current) fileInputRef.current.value = "";
-            }} 
-          />
           {tromboneFiles.length > 0 && (
             <div className="flex gap-2 px-2 overflow-x-auto hide-scrollbar pb-2">
               {tromboneFiles.map((f, i) => (
@@ -2019,7 +1946,7 @@ Format attendu:
             <div id="creation-mode-container" className="flex flex-col gap-4 bg-black/60 p-5 rounded-3xl border border-cyan/30 shadow-2xl backdrop-blur-xl animate-fadeIn relative">
                <div className="flex justify-between items-center mb-1">
                  <h3 className="text-cyan font-bold flex items-center gap-2 text-lg">✨ Création Nouveau Projet</h3>
-                 <button onClick={() => setIsCreationMode(false)} className="text-slate-400 hover:text-white p-2 text-xl font-bold">✕</button>
+                 <button onClick={() => setIsCreationMode(false)} className="text-slate-400 hover:text-white p-2">✕</button>
                </div>
                
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2028,16 +1955,74 @@ Format attendu:
                     <div className="flex gap-2">
                       <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm disabled:opacity-50" />
                       <button 
-                        onClick={async () => {
-                          if (!newProjectName.trim()) return;
+                        onClick={async (e) => {
+                          if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
                           const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+                          const btn = e.currentTarget;
+                          const originalText = btn.innerHTML;
+                          
                           try {
-                            const res = await fetch("http://127.0.0.1:5005/api/projects/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: genId }) });
-                            if (res.ok) setActiveProject(genId);
-                          } catch (err) {}
+                            btn.innerHTML = '⏳...';
+                            const API_BASE = 'http://127.0.0.1:5005';
+                            
+                            // Tentative endpoint Python (Cerveau Maître)
+                            let res = await fetch(`${API_BASE}/v1/mission/start`, {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ 
+                                    name: genId,
+                                    prompt: newProjectDesc.trim() || "Initialisation manuelle du dossier depuis le bouton VALIDER.",
+                                    stack: newProjectStack || "react"
+                                })
+                            }).catch(() => null);
+                            
+                            // Fallback endpoint Electron Bridge
+                            if (!res || !res.ok) {
+                              res = await fetch(`${API_BASE}/api/projects/create`, { 
+                                method: "POST", 
+                                headers: { "Content-Type": "application/json" }, 
+                                body: JSON.stringify({ projectId: genId }) 
+                              }).catch(() => null);
+                            }
+                            
+                            if (res && res.ok) {
+                              setActiveProject(genId);
+                              btn.innerHTML = '✅ DOSSIER CRÉÉ';
+                              btn.style.background = '#10b981';
+                              btn.style.color = '#fff';
+                              btn.style.borderColor = '#10b981';
+                              
+                              // --- Enregistrement dans la mémoire RAG HERMES ---
+                              const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
+                              let oldMem = localStorage.getItem('hermes_memory') || "";
+                              if (!oldMem.includes(`[PROJET: ${genId}]`)) {
+                                  localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
+                                  
+                                  // Avertir le chat Tiger
+                                  setMessages(prev => [...prev, {
+                                    id: Date.now().toString() + "_hermes",
+                                    role: "assistant",
+                                    content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
+                                    widget: "phases"
+                                  }]);
+                              }
+                            } else {
+                              btn.innerHTML = '❌ ERREUR';
+                              btn.style.background = '#ef4444';
+                              btn.style.color = '#fff';
+                              btn.style.borderColor = '#ef4444';
+                              setTimeout(() => {
+                                btn.innerHTML = originalText;
+                                btn.style = '';
+                              }, 3000);
+                            }
+                          } catch (err) {
+                            alert("Erreur de connexion au Bridge local.");
+                            btn.innerHTML = originalText;
+                          }
                         }}
                         disabled={!!activeProject || !newProjectName.trim()}
-                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50"
+                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
                       >
                         {activeProject ? '✅ Validé' : 'Valider'}
                       </button>
@@ -2080,13 +2065,6 @@ Format attendu:
 
                   <div className="mt-5 flex gap-2">
                     <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 shadow-lg"
-                      title="Joindre un ZIP ou HTML manuellement"
-                    >
-                      📎 Joindre ZIP
-                    </button>
-                    <button 
                       onClick={() => {
                         if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
                           handleStartFullPipeline();
@@ -2103,6 +2081,17 @@ Format attendu:
             </div>
           ) : (
             <div className="relative flex items-center gap-2">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                multiple
+                accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }} 
+              />
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20 shrink-0"
