@@ -10,30 +10,29 @@
   --orange: #f09a39;
 }
 
-body, html, #root {
+body {
   margin: 0;
   padding: 0;
-  width: 100vw;
-  height: 100vh;
   font-family: 'Inter', sans-serif;
   color: white;
   background-color: #0d1117;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-x: hidden;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2); 
+  background: rgba(0, 0, 0, 0.2);
 }
+
 ::-webkit-scrollbar-thumb {
-  background: var(--teal-dark); 
+  background: var(--teal-dark);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--cyan); 
+  background: var(--cyan);
 }
