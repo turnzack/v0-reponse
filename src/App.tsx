@@ -658,6 +658,15 @@ export default function Dashboard() {
   --header-bg-couleur: ${projectDesign.headerBgCouleur};
   --btn-envoi-bg: ${projectDesign.btnEnvoiBg};
   --chat-conteneur-bg: ${projectDesign.chatConteneurBg};
+  
+  /* ========================================================= */
+  /* ALIAS DE COMPATIBILITÉ POUR LE TEMPLATE REACT EXISTANT    */
+  /* ========================================================= */
+  --color-primary: ${projectDesign.couleurAccentCyan};
+  --color-bg: ${projectDesign.appBgBottom};
+  --color-text: ${projectDesign.couleurTextePrincipal};
+  --radius: ${projectDesign.arrondiGlobal};
+  --font-base: ${projectDesign.tailleTexteBase};
 }
 
 /* Classes utilitaires de base */
@@ -666,8 +675,10 @@ body {
   color: var(--couleur-texte-principal) !important; 
   font-family: var(--font-principale) !important; 
   font-size: var(--taille-texte-base) !important;
-  min-height: 100vh;
+  min-height: 125vh; /* 100vh / 0.8 pour compenser le zoom */
   margin: 0;
+  zoom: 0.8;
+  overflow-x: hidden;
 }
 button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global) !important; }
 .bg-cyan { background-color: var(--couleur-accent-cyan) !important; }
@@ -676,6 +687,7 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
 .chat-custom { background: var(--chat-conteneur-bg) !important; }
 `;
     const timer = setTimeout(() => {
+      // 1. Sauvegarder dans le projet actif (preview)
       fetch("http://localhost:5005/api/fs/write", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: activeProject, file: "src/design.css", content: cssContent })
@@ -684,13 +696,20 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
           .then(res => res.json())
           .then(data => {
             if (data.success && data.content && !data.content.includes("design.css")) {
-              const newMain = data.content.replace("import './index.css'", "import './index.css'\\nimport './design.css'");
+              const newMain = data.content.replace("import './index.css'", "import './index.css'\nimport './design.css'");
               fetch("http://localhost:5005/api/fs/write", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: activeProject, file: "src/main.tsx", content: newMain })
               });
             }
           }).catch(() => { });
+      }).catch(() => { });
+
+      // 2. RECABLER AU PROJET v0reponses (IDE) COMME DEMANDÉ
+      // Le contournement du chemin relatif permet de sortir de v0saveprojets et d'atteindre v0-interface-versel
+      fetch("http://localhost:5005/api/fs/write", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: "../../v0-interface-versel", file: "src/design.css", content: cssContent })
       }).catch(() => { });
     }, 500);
     return () => clearTimeout(timer);
@@ -874,7 +893,7 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
         .then(data => {
           if (data.success && data.logs) {
             setMouchardLogs(data.logs);
-            const serverReadyLog = data.logs.find((log: string) => log.includes("URL_PREVIEW="));
+            const serverReadyLog = [...data.logs].reverse().find((log: string) => log.includes("URL_PREVIEW="));
             if (serverReadyLog) {
               const url = serverReadyLog.split('URL_PREVIEW=')[1];
 
