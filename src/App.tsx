@@ -2098,7 +2098,7 @@ Format attendu:
         </div>
 
         {/* Input Bar */}
-        <div className="p-4 md:p-6 relative w-full flex flex-col gap-2">
+        <div className="px-4 pb-2 pt-2 md:px-6 md:pb-2 md:pt-3 relative w-full flex flex-col gap-2">
           
           {/* LE TROMBONE (Fichiers attachés) */}
           {tromboneFiles.length > 0 && (
