@@ -899,7 +899,7 @@ export default function Dashboard() {
             setTimeout(() => {
               if (selectedPacks && selectedPacks.length > 0) {
                 // TROMBONE PIPELINE (PRD)
-                fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+                fetch("http://localhost:5005/api/bridge/trombone", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -917,7 +917,7 @@ export default function Dashboard() {
                 });
               } else {
                 // STANDARD PIPELINE
-                fetch("http://127.0.0.1:5005/bridge/prompt", {
+                fetch("http://localhost:5005/bridge/prompt", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -995,11 +995,15 @@ Description : ${newProjectDesc}.`;
     
     if (!activeProject) {
       setActiveProject(newProjectId);
-      // Création automatique si non validé manuellement
-      fetch("http://127.0.0.1:5005/api/projects/create", {
+      // Création automatique si non validé manuellement (Astuce SOUVERAINE)
+      fetch("http://localhost:5005/api/fs/write", {
          method: "POST",
          headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ projectId: newProjectId })
+         body: JSON.stringify({ 
+           project: newProjectId,
+           file: "README.md",
+           content: `# ${newProjectName}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
+         })
       }).catch(e => console.error("[IDE] Erreur création auto du dossier", e));
     }
     
@@ -1024,7 +1028,7 @@ Description : ${newProjectDesc}.`;
 
     const sendUiPrompt = () => {
       if (selectedPacks && selectedPacks.length > 0) {
-        return fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+        return fetch("http://localhost:5005/api/bridge/trombone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1035,7 +1039,7 @@ Description : ${newProjectDesc}.`;
           })
         });
       } else {
-        return fetch("http://127.0.0.1:5005/bridge/prompt", {
+        return fetch("http://localhost:5005/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1268,7 +1272,7 @@ Format attendu:
          bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
          if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
       } else {
-        fetch("http://127.0.0.1:5005/bridge/prompt", {
+        fetch("http://localhost:5005/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1992,78 +1996,93 @@ Format attendu:
                       <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Nom du Projet</label>
                       <div className="flex gap-2">
                         <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: MonSuperProjet" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm disabled:opacity-50" />
-                        <button 
-                          onClick={async (e) => {
-                            if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
-                            const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-                            const btn = e.currentTarget;
-                            const originalText = btn.innerHTML;
+                      <button 
+                        onClick={async (e) => {
+                          if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
+                          const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+                          
+                          // Use a local state or just update a temporary variable if we don't want to add a top-level state just for this button
+                          const btn = e.currentTarget;
+                          btn.innerText = '⏳ Création...';
+                          btn.disabled = true;
+                          
+                          try {
+                            const API_BASE = 'http://localhost:5005';
                             
-                            try {
-                              btn.innerHTML = '⏳...';
-                              const API_BASE = 'http://127.0.0.1:5005';
-                              
-                              // Tentative endpoint Python (Cerveau Maître)
-                              let res = await fetch(`${API_BASE}/v1/mission/start`, {
-                                  method: 'POST',
-                                  headers: {'Content-Type': 'application/json'},
-                                  body: JSON.stringify({ 
-                                      name: genId,
-                                      prompt: newProjectDesc.trim() || "Initialisation manuelle du dossier depuis le bouton VALIDER.",
-                                      stack: newProjectStack || "react"
-                                  })
-                              }).catch(() => null);
-                              
-                              // Fallback endpoint Electron Bridge
-                              if (!res || !res.ok) {
-                                res = await fetch(`${API_BASE}/api/projects/create`, { 
-                                  method: "POST", 
-                                  headers: { "Content-Type": "application/json" }, 
-                                  body: JSON.stringify({ projectId: genId }) 
+                            // 1. Création via /api/fs/write (sans timeout artificiel pour laisser le temps au fallback réseau Windows)
+                            let success = false;
+                            
+                            let res = await fetch(`${API_BASE}/api/fs/write`, { 
+                              method: "POST", 
+                              headers: { "Content-Type": "application/json" }, 
+                              body: JSON.stringify({ 
+                                project: genId,
+                                file: "README.md",
+                                content: `# ${newProjectName}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
+                              })
+                            }).catch(err => {
+                                console.error("Erreur API locale:", err);
+                                return null;
+                            });
+                            
+                            if (res && res.ok) {
+                                success = true;
+                                console.log("[CREATION] Dossier créé avec succès via /api/fs/write");
+                                // 2. Notification Asynchrone au Cerveau Python (Fire & Forget, pour ne pas bloquer l'UI)
+                                fetch(`${API_BASE}/v1/mission/start`, {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack })
                                 }).catch(() => null);
-                              }
-                              
-                              if (res && res.ok) {
-                                setActiveProject(genId);
-                                btn.innerHTML = '✅ DOSSIER CRÉÉ';
-                                btn.style.background = '#10b981';
-                                btn.style.color = '#fff';
-                                btn.style.borderColor = '#10b981';
-                                
-                                // --- Enregistrement dans la mémoire RAG HERMES ---
-                                const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
-                                let oldMem = localStorage.getItem('hermes_memory') || "";
-                                if (!oldMem.includes(`[PROJET: ${genId}]`)) {
-                                    localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
-                                    
-                                    // Avertir le chat Tiger
-                                    setMessages(prev => [...prev, {
-                                      id: Date.now().toString() + "_hermes",
-                                      role: "assistant",
-                                      content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
-                                      widget: "phases"
-                                    }]);
-                                }
-                              } else {
-                                btn.innerHTML = '❌ ERREUR';
-                                btn.style.background = '#ef4444';
-                                btn.style.color = '#fff';
-                                btn.style.borderColor = '#ef4444';
-                                setTimeout(() => {
-                                  btn.innerHTML = originalText;
-                                  btn.style = '';
-                                }, 3000);
-                              }
-                            } catch (err) {
-                              alert("Erreur de connexion au Bridge local.");
-                              btn.innerHTML = originalText;
+                            } else {
+                                console.warn("[CREATION] L'API locale a échoué. Tentative via le Python.");
+                                // Fallback sur l'ancienne méthode
+                                let pyRes = await fetch(`${API_BASE}/v1/mission/start`, {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack })
+                                }).catch(() => null);
+                                if (pyRes && pyRes.ok) success = true;
                             }
-                          }}
-                          disabled={!!activeProject || !newProjectName.trim()}
-                          className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
-                        >
-                          {activeProject ? '✅ Validé' : 'Valider'}
-                        </button>
+                            
+                            if (success) {
+                              setActiveProject(genId);
+                              
+                              // --- Enregistrement dans la mémoire RAG HERMES ---
+                              const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
+                              let oldMem = localStorage.getItem('hermes_memory') || "";
+                              if (!oldMem.includes(`[PROJET: ${genId}]`)) {
+                                  localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
+                                  
+                                  // Avertir le chat Tiger
+                                  setMessages(prev => [...prev, {
+                                    id: Date.now().toString() + "_hermes",
+                                    role: "assistant",
+                                    content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
+                                    widget: "phases"
+                                  }]);
+                              }
+                            } else {
+                              btn.innerText = '❌ ERREUR API';
+                              btn.style.background = '#ef4444';
+                              setTimeout(() => {
+                                btn.innerText = 'Valider';
+                                btn.style.background = '';
+                                btn.disabled = false;
+                              }, 3000);
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            alert("Erreur de connexion au Bridge local.");
+                            btn.innerText = 'Valider';
+                            btn.disabled = false;
+                          }
+                        }}
+                        disabled={!!activeProject || !newProjectName.trim()}
+                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
+                      >
+                        {activeProject ? '✅ Validé' : 'Valider'}
+                      </button>
                       </div>
                     </div>
                     <div>
