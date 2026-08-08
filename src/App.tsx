@@ -583,8 +583,8 @@ export default function Dashboard() {
   const [isPrdModalOpen, setIsPrdModalOpen] = useState(false);
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
   
-  // MODE CREATION PROJET INLINE
-  const [isNewProjectMode, setIsNewProjectMode] = useState(false);
+  // MODAL NOUVEAU PROJET V0 -> CREATION MODE INLINE
+  const [isCreationMode, setIsCreationMode] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectStack, setNewProjectStack] = useState("Vite + React + Tailwind + TS");
   const [newProjectDesc, setNewProjectDesc] = useState("");
@@ -598,7 +598,6 @@ export default function Dashboard() {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [tromboneFiles, setTromboneFiles] = useState<{path: string, content: string}[]>([]);
-  const [selectedZipFiles, setSelectedZipFiles] = useState<File[]>([]);
 
   // Chargement de l'arborescence quand un projet est actif
   useEffect(() => {
@@ -783,10 +782,15 @@ export default function Dashboard() {
   }, [messages]);
 
   const handleSend = (overrideText?: any) => {
+    // Si l'utilisateur clique sur "Envoyer" et qu'un HTML est dans le trombone, on lance le pipeline complet de création !
+    if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
+      handleStartFullPipeline();
+      return;
+    }
+
     // Si overrideText est un événement (ex: depuis onClick ou onKeyDown), on l'ignore.
     const textToSend = (typeof overrideText === 'string') ? overrideText : input;
-    
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() && tromboneFiles.length === 0) return;
     
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: textToSend };
     setMessages((prev) => [...prev, userMsg]);
@@ -983,7 +987,7 @@ export default function Dashboard() {
   const handleStartNewV0Project = () => {
     if (!newProjectName.trim()) return alert("Veuillez donner un nom à votre projet");
     
-    setIsNewProjectMode(false);
+    setIsCreationMode(false);
     localStorage.setItem("tiger_targetAi", newProjectLogicAi);
     
     const promptText = `Génère l'interface UI/UX complète et moderne pour le projet : ${newProjectName}.
@@ -1056,42 +1060,7 @@ Description : ${newProjectDesc}.`;
     });
   };
 
-  const handleModalFileUpload = async (files: FileList | File[]) => {
-    if (!newProjectName.trim()) {
-      alert("Veuillez donner un nom à votre projet avant d'importer une archive.");
-      return;
-    }
-    
-    setIsNewProjectMode(false);
-    
-    const genId = activeProject || "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-    
-    if (!activeProject) {
-      try {
-        const res = await fetch("http://localhost:5005/api/projects/create", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ projectId: genId })
-        });
-        if (res.ok) {
-          setActiveProject(genId);
-        }
-      } catch (err) {
-        console.error("Erreur de création du dossier projet:", err);
-      }
-    }
-    
-    localStorage.setItem("tiger_targetAi", newProjectLogicAi);
-    if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", genId);
-    
-    handleFileUpload(files, {
-      name: newProjectName,
-      stack: newProjectStack,
-      desc: newProjectDesc
-    });
-  };
-
-  const handleFileUpload = async (files: FileList | File[] | File, meta?: { name: string, stack: string, desc: string }) => {
+  const handleFileUpload = async (files: FileList | File[] | File) => {
     let fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
     
     // 1. Décompression des ZIP à la volée
@@ -1183,49 +1152,82 @@ Description : ${newProjectDesc}.`;
         reader.readAsText(mainHtml);
       });
       
-      setTimeout(() => {
-        const responseMsg: Message = { 
-          id: (Date.now() + 1).toString(), 
-          role: "assistant", 
-          content: `Mode "Design-First" activé. 🎨\n\nTransmission du design au LLM avec les ${appendedToTrombone.length} fichiers du Trombone intégrés.\nCâblage en cours...`,
-          widget: "phases"
-        };
-        setActivePhase(5);
-        setMessages((prev) => [...prev, responseMsg]);
-        
-        let currentDropPhase = 5;
-        const dropInterval = setInterval(() => {
-          currentDropPhase++;
-          if (currentDropPhase > 11) {
-            clearInterval(dropInterval);
-          } else {
-            setActivePhase(currentDropPhase);
-          }
-        }, 3000);
-        
-        if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
-          (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
-        }
+      const newHtmlContext = { path: mainHtml.name, content: htmlContent };
+      if (!appendedToTrombone.some(ext => ext.path === mainHtml.name)) {
+        appendedToTrombone.push(newHtmlContext);
+      }
+      
+      setTromboneFiles(appendedToTrombone);
+      
+      // On n'auto-lance plus le pipeline, on attend que l'utilisateur clique sur Envoyer (▶ ou 🚀)
+    }
+  };
 
-        if (typeof window !== "undefined") {
-          const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-          
-          let contextualData = "";
-          if (appendedToTrombone.length > 0) {
-            contextualData = "\n\n--- Fichiers de contexte complémentaires (Trombone) ---\n";
-            appendedToTrombone.forEach(f => {
-              contextualData += `\n[Fichier: ${f.path}]\n\`\`\`\n${f.content.substring(0, 3000)}\n\`\`\`\n`;
-            });
-          }
+  const handleStartFullPipeline = async (forcedHtmlContent?: string, forcedTromboneFiles?: any[], forcedHtmlPath?: string) => {
+    setIsCreationMode(false);
+    
+    let htmlContent = "";
+    let appendedToTrombone = [];
+    let htmlFileName = "";
 
-          const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.
-Ta mission est de créer un projet (ex: Vite + TSX) COMPLET et autonome à partir de ce design.
+    if (forcedHtmlContent) {
+      htmlContent = forcedHtmlContent;
+      appendedToTrombone = forcedTromboneFiles || [];
+      htmlFileName = forcedHtmlPath || "index.html";
+    } else {
+      const htmlFile = tromboneFiles.find(f => f.path.endsWith('.html'));
+      if (!htmlFile) {
+        alert("Aucun fichier HTML trouvé dans le Trombone !");
+        return;
+      }
+      htmlContent = htmlFile.content;
+      appendedToTrombone = tromboneFiles.filter(f => f.path !== htmlFile.path);
+      htmlFileName = htmlFile.path;
+    }
 
-${meta ? `=== CAHIER DES CHARGES DU PROJET ===
-- Nom du Projet : ${meta.name}
-- Stack Technique demandée : ${meta.stack}
-- Descriptif & Fonctionnalités : ${meta.desc}
-==================================\n\n` : ''}Tu DOIS impérativement générer TOUS les fichiers nécessaires pour que le projet soit exécutable immédiatement, notamment :
+    const responseMsg: Message = { 
+      id: (Date.now() + 1).toString(), 
+      role: "assistant", 
+      content: `Mode "Design-First" activé. 🎨\n\nTransmission du design au LLM avec les ${appendedToTrombone.length} fichiers du Trombone intégrés.\nCâblage en cours...`,
+      widget: "phases"
+    };
+    setActivePhase(5);
+    setMessages((prev) => [...prev, responseMsg]);
+    
+    let currentDropPhase = 5;
+    const dropInterval = setInterval(() => {
+      currentDropPhase++;
+      if (currentDropPhase > 11) {
+        clearInterval(dropInterval);
+      } else {
+        setActivePhase(currentDropPhase);
+      }
+    }, 3000);
+    
+    if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
+      (window as any).AndroidBridge.showToast("Mode Design-First Activé !");
+    }
+
+    if (typeof window !== "undefined") {
+      const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+      
+      let contextualData = "";
+      if (appendedToTrombone.length > 0) {
+        contextualData = "\n\n--- Fichiers de contexte complémentaires (Trombone) ---\n";
+        appendedToTrombone.forEach(f => {
+          contextualData += `\n[Fichier: ${f.path}]\n\`\`\`\n${f.content.substring(0, 3000)}\n\`\`\`\n`;
+        });
+      }
+
+      let projectContextString = "";
+      if (newProjectName && newProjectName.trim() !== "") {
+        projectContextString = `\n--- Contexte du Projet ---\nNom : ${newProjectName}\nStack Technique : ${newProjectStack}\nDescription / Objectifs : ${newProjectDesc}\n`;
+      }
+
+      const finalPrompt = `Voici le code HTML/CSS d'une interface générée par Stitch.
+Ta mission est de créer un projet React (Vite + TSX) COMPLET et autonome à partir de ce design.
+${projectContextString}
+Tu DOIS impérativement générer TOUS les fichiers nécessaires pour que le projet soit exécutable immédiatement, notamment :
 1. \`package.json\` (avec les scripts vite, et react/react-dom)
 2. \`index.html\` (le point d'entrée)
 3. \`vite.config.ts\`
@@ -1249,30 +1251,42 @@ Format attendu:
 }
 \`\`\`
 `;
-          const designProjectId = activeProject || "Design_" + mainHtml.name.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
-          
-          const bridge = (window as any).AndroidBridge;
-          if (bridge && bridge.openAIWithPrompt) {
-             const logicAiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
-             bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
-             if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
-          } else {
-            fetch("http://127.0.0.1:5005/bridge/prompt", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                target_ai: logicAi,
-                prompt: finalPrompt,
-                auto_submit: true,
-                project_id: designProjectId,
-                phase_num: 5
-              })
-            })
-            .then(res => console.log("[Bridge] Prompt HTML + Contexte envoyé avec succès, status:", res.status))
-            .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt:", err));
-          }
+      let designProjectId = activeProject;
+      if (!designProjectId) {
+        if (newProjectName && newProjectName.trim() !== "") {
+          designProjectId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+          // Création auto du dossier local
+          fetch("http://127.0.0.1:5005/api/projects/create", {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ projectId: designProjectId })
+          }).catch(e => console.error("[IDE] Erreur création auto du dossier ZIP", e));
+          localStorage.setItem("tiger_lastGeneratedProject", designProjectId);
+        } else {
+          designProjectId = "Design_" + htmlFileName.replace(".html", "").replace(/[^a-zA-Z0-9]/g, "_") + "_" + Date.now().toString().slice(-4);
         }
-      }, 1200);
+      }
+      
+      const bridge = (window as any).AndroidBridge;
+      if (bridge && bridge.openAIWithPrompt) {
+         const logicAiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+         bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
+         if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
+      } else {
+        fetch("http://127.0.0.1:5005/bridge/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_ai: logicAi,
+            prompt: finalPrompt,
+            auto_submit: true,
+            project_id: designProjectId,
+            phase_num: 5
+          })
+        })
+        .then(res => console.log("[Bridge] Prompt HTML + Contexte envoyé avec succès, status:", res.status))
+        .catch((err) => console.error("[Bridge] Erreur lors de l'envoi du prompt:", err));
+      }
     }
   };
 
@@ -1349,50 +1363,45 @@ Format attendu:
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-      let isMounted = true;
       const cardStyles = [
         "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
         "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
         "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
         "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
       ];
-
-      const fetchProjects = async () => {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 secondes max
-          const res = await fetch("http://localhost:5005/api/projects", { signal: controller.signal });
-          clearTimeout(timeoutId);
-          const data = await res.json();
-          
-          if (isMounted) {
-            if (data.success && data.projects) {
-              setLiveProjects(data.projects.map((p: string, i: number) => ({
-                name: p,
-                desc: "Environnement Local",
-                bg: cardStyles[i % cardStyles.length]
-              })));
-            }
-            setIsLoading(false);
+      fetch("http://localhost:5005/api/projects")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.projects) {
+            setLiveProjects(data.projects.map((p: string, i: number) => ({
+              name: p,
+              desc: "Environnement Local",
+              bg: cardStyles[i % cardStyles.length]
+            })));
           }
-        } catch (err) {
-          if (isMounted) setIsLoading(false);
-        }
-      };
-
-      fetchProjects();
-      return () => { isMounted = false; };
+          setIsLoading(false);
+        }).catch(() => {
+          setIsLoading(false);
+        });
     }, []);
 
     if (isLoading) {
       return <div className="p-4 text-cyan text-sm italic">Actualisation de la liste des projets...</div>;
     }
 
+    if (liveProjects.length === 0) {
+      return (
+        <div className="p-4 text-cyan text-sm italic">
+          Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
+        </div>
+      );
+    }
+
     return renderCarousel([
       <div 
         key="new-v0"
         className={`w-64 h-48 rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
-        onClick={() => { setActiveProject(null); setNewProjectName(""); setSelectedZipFiles([]); setIsNewProjectMode(true); }}
+        onClick={() => { setActiveProject(null); setNewProjectName(""); setIsNewProjectModalOpen(true); }}
       >
         <div className="absolute inset-0 bg-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
         <div className="text-5xl mb-3 drop-shadow-[0_0_10px_rgba(8,179,201,0.8)] group-hover:scale-110 transition-transform">✨</div>
@@ -1607,6 +1616,61 @@ Format attendu:
       {/* Decorative Background Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan/10 blur-[150px] rounded-full pointer-events-none" />
+
+      {/* Floating PRD Packs Modal */}
+      {isPrdModalOpen && (
+        <div 
+          className="absolute inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md" 
+          style={{ background: isClient ? getCachedGradient('modal', 0.6) : 'rgba(0,0,0,0.6)' }}
+          onClick={(e) => e.target === e.currentTarget && setIsPrdModalOpen(false)}
+        >
+          <div className="bg-black/90 border border-indigo-500/30 rounded-3xl p-6 w-[600px] max-w-full shadow-2xl relative animate-fadeIn flex flex-col max-h-[85vh]">
+            <button onClick={() => setIsPrdModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white p-2">✕</button>
+            
+            <h2 className="text-2xl font-black text-indigo-400 flex items-center gap-2 mb-2">
+              💎 Packs PRD (Contexte)
+            </h2>
+            <p className="text-sm text-slate-400 mb-6 border-b border-indigo-500/20 pb-4">
+              Sélectionnez les documents de référence (Product Requirements Documents) à injecter dans le cerveau de l'IA (Stitch / DeepSeek) pour ce projet.
+            </p>
+            
+            <div className="flex flex-col gap-3 overflow-y-auto pr-2 hide-scrollbar flex-1">
+              {[
+                { id: "prd_ecom_catalog", name: "E-Commerce : Catalogue", desc: "Architecture avancée de catalogue produits, filtres, recherche." },
+                { id: "prd_ecom_checkout", name: "E-Commerce : Checkout", desc: "Tunnel de conversion multi-étapes, Stripe, panier." },
+                { id: "prd_saas_auth", name: "SaaS B2B : Authentification", desc: "JWT, OAuth, Multi-tenant, Rôles et Permissions." },
+                { id: "prd_saas_dashboard", name: "SaaS B2B : Dashboard", desc: "Statistiques, Chart.js, KPIs, Export CSV." },
+                { id: "prd_social_feed", name: "Réseau Social : Feed", desc: "Fil d'actualité, pagination infinie, likes, commentaires." },
+                { id: "prd_mobile_pwa", name: "Mobile First (PWA)", desc: "Touch events, Offline mode, Service Workers, Manifest." },
+                { id: "prd_landing_premium", name: "Landing Page Premium", desc: "Animations 3D, Parallax, Conversion optimisée, SEO." }
+              ].map(pack => (
+                <div 
+                  key={pack.id} 
+                  onClick={() => togglePack(pack.id)}
+                  className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedPacks.includes(pack.id) ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/10 text-white hover:border-white/20 hover:bg-white/10'}`}
+                >
+                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center mr-4 mt-0.5 transition-all ${selectedPacks.includes(pack.id) ? 'bg-indigo-500 border-indigo-500 text-black' : 'border-slate-500'}`}>
+                    {selectedPacks.includes(pack.id) && <span>✓</span>}
+                  </div>
+                  <div>
+                    <h4 className="font-bold">{pack.name}</h4>
+                    <p className="text-xs opacity-70 mt-1">{pack.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 flex justify-end pt-4 border-t border-indigo-500/20">
+              <button 
+                onClick={() => setIsPrdModalOpen(false)} 
+                className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-colors shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+              >
+                Valider ({selectedPacks.length} sélectionnés)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Settings Modal */}
       {isSettingsOpen && (
@@ -1926,6 +1990,17 @@ Format attendu:
         <div className="p-4 md:p-6 relative w-full flex flex-col gap-2">
           
           {/* LE TROMBONE (Fichiers attachés) */}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            multiple
+            accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }} 
+          />
           {tromboneFiles.length > 0 && (
             <div className="flex gap-2 px-2 overflow-x-auto hide-scrollbar pb-2">
               {tromboneFiles.map((f, i) => (
@@ -1940,186 +2015,132 @@ Format attendu:
             </div>
           )}
 
-          <div className="relative bg-black/40 border border-white/10 rounded-2xl md:rounded-3xl p-1 md:p-2 shadow-inner">
-            {isNewProjectMode ? (
-              <div className="flex flex-col gap-3 p-4 animate-fadeIn">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-cyan font-black flex items-center gap-2 uppercase tracking-widest text-xs">
-                    <span className="text-lg">✨</span> Câblage Nouveau Projet
-                  </h3>
-                  <button onClick={() => setIsNewProjectMode(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {isCreationMode ? (
+            <div id="creation-mode-container" className="flex flex-col gap-4 bg-black/60 p-5 rounded-3xl border border-cyan/30 shadow-2xl backdrop-blur-xl animate-fadeIn relative">
+               <div className="flex justify-between items-center mb-1">
+                 <h3 className="text-cyan font-bold flex items-center gap-2 text-lg">✨ Création Nouveau Projet</h3>
+                 <button onClick={() => setIsCreationMode(false)} className="text-slate-400 hover:text-white p-2 text-xl font-bold">✕</button>
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Nom du Projet (ex: DashboardEcom)" className={`w-full text-white text-sm border rounded-xl px-4 py-2.5 outline-none transition-colors ${activeProject ? 'border-green-500/50 bg-green-500/10 text-green-400' : 'bg-slate-800/50 border-slate-700 focus:border-cyan focus:bg-slate-800 disabled:opacity-50'}`} />
-                    {activeProject && (
-                      <div className="text-green-400 text-[10px] font-bold mt-1 ml-1 flex items-center gap-1">
-                        ✅ Dossier prêt : C:\\Users\\patri\\Documents\\Tiger_IA_Projects\\{activeProject}
-                      </div>
-                    )}
+                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Nom du Projet</label>
+                    <div className="flex gap-2">
+                      <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm disabled:opacity-50" />
+                      <button 
+                        onClick={async () => {
+                          if (!newProjectName.trim()) return;
+                          const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+                          try {
+                            const res = await fetch("http://127.0.0.1:5005/api/projects/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: genId }) });
+                            if (res.ok) setActiveProject(genId);
+                          } catch (err) {}
+                        }}
+                        disabled={!!activeProject || !newProjectName.trim()}
+                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50"
+                      >
+                        {activeProject ? '✅ Validé' : 'Valider'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <select value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} className="flex-1 bg-slate-800/50 text-white text-sm border border-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-cyan focus:bg-slate-800 transition-colors">
-                      <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
-                      <option value="Next.js + React + Tailwind">Next.js + Tailwind</option>
-                      <option value="HTML + CSS + Vanilla JS">Vanilla JS</option>
-                      <option value="Python FastAPI + Vue.js">FastAPI + Vue.js</option>
+                  <div>
+                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Stack / Structure</label>
+                    <select value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
+                       <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
+                       <option value="Next.js + Tailwind + TS">Next.js + Tailwind + TS</option>
+                       <option value="HTML + Vanilla CSS + JS">HTML + Vanilla CSS + JS</option>
                     </select>
-                    <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="w-32 bg-slate-800/50 text-white text-sm border border-slate-700 rounded-xl px-3 py-2.5 outline-none focus:border-cyan focus:bg-slate-800 transition-colors font-bold">
+                  </div>
+               </div>
+
+               <div>
+                 <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Descriptif & Objectifs (UI/UX)</label>
+                 <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez l'application de vos rêves..." className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-2 outline-none focus:border-cyan h-16 resize-none text-sm"></textarea>
+               </div>
+
+               <div className="flex flex-wrap items-center gap-4">
+                  <div>
+                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Backend (IA)</label>
+                    <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
                       <option value="deepseek">🐋 DeepSeek</option>
-                      <option value="openai">🟢 OpenAI</option>
+                      <option value="openai">🟢 OpenAI (ChatGPT)</option>
                       <option value="kimi">🌙 Kimi</option>
                       <option value="gemini">✨ Gemini</option>
                       <option value="claude">🟣 Claude</option>
                     </select>
                   </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez les objectifs et l'UX de votre application..." className="flex-1 bg-slate-800/50 text-white text-sm border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-cyan focus:bg-slate-800 h-20 resize-none transition-colors"></textarea>
-                  <button 
-                    onClick={() => setIsPrdModalOpen(true)}
-                    className="w-24 md:w-32 px-2 py-2 bg-indigo-900/40 border border-indigo-500/50 hover:bg-indigo-800 hover:border-indigo-400 text-indigo-300 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all text-xs"
-                  >
-                    <span className="text-lg">💎</span>
-                    <span className="text-[10px] text-center leading-tight">Packs PRD ({selectedPacks.length})</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-col md:flex-row items-center gap-3">
-                  <div className="flex-1 w-full border-2 border-dashed border-slate-700 hover:border-cyan/50 bg-slate-900/50 rounded-xl px-4 py-3 flex items-center justify-between transition-colors relative overflow-hidden group">
-                    <input 
-                      type="file" 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                      accept=".zip"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          setSelectedZipFiles(Array.from(e.target.files));
-                        }
-                      }}
-                    />
-                    <div className="flex items-center gap-3">
-                      <div className={`text-2xl transition-transform ${selectedZipFiles.length > 0 ? 'scale-110 drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'group-hover:scale-110 text-cyan drop-shadow-[0_0_10px_rgba(8,179,201,0.5)]'}`}>
-                        {selectedZipFiles.length > 0 ? '📦' : '📎'}
-                      </div>
-                      <div>
-                        <div className={`font-bold text-sm ${selectedZipFiles.length > 0 ? 'text-green-400' : 'text-cyan'}`}>
-                          {selectedZipFiles.length > 0 ? selectedZipFiles[0].name : 'Glissez votre .zip ici (Workflow Express)'}
-                        </div>
-                        <div className="text-slate-500 text-[10px]">{selectedZipFiles.length > 0 ? 'Archive chargée.' : 'Passe la phase UI et lance DeepSeek.'}</div>
-                      </div>
-                    </div>
+                  
+                  <div className="mt-5">
+                    <button onClick={() => setIsPrdModalOpen(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
+                      💎 Packs PRD ({selectedPacks.length})
+                    </button>
                   </div>
 
-                  <button 
-                    onClick={() => {
-                      if (!newProjectName.trim()) { 
-                        alert("Nom du projet requis."); 
-                        return; 
-                      }
-                      
-                      if (selectedZipFiles.length > 0) {
-                        handleModalFileUpload(selectedZipFiles);
-                      } else {
-                        handleStartNewV0Project();
-                      }
-                    }} 
-                    className={`w-full md:w-auto px-6 py-4 rounded-xl font-black shadow-[0_0_15px_rgba(8,179,201,0.4)] flex items-center justify-center gap-2 transition-all ${selectedZipFiles.length > 0 ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-cyan hover:bg-cyan/80 text-black'}`}
-                  >
-                    Let's Go 🚀
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center w-full">
-                {/* Mode normal */}
-                <button 
-                  onClick={() => setIsNewProjectMode(true)}
-                  className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-cyan/20 text-cyan border border-cyan/40 hover:bg-cyan hover:text-black hover:scale-105 rounded-lg text-xs font-bold transition-all z-20 shadow-[0_0_10px_rgba(8,179,201,0.2)] flex items-center gap-1"
-                  title="Créer un nouveau projet (v0)"
-                >
-                  <span className="text-sm">✨</span> New-v0
-                </button>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute left-28 md:left-32 top-1/2 -translate-y-1/2 text-lg hover:scale-110 hover:text-cyan transition-all opacity-80 z-20"
-                  title="Joindre un fichier HTML (Stitch)"
-                >
-                  📎
-                </button>
-                
-                <input 
-                  type="text" 
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Demandez à Tiger IA..." 
-                  className="w-full bg-transparent pl-40 md:pl-44 pr-16 py-3 md:py-4 text-white text-sm md:text-base placeholder-gray-500 focus:outline-none focus:ring-0 transition-all"
-                />
-                
-                <button 
-                  onClick={handleSend}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 text-black rounded-xl flex items-center justify-center hover:scale-105 transition-all shadow-lg"
-                  style={{ background: isClient ? getCachedGradient('sendbtn', 1) : '#08b3c9' }}
-                >
-                  <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
+                  <div className="flex-1"></div>
+
+                  <div className="mt-5 flex gap-2">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 shadow-lg"
+                      title="Joindre un ZIP ou HTML manuellement"
+                    >
+                      📎 Joindre ZIP
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
+                          handleStartFullPipeline();
+                        } else {
+                          handleStartNewV0Project();
+                        }
+                      }} 
+                      className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center gap-2"
+                    >
+                      {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : "Envoyer UI 🎨"}
+                    </button>
+                  </div>
+               </div>
+            </div>
+          ) : (
+            <div className="relative flex items-center gap-2">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20 shrink-0"
+                title="Joindre un fichier (Stitch/ZIP)"
+              >
+                📎
+              </button>
+              
+              <button 
+                onClick={() => { setActiveProject(null); setNewProjectName(""); setTromboneFiles([]); setIsCreationMode(true); }}
+                className="text-cyan font-bold bg-cyan/10 hover:bg-cyan/20 px-3 py-2 rounded-full text-xs border border-cyan/30 flex items-center gap-1 transition-all shrink-0 z-20"
+                title="Créer un nouveau projet"
+              >
+                ✨ New-v0
+              </button>
+              
+              <input 
+                type="text" 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="Demandez à Tiger IA, ou glissez un fichier HTML/ZIP..." 
+                className="w-full border border-white/10 rounded-full pl-4 pr-12 py-3 md:py-4 text-white text-sm md:text-base placeholder-gray-400 focus:outline-none focus:border-cyan focus:ring-1 focus:ring-cyan transition-all shadow-inner"
+                style={{ background: isClient ? getCachedGradient('input', 0.4) : 'rgba(255,255,255,0.05)' }}
+              />
+              <button 
+                onClick={handleSend}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 text-white rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg"
+                style={{ background: isClient ? getCachedGradient('sendbtn', 1) : '#08b3c9' }}
+              >
+                <svg className="w-4 h-4 md:w-5 md:h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </footer>
-
-      {/* MODALE DE SÉLECTION DES PACKS PRD */}
-      {isPrdModalOpen && (
-        <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-800">
-              <div>
-                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <Diamond className="text-cyan-400" /> Bibliothèque d'Architecture
-                </h2>
-                <p className="text-slate-400 text-sm mt-1">Cochez les contrats d'interface (PRD) à injecter dans le moteur "Trombone".</p>
-              </div>
-              <button onClick={() => setIsPrdModalOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors text-slate-300">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-950/50 hide-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {AVAILABLE_PACKS.map((pack) => {
-                  const isSelected = selectedPacks.includes(pack.id);
-                  return (
-                    <div 
-                      key={pack.id} onClick={() => togglePack(pack.id)}
-                      className={`cursor-pointer relative p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col gap-3 group ${isSelected ? 'border-indigo-500 bg-indigo-900/20 shadow-[0_0_20px_rgba(79,70,229,0.2)]' : 'border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/80'}`}
-                    >
-                      <div className={`absolute top-4 right-4 transition-transform ${isSelected ? 'scale-100 text-indigo-500' : 'scale-0 text-transparent'}`}>
-                        <CheckCircle2 size={24} className="fill-indigo-500/20" />
-                      </div>
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${pack.color}`}><pack.icon size={24} /></div>
-                      <div>
-                        <h3 className="text-white font-semibold">{pack.name}</h3>
-                        <p className="text-slate-500 text-xs mt-1 font-mono">{pack.id}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="p-6 border-t border-slate-800 flex justify-between items-center bg-slate-900">
-              <div className="text-sm text-slate-400"><span className="font-bold text-white">{selectedPacks.length}</span> pack(s) prêt(s) pour l'injection.</div>
-              <button onClick={() => setIsPrdModalOpen(false)} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)]">
-                Valider la Sélection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
 
       <style dangerouslySetInnerHTML={{__html: `
         .hide-scrollbar::-webkit-scrollbar {
