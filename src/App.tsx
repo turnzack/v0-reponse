@@ -817,7 +817,7 @@ export default function Dashboard() {
         responseMsg.widget = null;
 
         // On envoie le prompt directement au Bridge local sans ouvrir de nouvel onglet
-        fetch("http://127.0.0.1:5005/bridge/prompt", {
+        fetch("http://localhost:5005/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -863,7 +863,7 @@ export default function Dashboard() {
             // On envoie le prompt UI au Bridge
             const sendUiPrompt = () => {
               if (selectedPacks && selectedPacks.length > 0) {
-                return fetch("http://127.0.0.1:5005/api/bridge/trombone", {
+                return fetch("http://localhost:5005/api/bridge/trombone", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -874,7 +874,7 @@ export default function Dashboard() {
                   })
                 });
               } else {
-                return fetch("http://127.0.0.1:5005/bridge/prompt", {
+                return fetch("http://localhost:5005/bridge/prompt", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -1134,39 +1134,47 @@ Description : ${newProjectDesc}.`;
       }]);
     }
 
-    setTromboneFiles(appendedToTrombone);
-
-    // If there is an HTML file, we trigger the build process
+    // Process HTML file
     if (htmlFiles.length > 0) {
       const mainHtml = htmlFiles[0];
-
-      const uploadMsg: Message = { 
-        id: Date.now().toString() + "_main", 
-        role: "user", 
-        content: `📁 Fichier de design déposé : ${mainHtml.name}\nAnalyse de la structure UI et assemblage du contexte en cours...` 
-      };
-      setMessages((prev) => [...prev, uploadMsg]);
-
       const htmlContent = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsText(mainHtml);
       });
       
+      const newContext = { path: mainHtml.name, content: htmlContent };
+      if (!appendedToTrombone.some(ext => ext.path === mainHtml.name)) {
+        appendedToTrombone.push(newContext);
+      }
+      
+      const uploadMsg: Message = { 
+        id: Date.now().toString() + "_main", 
+        role: "user", 
+        content: `📁 Fichier de design déposé : ${mainHtml.name}\nAnalyse de la structure UI et assemblage du contexte en cours...` 
+      };
+      setMessages((prev) => [...prev, uploadMsg]);
+    }
+
+    setTromboneFiles(appendedToTrombone);
+
+    // If there is an HTML file, we trigger the build process
+    if (htmlFiles.length > 0) {
       // NE PAS AUTO-LANCER SI ON EST EN MODE CREATION INLINE
       if (document.getElementById('creation-mode-container')) {
         return;
       }
       
       setTimeout(() => {
-        handleStartFullPipeline();
+        // Pass the updated array explicitly to avoid stale closures during auto-start
+        handleStartFullPipeline(appendedToTrombone);
       }, 1200);
     }
   };
 
-  const handleStartFullPipeline = async () => {
+  const handleStartFullPipeline = async (filesToUse: {path: string, content: string}[] = tromboneFiles) => {
     setIsCreationMode(false);
-    const htmlFile = tromboneFiles.find(f => f.path.endsWith('.html'));
+    const htmlFile = filesToUse.find(f => f.path.endsWith('.html'));
     if (!htmlFile) {
       alert("Aucun fichier HTML trouvé dans le Trombone !");
       return;
@@ -1182,17 +1190,21 @@ Description : ${newProjectDesc}.`;
     if (!activeProject) {
       setActiveProject(designProjectId);
       try {
-        await fetch("http://127.0.0.1:5005/api/projects/create", {
+        await fetch("http://localhost:5005/api/fs/write", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: designProjectId })
+          body: JSON.stringify({ 
+            project: designProjectId,
+            file: "README.md",
+            content: `# ${newProjectName || designProjectId}\n\nInitialisé par Tiger IA V0 (Design-First).`
+          })
         });
       } catch (err) {
         console.error("[IDE] Erreur création auto du dossier", err);
       }
     }
     
-    const appendedToTrombone = tromboneFiles.filter(f => f.path !== htmlFile.path);
+    const appendedToTrombone = filesToUse.filter(f => f.path !== htmlFile.path);
     const htmlContent = htmlFile.content;
 
     const responseMsg: Message = { 
@@ -1642,6 +1654,56 @@ Format attendu:
         </div>
       )}
 
+      {/* PRD Packs Modal */}
+      {isPrdModalOpen && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: isClient ? getCachedGradient('modal-prd', 0.8) : 'rgba(0,0,0,0.8)' }}>
+          <div className="w-full max-w-5xl bg-black/95 border border-indigo-500/50 shadow-[0_0_50px_rgba(79,70,229,0.4)] rounded-3xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-indigo-900/30">
+              <h3 className="text-xl font-black text-indigo-300 tracking-wider flex items-center gap-3">
+                💎 SÉLECTION DES PACKS PRD (Contexte Suture)
+              </h3>
+              <button onClick={() => setIsPrdModalOpen(false)} className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors">✕</button>
+            </div>
+            <div className="p-4 bg-indigo-900/10 border-b border-white/5 text-sm text-indigo-200/80 px-6">
+              Sélectionnez les paquets de connaissances (Product Requirement Documents) à injecter dans le contexte système de l'Intelligence Artificielle avant de générer le projet. 
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 hide-scrollbar">
+              {AVAILABLE_PACKS.map(pack => {
+                const Icon = pack.icon;
+                const isSelected = selectedPacks.includes(pack.id);
+                return (
+                  <button
+                    key={pack.id}
+                    onClick={() => togglePack(pack.id)}
+                    className={`relative p-4 rounded-2xl border flex flex-col items-center gap-3 transition-all text-center ${isSelected ? 'bg-indigo-600/40 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-105' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'}`}
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isSelected ? 'bg-indigo-500 text-white' : pack.color}`}>
+                      <Icon size={24} />
+                    </div>
+                    <span className={`text-[10px] font-bold leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      {pack.name}
+                    </span>
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 text-indigo-300">
+                        <CheckCircle2 size={16} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="p-6 border-t border-white/10 bg-black flex justify-between items-center">
+              <div className="text-sm font-bold text-indigo-400">
+                {selectedPacks.length} pack(s) sélectionné(s)
+              </div>
+              <button onClick={() => setIsPrdModalOpen(false)} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-all">
+                Valider la sélection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="px-6 py-4 backdrop-blur-md border-b border-white/10 z-10 flex justify-between items-center shadow-lg" style={{ background: isClient ? getCachedGradient('header', 0.3) : 'rgba(0,0,0,0.2)' }}>
         <div className="flex items-center gap-3">
@@ -1974,6 +2036,26 @@ Format attendu:
                      <option value="">-- SÉLECTIONNER UN PROJET --</option>
                      {realProjects.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                    </select>
+                 </div>
+                 
+                 <div className="flex gap-2">
+                   <input 
+                     type="file" 
+                     id="trombone-creation-upload"
+                     className="hidden" 
+                     multiple
+                     accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip" 
+                     onChange={(e) => {
+                       if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+                       if (e.target) e.target.value = '';
+                     }} 
+                   />
+                   <button 
+                     onClick={() => document.getElementById('trombone-creation-upload')?.click()} 
+                     className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-900/40 to-pink-800/20 border border-pink-500/50 text-pink-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-pink-800 transition-colors shadow-[0_0_15px_rgba(236,72,153,0.2)]"
+                   >
+                     📎 Joindre ZIP (Stitch) ou Fichiers
+                   </button>
                  </div>
                  
                  <div>
