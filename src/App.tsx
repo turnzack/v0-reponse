@@ -599,6 +599,72 @@ export default function Dashboard() {
   const [newProjectInstructions, setNewProjectInstructions] = useState("");
   const [isAutoPilotOn, setIsAutoPilotOn] = useState(false);
 
+  // --- WIDGET THEMES COLOR SAVER ---
+  const [isColorModalOpen, setIsColorModalOpen] = useState(false);
+  const [activeTheme, setActiveTheme] = useState("random");
+  const [savedThemes, setSavedThemes] = useState<{name: string, colors: Record<string, string>}[]>([]);
+  const [newThemeName, setNewThemeName] = useState("");
+
+  useEffect(() => {
+    const loaded = localStorage.getItem("tiger_saved_themes");
+    if (loaded) {
+      try {
+        setSavedThemes(JSON.parse(loaded));
+      } catch (e) {}
+    } else {
+      // "fold" default theme from screenshot
+      const defaultTheme = {
+        name: "fold",
+        colors: {
+          "icon-settings": "linear-gradient(135deg, #c87058, #934a36)",
+          "icon-ai": "linear-gradient(135deg, #9d508e, #622e5a)",
+          "icon-projects": "linear-gradient(135deg, #d38b5d, #a26038)",
+          "icon-packs": "linear-gradient(135deg, #445499, #252e66)",
+          "icon-news": "linear-gradient(135deg, #389eb2, #1f6475)"
+        }
+      };
+      setSavedThemes([defaultTheme]);
+      localStorage.setItem("tiger_saved_themes", JSON.stringify([defaultTheme]));
+    }
+  }, []);
+
+  const getIconStyle = (iconId: string) => {
+    if (activeTheme === "random") {
+      return isClient ? getCachedGradient(iconId, 0.8) : 'rgba(50,50,50,0.8)';
+    }
+    const theme = savedThemes.find(t => t.name === activeTheme);
+    return theme && theme.colors[iconId] ? theme.colors[iconId] : (isClient ? getCachedGradient(iconId, 0.8) : 'rgba(50,50,50,0.8)');
+  };
+
+  const saveCurrentTheme = () => {
+    if (!newThemeName.trim()) return alert("Nom invalide");
+    if (savedThemes.length >= 10) return alert("Limite atteinte ! Vous ne pouvez sauvegarder que 10 thèmes maximum. Veuillez en supprimer un pour continuer.");
+    
+    // On capture depuis le cache de getCachedGradient
+    const newColors = {
+      "icon-settings": getCachedGradient("icon-settings", 0.8),
+      "icon-ai": getCachedGradient("icon-ai", 0.8),
+      "icon-projects": getCachedGradient("icon-projects", 0.8),
+      "icon-packs": getCachedGradient("icon-packs", 0.8),
+      "icon-news": getCachedGradient("icon-news", 0.8)
+    };
+    
+    const newTheme = { name: newThemeName.trim(), colors: newColors };
+    const newSaved = [...savedThemes, newTheme];
+    setSavedThemes(newSaved);
+    localStorage.setItem("tiger_saved_themes", JSON.stringify(newSaved));
+    setActiveTheme(newTheme.name);
+    setNewThemeName("");
+  };
+
+  const deleteTheme = (themeName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSaved = savedThemes.filter(t => t.name !== themeName);
+    setSavedThemes(newSaved);
+    localStorage.setItem("tiger_saved_themes", JSON.stringify(newSaved));
+    if (activeTheme === themeName) setActiveTheme("random");
+  };
+
   const togglePack = (packId: string) => {
     setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
   };
@@ -1556,16 +1622,6 @@ Format attendu:
     }
 
     return renderCarousel([
-      <div
-        key="new-v0"
-        className={`design-carte-carrousel rounded-2xl p-5 border-2 border-dashed border-cyan/50 shadow-xl flex flex-col justify-center items-center hover:scale-105 transition-transform cursor-pointer bg-gradient-to-br from-black/80 to-cyan/10 relative group`}
-        onClick={() => { setActiveProject(null); setNewProjectName(""); setIsNewProjectModalOpen(true); }}
-      >
-        <div className="absolute inset-0 bg-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-        <div className="text-5xl mb-3 drop-shadow-[0_0_10px_rgba(8,179,201,0.8)] group-hover:scale-110 transition-transform">✨</div>
-        <h3 className="text-lg font-black text-white text-center">Nouveau Projet (v0)</h3>
-        <p className="text-xs text-cyan font-bold text-center mt-2 tracking-widest uppercase">Lancer l'UI/UX</p>
-      </div>,
       ...liveProjects.map((p, i) => (
         <div
           key={i}
@@ -1858,8 +1914,8 @@ Format attendu:
             <span>🐯</span>
           </div>
           <div>
-            <h1 className="design-titre">TIGER IA</h1>
-            <p className="design-sous-titre font-medium">OS Souverain v2.1</p>
+            <h1 className="design-titre">v0.reponse</h1>
+            <p className="design-sous-titre font-medium">OS Souverain v0.1.0 - idecode-2026</p>
           </div>
         </div>
       </header>
@@ -2162,7 +2218,7 @@ Format attendu:
                 onClick={() => setIsSettingsOpen(true)}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-settings', 0.8) : 'rgba(30,30,30,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-settings') }}>
                   ⚙️
                 </div>
                 <span className="design-app-texte drop-shadow-md">Réglages</span>
@@ -2185,7 +2241,7 @@ Format attendu:
                 }}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-ai', 0.8) : 'rgba(80,20,200,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-ai') }}>
                   🧠
                 </div>
                 <span className="design-app-texte drop-shadow-md">Assistant IA</span>
@@ -2198,7 +2254,7 @@ Format attendu:
                 }}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-projects', 0.8) : 'rgba(10,50,100,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-projects') }}>
                   📁
                 </div>
                 <span className="design-app-texte drop-shadow-md">Projets</span>
@@ -2214,7 +2270,7 @@ Format attendu:
                     {selectedPacks.length}
                   </div>
                 )}
-                <div className="design-app-icone flex items-center justify-center shadow-2xl bg-indigo-900/60 backdrop-blur-md">
+                <div className="design-app-icone flex items-center justify-center shadow-2xl backdrop-blur-md" style={{ background: getIconStyle('icon-packs') }}>
                   💎
                 </div>
                 <span className="design-app-texte drop-shadow-md">Packs PRD</span>
@@ -2227,17 +2283,30 @@ Format attendu:
                 }}
                 className="group flex flex-col items-center gap-3"
               >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: isClient ? getCachedGradient('icon-news', 0.8) : 'rgba(200,80,20,0.8)' }}>
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-news') }}>
                   📰
                 </div>
                 <span className="design-app-texte drop-shadow-md">Actualités</span>
+              </button>
+
+              {/* BOUTON SAUVEGARDE DE THEME 🎨 */}
+              <button
+                onClick={() => setIsColorModalOpen(true)}
+                className="group flex flex-col items-center gap-3"
+              >
+                <div className="design-app-icone flex items-center justify-center shadow-2xl bg-white/5 border-2 border-dashed border-white/20 hover:border-white/50">
+                  🎨
+                </div>
+                <span className="design-app-texte drop-shadow-md text-gray-400 group-hover:text-white">Save Color</span>
               </button>
             </div>
 
             <div className="design-chat-separateur w-full h-px bg-white/10"></div>
 
-            {messages.map((msg, index) => {
-              const isLastOfType = msg.widget && index === messages.map(m => m.widget).lastIndexOf(msg.widget);
+            <div className="design-chat-bulles w-full flex flex-col">
+              {messages.map((msg, index) => {
+              const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
+              const isLastWidgetOverall = index === lastWidgetIndex;
               
               return (
                 <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
@@ -2249,15 +2318,16 @@ Format attendu:
                     {msg.content}
                   </div>
 
-                  {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE) */}
-                  {isLastOfType && msg.widget === "projects" && <WidgetProjects />}
-                  {isLastOfType && msg.widget === "news" && <WidgetNews />}
-                  {isLastOfType && msg.widget === "youtube" && <WidgetYouTube />}
-                  {isLastOfType && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-                  {isLastOfType && msg.widget === "phases" && <WidgetPhases />}
+                  {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
+                  {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects />}
+                  {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
+                  {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
+                  {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
+                  {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
                 </div>
               );
             })}
+            </div>
             <div ref={chatEndRef} />
           </div>
         </main>
@@ -2582,7 +2652,7 @@ Format attendu:
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xl hover:scale-110 hover:text-cyan transition-all opacity-80 z-20 shrink-0"
+                className="design-btn-trombone transition-all opacity-80 z-20 hover:scale-110"
                 title="Joindre un fichier (Stitch/ZIP)"
               >
                 📎
@@ -2590,7 +2660,7 @@ Format attendu:
 
               <button
                 onClick={() => { setActiveProject(null); setNewProjectName(""); setTromboneFiles([]); setIsCreationMode(true); }}
-                className="text-cyan font-bold bg-cyan/10 hover:bg-cyan/20 px-3 py-2 rounded-full text-xs border border-cyan/30 flex items-center gap-1 transition-all shrink-0 z-20"
+                className="design-btn-new-v0 font-bold flex items-center gap-1 transition-all z-20 hover:scale-105"
                 title="Créer un nouveau projet"
               >
                 ✨ New-v0
@@ -2616,6 +2686,77 @@ Format attendu:
           )}
         </div>
       </footer>
+
+      {/* MODAL COLOR SAVER 🎨 */}
+      {isColorModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-black/90 border border-white/20 rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col gap-6 relative">
+            <button onClick={() => setIsColorModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              🎨 Gestion des Thèmes
+            </h3>
+            
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
+              <div className="text-sm font-bold text-gray-400">Mode actuel : <span className="text-cyan uppercase">{activeTheme}</span></div>
+              
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={newThemeName}
+                  onChange={(e) => setNewThemeName(e.target.value)}
+                  placeholder="Nom (ex: Nuit, Océan, fold...)" 
+                  className="flex-1 bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan"
+                />
+                <button 
+                  onClick={saveCurrentTheme}
+                  className="px-4 py-2 bg-cyan text-black font-bold rounded-lg hover:bg-cyan/80 transition-colors whitespace-nowrap"
+                >
+                  Save Mode
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto hide-scrollbar">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Thèmes Enregistrés</div>
+              
+              <button 
+                onClick={() => { setActiveTheme("random"); setIsColorModalOpen(false); }}
+                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+              >
+                <span className="font-bold flex items-center gap-2">🎲 Mode Aléatoire (Dynamique)</span>
+                {activeTheme === "random" && <span className="text-cyan">✓</span>}
+              </button>
+
+              {savedThemes.map((theme, i) => (
+                <button 
+                  key={i}
+                  onClick={() => { setActiveTheme(theme.name); setIsColorModalOpen(false); }}
+                  className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${activeTheme === theme.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex -space-x-2">
+                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-settings"] }}></div>
+                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-ai"] }}></div>
+                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-projects"] }}></div>
+                    </div>
+                    <span className="font-bold">{theme.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {activeTheme === theme.name && <span className="text-cyan">✓</span>}
+                    <button 
+                      onClick={(e) => deleteTheme(theme.name, e)}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                      title="Supprimer ce thème"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style dangerouslySetInnerHTML={{
         __html: `

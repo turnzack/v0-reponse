@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import defaultDesign from './design-tokens.json';
 
 const categories = {
-  '1. ARCHITECTURE': ['appLargeurMax', 'appHauteurMax', 'headerPosition', 'headerHauteur', 'footerPosition', 'footerBas', 'footerGauche', 'footerLargeur', 'sidebarDroitePosition', 'sidebarDroiteTop', 'sidebarDroiteBas', 'sidebarDroiteLargeur'],
+  '1. ARCHITECTURE': ['appLargeurMax', 'appHauteurMax', 'sidebarDroitePosition', 'sidebarDroiteTop', 'sidebarDroiteBas', 'sidebarDroiteLargeur'],
   '2. FONDS & COULEURS': ['appBgTop', 'appBgBottom', 'couleurTextePrincipal', 'couleurTexteSecondaire', 'couleurAccentCyan', 'couleurAccentRose', 'couleurAccentVert', 'couleurAccentViolet', 'flouGlobalArrierePlan'],
   '3. TYPOGRAPHIE': ['fontPrincipale', 'fontTitre', 'fontCode', 'tailleTexteNano', 'tailleTexteMini', 'tailleTexteBase', 'tailleTexteTitre', 'tailleTexteGeant'],
-  '4. EN-TÊTE': ['headerPadding', 'headerBgCouleur', 'headerBordureBas', 'headerOmbre', 'logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille', 'titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
-  '5. MENU ACCUEIL': ['grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'carteCarrouselHauteur', 'carteCarrouselLargeur', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
-  '6. CHAT & FOOTER': ['chatLayoutGap', 'chatSeparateurMargeY', 'chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX', 'statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille', 'inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'btnEnvoiPositionDroite'],
+  '4. EN-TÊTE': ['headerPosition', 'headerTop', 'headerLeft', 'headerLargeur', 'headerZIndex', 'headerHauteur', 'headerPadding', 'headerBgCouleur', 'headerBordureBas', 'headerOmbre', 'logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille', 'titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
+  '5. MENU ACCUEIL': ['iconeReglagesBg', 'iconeAssistantBg', 'iconeProjetsBg', 'iconePacksBg', 'iconeActualitesBg', 'grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'carteCarrouselHauteur', 'carteCarrouselLargeur', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
+  '6. CHAT & FOOTER': ['footerPosition', 'footerBas', 'footerGauche', 'footerLargeur', 'footerZIndex', 'chatLayoutGap', 'chatBullesEspacement', 'chatSeparateurMargeY', 'chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX', 'statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille', 'inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne', 'btnEnvoiPosition', 'btnEnvoiTop', 'btnEnvoiBottom', 'btnEnvoiLeft', 'btnEnvoiRight', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'trombonePosition', 'tromboneTop', 'tromboneBottom', 'tromboneLeft', 'tromboneRight', 'tromboneTaille', 'tromboneCouleur', 'tromboneMargin', 'newV0Position', 'newV0Top', 'newV0Bottom', 'newV0Left', 'newV0Right', 'newV0Padding', 'newV0Taille', 'newV0Bg', 'newV0Couleur', 'newV0Arrondi', 'newV0Bordure', 'newV0Margin'],
   '7. IDE ESPACE TRAVAIL': ['ideToolbarHauteur', 'ideToolbarBg', 'ideToolbarBordure', 'ideBtnActionTaille', 'ideBtnActionArrondi', 'ideBtnActionBg', 'ideBtnActionBordure', 'ideBtnActionEmoji', 'explorateurLargeur', 'explorateurBg', 'explorateurBordureDroite', 'explorateurTexteTaille', 'explorateurDossierCouleur', 'explorateurFichierCouleur', 'editeurBg', 'editeurOngletHauteur', 'editeurOngletBg', 'editeurOngletBordure', 'previewBg', 'previewLargeur', 'previewBordureGauche'],
   '8. MOUCHARD': ['mouchardBg', 'mouchardBordureGauche', 'mouchardOmbre', 'mouchardEnteteBg', 'mouchardEnteteHauteur', 'mouchardTitreCouleur', 'mouchardTexteTaille', 'mouchardTexteCouleurDefaut', 'mouchardTexteCouleurErreur'],
   '9. MODALES': ['modalFondAssombrissement', 'modalFondFlou', 'modalLargeurMax', 'modalHauteurMax', 'modalBgTop', 'modalBgBottom', 'modalBordure', 'modalArrondi', 'modalOmbre', 'modalPrdBg', 'modalPrdBordure', 'modalPrdEnteteBg', 'modalPrdTitreCouleur', 'modalSidebarLargeur', 'modalSidebarBg', 'modalOngletPadding', 'modalOngletArrondi', 'modalOngletGap', 'modalOngletBgActif', 'modalOngletBordureActif', 'modalOngletCouleurActif', 'modalOngletCouleurInactif']
@@ -54,6 +54,10 @@ body {
 
 .design-header {
    position: var(--header-position) !important;
+   top: var(--header-top) !important;
+   left: var(--header-left) !important;
+   width: var(--header-largeur) !important;
+   z-index: var(--header-z-index) !important;
    height: var(--header-hauteur) !important;
    padding: var(--header-padding) !important;
    background: var(--header-bg-couleur) !important;
@@ -105,6 +109,12 @@ body {
    box-shadow: var(--app-icone-ombre) !important;
 }
 
+.design-icone-reglages { background: var(--icone-reglages-bg) !important; }
+.design-icone-assistant { background: var(--icone-assistant-bg) !important; }
+.design-icone-projets { background: var(--icone-projets-bg) !important; }
+.design-icone-packs { background: var(--icone-packs-bg) !important; }
+.design-icone-actualites { background: var(--icone-actualites-bg) !important; }
+
 .design-app-icone:hover {
    box-shadow: var(--app-icone-ombre-survol) !important;
    transform: scale(var(--app-icone-scale-survol)) !important;
@@ -122,6 +132,7 @@ body {
    bottom: var(--footer-bas) !important;
    left: var(--footer-gauche) !important;
    width: var(--footer-largeur) !important;
+   z-index: var(--footer-z-index) !important;
    background: var(--chat-conteneur-bg) !important;
    border-top: var(--chat-conteneur-bordure-haut) !important;
 }
@@ -136,6 +147,10 @@ body {
 
 .design-chat-layout {
    gap: var(--chat-layout-gap) !important;
+}
+
+.design-chat-bulles {
+   gap: var(--chat-bulles-espacement) !important;
 }
 
 .design-carte-carrousel {
@@ -166,14 +181,43 @@ body {
 }
 
 .design-btn-envoi {
-   position: absolute;
+   position: var(--btn-envoi-position) !important;
+   top: var(--btn-envoi-top) !important;
+   bottom: var(--btn-envoi-bottom) !important;
+   left: var(--btn-envoi-left) !important;
+   right: var(--btn-envoi-right) !important;
    width: var(--btn-envoi-taille) !important;
    height: var(--btn-envoi-taille) !important;
    background: var(--btn-envoi-bg) !important;
    color: var(--btn-envoi-couleur) !important;
    border-radius: var(--btn-envoi-arrondi) !important;
    font-size: var(--btn-envoi-icone-taille) !important;
-   right: var(--btn-envoi-position-droite) !important;
+}
+
+.design-btn-trombone {
+   position: var(--trombone-position) !important;
+   top: var(--trombone-top) !important;
+   bottom: var(--trombone-bottom) !important;
+   left: var(--trombone-left) !important;
+   right: var(--trombone-right) !important;
+   font-size: var(--trombone-taille) !important;
+   color: var(--trombone-couleur) !important;
+   margin: var(--trombone-margin) !important;
+}
+
+.design-btn-new-v0 {
+   position: var(--new-v0-position) !important;
+   top: var(--new-v0-top) !important;
+   bottom: var(--new-v0-bottom) !important;
+   left: var(--new-v0-left) !important;
+   right: var(--new-v0-right) !important;
+   padding: var(--new-v0-padding) !important;
+   font-size: var(--new-v0-taille) !important;
+   background: var(--new-v0-bg) !important;
+   color: var(--new-v0-couleur) !important;
+   border-radius: var(--new-v0-arrondi) !important;
+   border: var(--new-v0-bordure) !important;
+   margin: var(--new-v0-margin) !important;
 }
 
 .design-mouchard-conteneur {
@@ -302,6 +346,10 @@ body {
                 const isColorVal = isColor(val);
                 const sliderMatch = typeof val === 'string' ? val.match(/^(-?\d+\.?\d*)(px|vw|vh|%|rem|em)$/) : null;
                 const isPosition = key.toLowerCase().includes('position');
+                const isDisplay = key.toLowerCase().includes('display');
+                const isFlexWrap = key.toLowerCase().includes('flexwrap');
+                const isJustify = key.toLowerCase().includes('justify');
+                const isOverflow = key.toLowerCase().includes('overflow');
                 const isLocked = !!lockedSettings[key];
 
                 return (
@@ -330,7 +378,37 @@ body {
                         <option value="relative">Relative</option>
                         <option value="absolute">Absolute</option>
                         <option value="fixed">Fixed</option>
+                        <option value="sticky">Sticky</option>
                         <option value="static">Static</option>
+                      </select>
+                    ) : isDisplay ? (
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <option value="flex">flex</option>
+                        <option value="grid">grid</option>
+                        <option value="block">block</option>
+                        <option value="none">none</option>
+                      </select>
+                    ) : isFlexWrap ? (
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <option value="nowrap">nowrap</option>
+                        <option value="wrap">wrap</option>
+                        <option value="wrap-reverse">wrap-reverse</option>
+                      </select>
+                    ) : isJustify ? (
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <option value="flex-start">flex-start</option>
+                        <option value="flex-end">flex-end</option>
+                        <option value="center">center</option>
+                        <option value="space-between">space-between</option>
+                        <option value="space-around">space-around</option>
+                        <option value="space-evenly">space-evenly</option>
+                      </select>
+                    ) : isOverflow ? (
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                        <option value="visible">visible</option>
+                        <option value="hidden">hidden</option>
+                        <option value="scroll">scroll</option>
+                        <option value="auto">auto</option>
                       </select>
                     ) : isColorVal && val.startsWith('#') ? (
                       <div className={`flex items-center gap-3 bg-black/50 p-2 rounded-lg border border-white/10 ${isLocked ? 'opacity-50' : ''}`}>
