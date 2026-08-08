@@ -589,6 +589,8 @@ export default function Dashboard() {
   const [newProjectStack, setNewProjectStack] = useState("Vite + React + Tailwind + TS");
   const [newProjectDesc, setNewProjectDesc] = useState("");
   const [newProjectLogicAi, setNewProjectLogicAi] = useState("deepseek");
+  const [newProjectInstructions, setNewProjectInstructions] = useState("");
+  const [isAutoPilotOn, setIsAutoPilotOn] = useState(false);
 
   const togglePack = (packId: string) => {
     setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
@@ -1943,139 +1945,196 @@ Format attendu:
           )}
 
           {isCreationMode ? (
-            <div id="creation-mode-container" className="flex flex-col gap-4 bg-black/60 p-5 rounded-3xl border border-cyan/30 shadow-2xl backdrop-blur-xl animate-fadeIn relative">
-               <div className="flex justify-between items-center mb-1">
-                 <h3 className="text-cyan font-bold flex items-center gap-2 text-lg">✨ Création Nouveau Projet</h3>
+            <div id="creation-mode-container" className="flex flex-col gap-4 bg-black/80 p-5 rounded-3xl border border-cyan/30 shadow-2xl backdrop-blur-xl animate-fadeIn relative max-h-[65vh] overflow-y-auto custom-scrollbar">
+               <div className="flex justify-between items-center mb-2 sticky top-0 bg-black/90 z-10 py-2 border-b border-cyan/20">
+                 <h3 className="text-cyan font-bold flex items-center gap-2 text-lg uppercase"><span className="animate-pulse w-2 h-2 bg-cyan rounded-full"></span> ⚙️ Configuration du projet</h3>
                  <button onClick={() => setIsCreationMode(false)} className="text-slate-400 hover:text-white p-2">✕</button>
                </div>
                
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Nom du Projet</label>
-                    <div className="flex gap-2">
-                      <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: Dashboard E-commerce" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm disabled:opacity-50" />
-                      <button 
-                        onClick={async (e) => {
-                          if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
-                          const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
-                          const btn = e.currentTarget;
-                          const originalText = btn.innerHTML;
-                          
-                          try {
-                            btn.innerHTML = '⏳...';
-                            const API_BASE = 'http://127.0.0.1:5005';
+               {/* ZONE 1: CIBLAGE ET INSTRUCTIONS */}
+               <div className="flex flex-col gap-3 bg-black/40 p-4 rounded-xl border border-white/10">
+                 <div>
+                   <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">📁 CIBLER LE PROJET :</label>
+                   <select 
+                     value={activeProject || ""} 
+                     onChange={e => {
+                       setActiveProject(e.target.value);
+                       if (e.target.value) {
+                         setNewProjectName(e.target.value.replace('Projet_', '').split('_')[0]);
+                       } else {
+                         setNewProjectName("");
+                       }
+                     }} 
+                     className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm"
+                   >
+                     <option value="">-- SÉLECTIONNER UN PROJET --</option>
+                     {realProjects.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                   </select>
+                 </div>
+                 
+                 <div>
+                   <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">📝 INSTRUCTIONS SPÉCIFIQUES :</label>
+                   <textarea 
+                     value={newProjectInstructions} 
+                     onChange={e => setNewProjectInstructions(e.target.value)} 
+                     placeholder="Instructions pour le Patch ou la modification..." 
+                     className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-2 outline-none focus:border-cyan h-12 resize-none text-sm"
+                   ></textarea>
+                 </div>
+               </div>
+
+               {/* ZONE 2: PARAMÈTRES ET CIBLES */}
+               <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl border border-white/10">
+                  <div className="text-cyan font-bold uppercase text-xs border-b border-dashed border-cyan/30 pb-1">⚡ Paramètres & Cibles</div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Nom du Projet</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={newProjectName} onChange={e => setNewProjectName(e.target.value)} disabled={!!activeProject} placeholder="Ex: MonSuperProjet" className="flex-1 bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm disabled:opacity-50" />
+                        <button 
+                          onClick={async (e) => {
+                            if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
+                            const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
+                            const btn = e.currentTarget;
+                            const originalText = btn.innerHTML;
                             
-                            // Tentative endpoint Python (Cerveau Maître)
-                            let res = await fetch(`${API_BASE}/v1/mission/start`, {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ 
-                                    name: genId,
-                                    prompt: newProjectDesc.trim() || "Initialisation manuelle du dossier depuis le bouton VALIDER.",
-                                    stack: newProjectStack || "react"
-                                })
-                            }).catch(() => null);
-                            
-                            // Fallback endpoint Electron Bridge
-                            if (!res || !res.ok) {
-                              res = await fetch(`${API_BASE}/api/projects/create`, { 
-                                method: "POST", 
-                                headers: { "Content-Type": "application/json" }, 
-                                body: JSON.stringify({ projectId: genId }) 
-                              }).catch(() => null);
-                            }
-                            
-                            if (res && res.ok) {
-                              setActiveProject(genId);
-                              btn.innerHTML = '✅ DOSSIER CRÉÉ';
-                              btn.style.background = '#10b981';
-                              btn.style.color = '#fff';
-                              btn.style.borderColor = '#10b981';
+                            try {
+                              btn.innerHTML = '⏳...';
+                              const API_BASE = 'http://127.0.0.1:5005';
                               
-                              // --- Enregistrement dans la mémoire RAG HERMES ---
-                              const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
-                              let oldMem = localStorage.getItem('hermes_memory') || "";
-                              if (!oldMem.includes(`[PROJET: ${genId}]`)) {
-                                  localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
-                                  
-                                  // Avertir le chat Tiger
-                                  setMessages(prev => [...prev, {
-                                    id: Date.now().toString() + "_hermes",
-                                    role: "assistant",
-                                    content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
-                                    widget: "phases"
-                                  }]);
+                              // Tentative endpoint Python (Cerveau Maître)
+                              let res = await fetch(`${API_BASE}/v1/mission/start`, {
+                                  method: 'POST',
+                                  headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ 
+                                      name: genId,
+                                      prompt: newProjectDesc.trim() || "Initialisation manuelle du dossier depuis le bouton VALIDER.",
+                                      stack: newProjectStack || "react"
+                                  })
+                              }).catch(() => null);
+                              
+                              // Fallback endpoint Electron Bridge
+                              if (!res || !res.ok) {
+                                res = await fetch(`${API_BASE}/api/projects/create`, { 
+                                  method: "POST", 
+                                  headers: { "Content-Type": "application/json" }, 
+                                  body: JSON.stringify({ projectId: genId }) 
+                                }).catch(() => null);
                               }
-                            } else {
-                              btn.innerHTML = '❌ ERREUR';
-                              btn.style.background = '#ef4444';
-                              btn.style.color = '#fff';
-                              btn.style.borderColor = '#ef4444';
-                              setTimeout(() => {
-                                btn.innerHTML = originalText;
-                                btn.style = '';
-                              }, 3000);
+                              
+                              if (res && res.ok) {
+                                setActiveProject(genId);
+                                btn.innerHTML = '✅ DOSSIER CRÉÉ';
+                                btn.style.background = '#10b981';
+                                btn.style.color = '#fff';
+                                btn.style.borderColor = '#10b981';
+                                
+                                // --- Enregistrement dans la mémoire RAG HERMES ---
+                                const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
+                                let oldMem = localStorage.getItem('hermes_memory') || "";
+                                if (!oldMem.includes(`[PROJET: ${genId}]`)) {
+                                    localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
+                                    
+                                    // Avertir le chat Tiger
+                                    setMessages(prev => [...prev, {
+                                      id: Date.now().toString() + "_hermes",
+                                      role: "assistant",
+                                      content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
+                                      widget: "phases"
+                                    }]);
+                                }
+                              } else {
+                                btn.innerHTML = '❌ ERREUR';
+                                btn.style.background = '#ef4444';
+                                btn.style.color = '#fff';
+                                btn.style.borderColor = '#ef4444';
+                                setTimeout(() => {
+                                  btn.innerHTML = originalText;
+                                  btn.style = '';
+                                }, 3000);
+                              }
+                            } catch (err) {
+                              alert("Erreur de connexion au Bridge local.");
+                              btn.innerHTML = originalText;
                             }
-                          } catch (err) {
-                            alert("Erreur de connexion au Bridge local.");
-                            btn.innerHTML = originalText;
-                          }
-                        }}
-                        disabled={!!activeProject || !newProjectName.trim()}
-                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
+                          }}
+                          disabled={!!activeProject || !newProjectName.trim()}
+                          className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
+                        >
+                          {activeProject ? '✅ Validé' : 'Valider'}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Stack Technique</label>
+                      <select value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
+                         <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
+                         <option value="Next.js + Tailwind + TS">Next.js + Tailwind + TS</option>
+                         <option value="HTML + Vanilla CSS + JS">HTML + Vanilla CSS + JS</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Description / Vision</label>
+                    <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez l'application ou copiez votre PRD..." className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-2 outline-none focus:border-cyan h-16 resize-none text-sm"></textarea>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div>
+                      <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Intelligence Cible</label>
+                      <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
+                        <option value="deepseek">🐋 DeepSeek</option>
+                        <option value="openai">🟢 OpenAI (ChatGPT)</option>
+                        <option value="kimi">🌙 Kimi</option>
+                        <option value="gemini">✨ Gemini</option>
+                        <option value="claude">🟣 Claude</option>
+                      </select>
+                    </div>
+                    
+                    <div className="mt-5">
+                      <button onClick={() => setIsPrdModalOpen(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
+                        💎 Packs PRD ({selectedPacks.length})
+                      </button>
+                    </div>
+
+                    <div className="mt-5">
+                      <button 
+                        onClick={() => setIsAutoPilotOn(!isAutoPilotOn)} 
+                        className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border ${isAutoPilotOn ? 'bg-green-900/40 border-green-500/50 text-green-400' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white'}`}
                       >
-                        {activeProject ? '✅ Validé' : 'Valider'}
+                        ⚙️ AUTO-PILOT : {isAutoPilotOn ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+
+                    <div className="flex-1"></div>
+
+                    <div className="mt-5 flex gap-2">
+                      <button 
+                        onClick={() => {
+                          if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
+                            handleStartFullPipeline();
+                          } else {
+                            handleStartNewV0Project();
+                          }
+                        }} 
+                        className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center gap-2"
+                      >
+                        {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : "Envoyer UI 🎨"}
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Stack / Structure</label>
-                    <select value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
-                       <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
-                       <option value="Next.js + Tailwind + TS">Next.js + Tailwind + TS</option>
-                       <option value="HTML + Vanilla CSS + JS">HTML + Vanilla CSS + JS</option>
-                    </select>
-                  </div>
-               </div>
 
-               <div>
-                 <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Descriptif & Objectifs (UI/UX)</label>
-                 <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez l'application de vos rêves..." className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-2 outline-none focus:border-cyan h-16 resize-none text-sm"></textarea>
-               </div>
-
-               <div className="flex flex-wrap items-center gap-4">
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Backend (IA)</label>
-                    <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
-                      <option value="deepseek">🐋 DeepSeek</option>
-                      <option value="openai">🟢 OpenAI (ChatGPT)</option>
-                      <option value="kimi">🌙 Kimi</option>
-                      <option value="gemini">✨ Gemini</option>
-                      <option value="claude">🟣 Claude</option>
-                    </select>
-                  </div>
-                  
-                  <div className="mt-5">
-                    <button onClick={() => setIsPrdModalOpen(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
-                      💎 Packs PRD ({selectedPacks.length})
-                    </button>
-                  </div>
-
-                  <div className="flex-1"></div>
-
-                  <div className="mt-5 flex gap-2">
-                    <button 
-                      onClick={() => {
-                        if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
-                          handleStartFullPipeline();
-                        } else {
-                          handleStartNewV0Project();
-                        }
-                      }} 
-                      className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center gap-2"
-                    >
-                      {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : "Envoyer UI 🎨"}
-                    </button>
+                  {/* Structure Preview */}
+                  <div className="mt-2 bg-black/60 border border-white/5 rounded-xl p-3 text-[10px] text-slate-400 font-mono overflow-x-auto">
+                    {newProjectStack.includes("Next.js") ? (
+                      `📁 /app\n  📄 layout.tsx\n  📄 page.tsx\n📁 /components\n  📄 ui.tsx\n📄 tailwind.config.ts\n📄 package.json`
+                    ) : newProjectStack.includes("Vite") ? (
+                      `📁 /src\n  📁 /components\n  📄 App.tsx\n  📄 main.tsx\n📄 vite.config.ts\n📄 package.json`
+                    ) : (
+                      `📁 /\n  📄 index.html\n  📄 style.css\n  📄 script.js`
+                    )}
                   </div>
                </div>
             </div>
