@@ -11,7 +11,9 @@ document.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '+' || e.key === '0')) {
+  // On empêche SEULEMENT le zoom IN (+) pour éviter de tout casser.
+  // On laisse le zoom OUT (-) et RESET (0) au cas où l'utilisateur serait bloqué en mode zoom.
+  if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
     e.preventDefault();
   }
 });
