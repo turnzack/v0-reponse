@@ -1935,7 +1935,7 @@ Format attendu:
           </div>
         )}
 
-        <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-10">
+        <div className="max-w-5xl mx-auto w-full flex flex-col gap-8 pb-[140px]">
           
           {/* Mobile-style Home Screen Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-8 pt-8 pb-4 max-w-3xl mx-auto w-full px-4">
@@ -2072,7 +2072,7 @@ Format attendu:
       </div> {/* Fermeture div flex-1 principal pour que le footer passe en bas */}
 
       {/* Input Area + Connection Status Bar */}
-      <footer className="backdrop-blur-2xl border-t border-white/10 z-10 flex flex-col" style={{ background: isClient ? getCachedGradient('footer', 0.6) : 'rgba(0,0,0,0.6)' }}>
+      <footer className="absolute bottom-0 left-0 w-full backdrop-blur-2xl border-t border-white/10 z-50 flex flex-col" style={{ background: isClient ? getCachedGradient('footer', 0.6) : 'rgba(0,0,0,0.6)' }}>
         {/* Connection Status Indicators */}
         <div className="px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar text-[10px] font-bold tracking-wider uppercase">
           <div className="flex items-center gap-2 shrink-0">
