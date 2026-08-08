@@ -1,33 +1,155 @@
-/* Tiger IA Design - Admin Studio */
+/* Tiger IA Design - Admin Studio FULL */
 :root {
-  /* Architecture */
-  --app-largeur-max: 100vw;
-  --app-hauteur-max: 100vh;
+  --app-largeur-max: 112vw;
+  --app-hauteur-max: 131vh;
+  --header-position: relative;
   --header-hauteur: 72px;
-  
-  /* Couleurs Globales */
+  --footer-position: absolute;
+  --footer-bas: 0px;
+  --footer-gauche: 0px;
+  --footer-largeur: 100%;
+  --sidebar-droite-position: absolute;
+  --sidebar-droite-top: 72px;
+  --sidebar-droite-bas: 48px;
+  --sidebar-droite-largeur: 320px;
   --app-bg-top: #0f0f0f;
   --app-bg-bottom: #000000;
   --couleur-texte-principal: #ffffff;
+  --couleur-texte-secondaire: #9ca3af;
   --couleur-accent-cyan: #08b3c9;
   --couleur-accent-rose: #e274a9;
-  
-  /* Typographie & Arrondis */
+  --couleur-accent-vert: #22c55e;
+  --couleur-accent-violet: #a855f7;
+  --flou-global-arriere-plan: blur(12px);
   --font-principale: 'Inter', sans-serif;
+  --font-titre: 'Inter', sans-serif;
+  --font-code: 'Consolas', monospace;
+  --taille-texte-nano: 10px;
+  --taille-texte-mini: 12px;
   --taille-texte-base: 14px;
-  --arrondi-global: 12px;
-  
-  /* Composants */
+  --taille-texte-titre: 20px;
+  --taille-texte-geant: 24px;
+  --header-padding: 1rem 1.5rem;
   --header-bg-couleur: rgba(0, 0, 0, 0.4);
-  --btn-envoi-bg: #08b3c9;
+  --header-bordure-bas: 1px solid rgba(255, 255, 255, 0.1);
+  --header-ombre: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --logo-taille: 40px;
+  --logo-arrondi: 12px;
+  --logo-bg-couleur: #08b3c9;
+  --logo-ombre: 0 0 15px rgba(8, 179, 201, 0.4);
+  --logo-emoji-taille: 20px;
+  --titre-poids: 900;
+  --titre-couleur: #ffffff;
+  --titre-espacement: 0.05em;
+  --sous-titre-couleur: #08b3c9;
+  --sous-titre-poids: 500;
+  --grille-max-largeur: 1024px;
+  --grille-marge-haut: 2rem;
+  --grille-marge-bas: 140px;
+  --grille-gap-x: 2rem;
+  --grille-gap-y: 2rem;
+  --app-icone-largeur: 96px;
+  --app-icone-hauteur: 96px;
+  --app-icone-arrondi: 24px;
+  --app-icone-bordure: 2px solid rgba(255, 255, 255, 0.1);
+  --app-icone-ombre: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --app-icone-ombre-survol: 0 0 30px rgba(255, 255, 255, 0.2);
+  --app-icone-scale-survol: 1.05;
+  --app-icone-emoji-taille: 36px;
+  --app-icone-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --app-texte-taille: 14px;
+  --app-texte-couleur: #ffffff;
+  --app-texte-poids: 700;
+  --app-texte-marge-haut: 12px;
+  --chat-main-position: relative;
+  --chat-main-top: 0;
+  --chat-main-bottom: 0;
+  --chat-main-right: 0;
+  --chat-main-width: 100%;
   --chat-conteneur-bg: rgba(0, 0, 0, 0.6);
-  
-  /* Alias Compatibilité */
-  --color-primary: #08b3c9;
-  --color-bg: #000000;
-  --color-text: #ffffff;
-  --radius: 12px;
-  --font-base: 14px;
+  --chat-conteneur-flou: blur(24px);
+  --chat-conteneur-bordure-haut: 1px solid rgba(255, 255, 255, 0.1);
+  --chat-conteneur-padding-haut: 8px;
+  --chat-conteneur-padding-bas: 12px;
+  --chat-conteneur-padding-x: 24px;
+  --statut-padding: 8px 24px;
+  --statut-bg: transparent;
+  --statut-bordure-bas: 1px solid rgba(255, 255, 255, 0.05);
+  --statut-gap: 24px;
+  --statut-texte-taille: 10px;
+  --statut-texte-poids: 700;
+  --statut-texte-espacement: 0.1em;
+  --statut-pastille-taille: 8px;
+  --input-hauteur: 48px;
+  --input-largeur: 100%;
+  --input-bg-couleur: rgba(255, 255, 255, 0.05);
+  --input-bordure-couleur: rgba(255, 255, 255, 0.1);
+  --input-texte-taille: 14px;
+  --input-texte-couleur: #ffffff;
+  --input-placeholder-couleur: #9ca3af;
+  --input-arrondi: 9999px;
+  --input-padding-gauche: 24px;
+  --input-padding-droite: 64px;
+  --input-ombre-interne: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  --btn-envoi-taille: 40px;
+  --btn-envoi-bg: #08b3c9;
+  --btn-envoi-couleur: #ffffff;
+  --btn-envoi-arrondi: 9999px;
+  --btn-envoi-icone-taille: 20px;
+  --btn-envoi-position-droite: 8px;
+  --ide-toolbar-hauteur: 56px;
+  --ide-toolbar-bg: linear-gradient(to right, rgba(49, 46, 129, 0.4), rgba(0, 0, 0, 0.8));
+  --ide-toolbar-bordure: 1px solid rgba(99, 102, 241, 0.2);
+  --ide-btn-action-taille: 40px;
+  --ide-btn-action-arrondi: 12px;
+  --ide-btn-action-bg: rgba(255, 255, 255, 0.05);
+  --ide-btn-action-bordure: 1px solid rgba(255, 255, 255, 0.1);
+  --ide-btn-action-emoji: 20px;
+  --explorateur-largeur: 256px;
+  --explorateur-bg: rgba(10, 10, 10, 0.95);
+  --explorateur-bordure-droite: 1px solid rgba(255, 255, 255, 0.1);
+  --explorateur-texte-taille: 12px;
+  --explorateur-dossier-couleur: #60a5fa;
+  --explorateur-fichier-couleur: #9ca3af;
+  --editeur-bg: #1e1e1e;
+  --editeur-onglet-hauteur: 48px;
+  --editeur-onglet-bg: #252526;
+  --editeur-onglet-bordure: 1px solid #000000;
+  --preview-bg: #ffffff;
+  --preview-largeur: 50%;
+  --preview-bordure-gauche: 1px solid #000000;
+  --mouchard-bg: #000000;
+  --mouchard-bordure-gauche: 1px solid rgba(255, 255, 255, 0.2);
+  --mouchard-ombre: -10px 0 30px rgba(0, 0, 0, 0.5);
+  --mouchard-entete-bg: #050505;
+  --mouchard-entete-hauteur: 48px;
+  --mouchard-titre-couleur: #08b3c9;
+  --mouchard-texte-taille: 12px;
+  --mouchard-texte-couleur-defaut: #52c1c9;
+  --mouchard-texte-couleur-erreur: #ef4444;
+  --modal-fond-assombrissement: rgba(0, 0, 0, 0.6);
+  --modal-fond-flou: blur(8px);
+  --modal-largeur-max: 1024px;
+  --modal-hauteur-max: 85vh;
+  --modal-bg-top: rgba(132, 94, 124, 0.95);
+  --modal-bg-bottom: rgba(108, 48, 80, 0.95);
+  --modal-bordure: 1px solid rgba(255, 255, 255, 0.1);
+  --modal-arrondi: 24px;
+  --modal-ombre: 0 0 50px rgba(0, 0, 0, 0.8);
+  --modal-prd-bg: rgba(0, 0, 0, 0.95);
+  --modal-prd-bordure: 1px solid rgba(79, 70, 229, 0.5);
+  --modal-prd-entete-bg: rgba(49, 46, 129, 0.3);
+  --modal-prd-titre-couleur: #a5b4fc;
+  --modal-sidebar-largeur: 256px;
+  --modal-sidebar-bg: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
+  --modal-onglet-padding: 12px 16px;
+  --modal-onglet-arrondi: 12px;
+  --modal-onglet-gap: 12px;
+  --modal-onglet-bg-actif: rgba(8, 179, 201, 0.2);
+  --modal-onglet-bordure-actif: 1px solid rgba(8, 179, 201, 0.5);
+  --modal-onglet-couleur-actif: #ffffff;
+  --modal-onglet-couleur-inactif: #9ca3af;
+
 }
 
 body { 
@@ -40,8 +162,127 @@ body {
   zoom: 0.8;
   overflow-x: hidden;
 }
-button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global) !important; }
-.bg-cyan { background-color: var(--couleur-accent-cyan) !important; }
-.bg-rose { background-color: var(--couleur-accent-rose) !important; }
-.header-custom { height: var(--header-hauteur) !important; background: var(--header-bg-couleur) !important; }
-.chat-custom { background: var(--chat-conteneur-bg) !important; }
+
+/* Applications Utilitaires Automatiques */
+.design-app-root {
+   background: linear-gradient(to bottom right, var(--app-bg-top), var(--app-bg-bottom)) !important;
+   font-family: var(--font-principale) !important;
+   width: var(--app-largeur-max) !important;
+   height: var(--app-hauteur-max) !important;
+}
+
+.design-header {
+   position: var(--header-position) !important;
+   height: var(--header-hauteur) !important;
+   padding: var(--header-padding) !important;
+   background: var(--header-bg-couleur) !important;
+   border-bottom: var(--header-bordure-bas) !important;
+   box-shadow: var(--header-ombre) !important;
+}
+
+.design-logo {
+   width: var(--logo-taille) !important;
+   height: var(--logo-taille) !important;
+   border-radius: var(--logo-arrondi) !important;
+   background: var(--logo-bg-couleur) !important;
+   box-shadow: var(--logo-ombre) !important;
+   font-size: var(--logo-emoji-taille) !important;
+}
+
+.design-titre {
+   font-size: var(--taille-texte-titre) !important;
+   font-weight: var(--titre-poids) !important;
+   color: var(--titre-couleur) !important;
+   letter-spacing: var(--titre-espacement) !important;
+   font-family: var(--font-titre) !important;
+}
+
+.design-sous-titre {
+   font-size: var(--taille-texte-base) !important;
+   color: var(--sous-titre-couleur) !important;
+   font-weight: var(--sous-titre-poids) !important;
+}
+
+.design-grille {
+   max-width: var(--grille-max-largeur) !important;
+   margin-top: var(--grille-marge-haut) !important;
+   margin-bottom: var(--grille-marge-bas) !important;
+   gap: var(--grille-gap-x) var(--grille-gap-y) !important;
+}
+
+.design-app-icone {
+   width: var(--app-icone-largeur) !important;
+   height: var(--app-icone-hauteur) !important;
+   border-radius: var(--app-icone-arrondi) !important;
+   border: var(--app-icone-bordure) !important;
+   font-size: var(--app-icone-emoji-taille) !important;
+   transition: var(--app-icone-transition) !important;
+   box-shadow: var(--app-icone-ombre) !important;
+}
+
+.design-app-icone:hover {
+   box-shadow: var(--app-icone-ombre-survol) !important;
+   transform: scale(var(--app-icone-scale-survol)) !important;
+}
+
+.design-app-texte {
+   font-size: var(--app-texte-taille) !important;
+   color: var(--app-texte-couleur) !important;
+   font-weight: var(--app-texte-poids) !important;
+   margin-top: var(--app-texte-marge-haut) !important;
+}
+
+.design-footer {
+   position: var(--footer-position) !important;
+   bottom: var(--footer-bas) !important;
+   left: var(--footer-gauche) !important;
+   width: var(--footer-largeur) !important;
+   background: var(--chat-conteneur-bg) !important;
+   border-top: var(--chat-conteneur-bordure-haut) !important;
+}
+
+.design-chat-main {
+   position: var(--chat-main-position) !important;
+   top: var(--chat-main-top) !important;
+   bottom: var(--chat-main-bottom) !important;
+   right: var(--chat-main-right) !important;
+   width: var(--chat-main-width) !important;
+}
+
+.design-chat-input {
+   height: var(--input-hauteur) !important;
+   width: var(--input-largeur) !important;
+   background: var(--input-bg-couleur) !important;
+   border: var(--input-bordure-couleur) !important;
+   font-size: var(--input-texte-taille) !important;
+   color: var(--input-texte-couleur) !important;
+   border-radius: var(--input-arrondi) !important;
+   padding-left: var(--input-padding-gauche) !important;
+   padding-right: var(--input-padding-droite) !important;
+   box-shadow: var(--input-ombre-interne) !important;
+}
+
+.design-chat-input::placeholder {
+   color: var(--input-placeholder-couleur) !important;
+}
+
+.design-btn-envoi {
+   position: absolute;
+   width: var(--btn-envoi-taille) !important;
+   height: var(--btn-envoi-taille) !important;
+   background: var(--btn-envoi-bg) !important;
+   color: var(--btn-envoi-couleur) !important;
+   border-radius: var(--btn-envoi-arrondi) !important;
+   font-size: var(--btn-envoi-icone-taille) !important;
+   right: var(--btn-envoi-position-droite) !important;
+}
+
+.design-mouchard-conteneur {
+   position: var(--sidebar-droite-position) !important;
+   top: var(--sidebar-droite-top) !important;
+   bottom: var(--sidebar-droite-bas) !important;
+   width: var(--sidebar-droite-largeur) !important;
+   background: var(--mouchard-bg) !important;
+   border-left: var(--mouchard-bordure-gauche) !important;
+   box-shadow: var(--mouchard-ombre) !important;
+}

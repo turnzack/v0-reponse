@@ -2133,7 +2133,7 @@ Format attendu:
 
         {/* Chat Area (Responsive) */}
         <main
-          className={`${activeProject ? (isIdeFullscreen ? 'hidden w-0' : 'w-96 min-w-[24rem]') : 'flex-1'} border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col relative transition-all duration-500 ease-in-out`}
+          className={`design-chat-main ${activeProject ? (isIdeFullscreen ? 'hidden w-0' : 'w-96 min-w-[24rem]') : 'flex-1'} border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col transition-all duration-500 ease-in-out`}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={(e) => {
