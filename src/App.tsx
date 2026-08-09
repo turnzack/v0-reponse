@@ -37,6 +37,20 @@ const getRandomGradient = (alpha = 1) => {
   return `linear-gradient(${angle}deg, rgba(${c1[0]},${c1[1]},${c1[2]},${alpha}) 0%, rgba(${c2[0]},${c2[1]},${c2[2]},${alpha}) 100%)`;
 };
 
+export const getTargetAiUrl = (id: string, isUi: boolean = false): string => {
+  if (id === "custom") return typeof window !== 'undefined' ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : "https://chat.deepseek.com/";
+  if (id === "stitch") return "https://stitch.withgoogle.com/";
+  if (id === "v0") return "https://v0.dev/";
+  if (id === "kimi" || id === "moonshot") return "https://www.kimi.com/fr?chat_enter_method=new_chat";
+  if (id === "qwen") return "https://chat.qwen.ai/";
+  if (id === "gemini") return "https://gemini.google.com/app";
+  if (id === "chatgpt" || id === "openai") return "https://chatgpt.com/";
+  if (id === "claude") return "https://claude.ai/";
+  if (id === "perplexity") return "https://www.perplexity.ai/";
+  if (id === "deepseek") return "https://chat.deepseek.com/";
+  return `https://chat.${id}.com/`;
+};
+
 const WidgetSettings = ({
   isModal = false,
   isEmbedded = false,
@@ -205,7 +219,7 @@ const WidgetSettings = ({
                         <button
                           onClick={() => {
                             if (typeof window !== "undefined" && (window as any).AndroidBridge) {
-                              const url = targetAi === "custom" ? customAiUrl : `https://chat.${targetAi}.com/`;
+                              const url = targetAi === "custom" ? customAiUrl : getTargetAiUrl(targetAi);
                               (window as any).AndroidBridge.openAIWithPrompt(url, "Initialisation Logique.");
                             }
                           }}
@@ -772,6 +786,9 @@ export default function Dashboard() {
   const togglePack = (packId: string) => {
     setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
   };
+  const [selectedStartPhase, setSelectedStartPhase] = useState<number>(0); // 0 = TOUT
+  const [isAutoPilot, setIsAutoPilot] = useState<boolean>(true);
+  const [reuseActiveTab, setReuseActiveTab] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [fsTree, setFsTree] = useState<any>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -1189,12 +1206,7 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
           const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
           const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
 
-          const getUrl = (id: string, isUi: boolean = false) => {
-            if (id === "custom") return localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/";
-            if (id === "stitch") return "https://stitch.withgoogle.com/";
-            if (id === "v0") return "https://v0.dev/";
-            return `https://chat.${id}.com/`;
-          };
+          const getUrl = (id: string, isUi: boolean = false) => getTargetAiUrl(id, isUi);
 
           // Lancement réel via le Bridge Android (WebView Fantôme) ou Electron
           const bridge = (window as any).AndroidBridge;
@@ -1232,12 +1244,14 @@ button, input, select, textarea, .arrondi { border-radius: var(--arrondi-global)
               }
             };
 
-            sendUiPrompt().then(() => {
-              console.log("Prompt UI envoyé au Bridge");
-              window.open(getUrl(uiAi, true), "_blank");
-            }).catch(() => {
-              window.open(getUrl(uiAi, true), "_blank");
-            });
+            if (selectedStartPhase !== 200 && !reuseActiveTab) {
+              sendUiPrompt().then(() => {
+                console.log("Prompt UI envoyé au Bridge");
+                window.open(getUrl(uiAi, true), "_blank");
+              }).catch(() => {
+                window.open(getUrl(uiAi, true), "_blank");
+              });
+            }
 
             // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
             setTimeout(() => {
@@ -1356,12 +1370,7 @@ Description : ${newProjectDesc}.`;
     if (typeof window !== 'undefined') localStorage.setItem("tiger_lastGeneratedProject", newProjectId);
 
     const uiAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
-    const getUrl = (id: string, isUi: boolean = false) => {
-      if (id === "custom") return localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/";
-      if (id === "stitch") return "https://stitch.withgoogle.com/";
-      if (id === "v0") return "https://v0.dev/";
-      return `https://chat.${id}.com/`;
-    };
+    const getUrl = (id: string, isUi: boolean = false) => getTargetAiUrl(id, isUi);
 
     const msg: Message = {
       id: Date.now().toString(),
@@ -1399,12 +1408,14 @@ Description : ${newProjectDesc}.`;
       }
     };
 
-    sendUiPrompt().then(() => {
-      console.log("Prompt UI envoyé au Bridge");
-      window.open(getUrl(uiAi, true), "_blank");
-    }).catch(() => {
-      window.open(getUrl(uiAi, true), "_blank");
-    });
+    if (selectedStartPhase !== 200 && !reuseActiveTab) {
+      sendUiPrompt().then(() => {
+        console.log("Prompt UI envoyé au Bridge");
+        window.open(getUrl(uiAi, true), "_blank");
+      }).catch(() => {
+        window.open(getUrl(uiAi, true), "_blank");
+      });
+    }
   };
 
   const handleStartLocalZipPipeline = () => {
@@ -1423,6 +1434,9 @@ Description : ${newProjectDesc}.`;
         zip_mode: true,
         target_ai: newProjectLogicAi,
         target_project: designProjectId,
+        start_phase: selectedStartPhase === 0 ? 1 : selectedStartPhase,
+        auto_pilot: isAutoPilot,
+        force_restart: true,
         user_prompt: newProjectName.trim() ? `${newProjectName} - ${newProjectDesc}` : "Application basée sur ZIP local"
       })
     }).then(async res => {
@@ -1431,10 +1445,12 @@ Description : ${newProjectDesc}.`;
         setMessages(prev => [...prev, {
           id: Date.now().toString() + "_hermes",
           role: "assistant",
-          content: `✅ ${data.message}\n\n📡 Lot 1/${data.total_batches} transmis à DeepSeek.\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
+          content: `✅ ${data.message}\n\n📡 Lot ${data.current_batch || (selectedStartPhase === 0 ? 1 : selectedStartPhase)}/${data.total_batches} transmis à ${newProjectLogicAi.toUpperCase()}.\n⚙️ AutoPilot: ${isAutoPilot ? 'ACTIVÉ 🟢 (Lancement automatique des lots suivants)' : 'DÉSACTIVÉ 🟠'}\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
         }]);
-        const logicAiUrl = newProjectLogicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${newProjectLogicAi}.com/`;
-        window.open(logicAiUrl, '_blank');
+        if (!reuseActiveTab) {
+          const logicAiUrl = getTargetAiUrl(newProjectLogicAi);
+          window.open(logicAiUrl, '_blank');
+        }
       } else {
         alert('Erreur Hermes : ' + (data.error || 'Inconnue'));
       }
@@ -1606,8 +1622,8 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
             role: "assistant",
             content: `✅ ${data.message}\n\n📡 Lot 1/${data.total_batches} transmis à DeepSeek. Les lots suivants s'enchaîneront automatiquement !\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
           }]);
-          // Ouvrir DeepSeek pour que l'extension capte le premier prompt
-          window.open(`https://chat.${logicAi}.com/`, '_blank');
+          // Ouvrir l'IA cible pour que l'extension capte le premier prompt
+          window.open(getTargetAiUrl(logicAi), '_blank');
         } else {
           alert('Erreur Hermes : ' + (data.error || 'Inconnue'));
         }
@@ -1740,7 +1756,7 @@ Format attendu:
 
       const bridge = (window as any).AndroidBridge;
       if (bridge && bridge.openAIWithPrompt) {
-        const logicAiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+        const logicAiUrl = getTargetAiUrl(logicAi);
         bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
         if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
       } else {
@@ -2381,7 +2397,7 @@ Format attendu:
                 onClick={() => {
                   if (typeof window !== "undefined") {
                     const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-                    const aiUrl = logicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${logicAi}.com/`;
+                    const aiUrl = getTargetAiUrl(logicAi);
 
                     const bridge = (window as any).AndroidBridge;
                     if (bridge && bridge.openAIWithPrompt) {
@@ -2724,7 +2740,49 @@ Format attendu:
                       <option value="kimi">🌙 Kimi</option>
                       <option value="gemini">✨ Gemini</option>
                       <option value="claude">🟣 Claude</option>
+                      <option value="qwen">🌐 Qwen (Alibaba)</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">📍 Mode & Lot de Départ</label>
+                    <select value={selectedStartPhase} onChange={e => setSelectedStartPhase(Number(e.target.value))} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
+                      <option value={0}>🚀 TOUT (100% Complet : Frontend + Backend)</option>
+                      <option value={100}>🎨 FRONTEND SEUL (Fondation + Pages HTML du ZIP)</option>
+                      <option value={200}>⚡ BACKEND & LOGIQUE SEUL (API, State, Stores & Câblage)</option>
+                      <option value={1}>🚀 Lot 1 : Phase 1 — Fondation</option>
+                      <option value={2}>📄 Lot 2 : Phase 2 — Page 1</option>
+                      <option value={3}>📄 Lot 3 : Phase 2 — Page 2</option>
+                      <option value={4}>📄 Lot 4 : Phase 2 — Page 3</option>
+                      <option value={5}>📄 Lot 5 : Phase 2 — Page 4</option>
+                      <option value={6}>🧩 Lot 6 : Phase 3 — Composants</option>
+                      <option value={7}>🔒 Lot 7 : Phase 3 — Refactoring</option>
+                      <option value={8}>⚡ Lot 8 : Phase 4 — Finalisation & Styles</option>
+                    </select>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsAutoPilot(!isAutoPilot)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
+                        isAutoPilot
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                          : "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                      }`}
+                    >
+                      ⚙️ AUTO-PILOT : {isAutoPilot ? "ON 🟢" : "OFF 🟠"}
+                    </button>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-cyan-300 font-semibold bg-slate-800/80 px-3 py-2 rounded-xl border border-cyan-500/30">
+                      <input
+                        type="checkbox"
+                        checked={reuseActiveTab}
+                        onChange={e => setReuseActiveTab(e.target.checked)}
+                        className="rounded border-slate-700 text-cyan focus:ring-cyan bg-slate-900"
+                      />
+                      <span>🔗 Injecter dans l'onglet déjà ouvert (pas de nouvel onglet)</span>
+                    </label>
                   </div>
 
                   <div className="mt-5">
