@@ -695,6 +695,7 @@ export default function Dashboard() {
   const [newProjectLogicAi, setNewProjectLogicAi] = useState("deepseek");
   const [newProjectInstructions, setNewProjectInstructions] = useState("");
   const [isAutoPilotOn, setIsAutoPilotOn] = useState(false);
+  const [isLocalZipMode, setIsLocalZipMode] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
   // --- WIDGET NEWS (LIVE API) ---
@@ -1406,6 +1407,42 @@ Description : ${newProjectDesc}.`;
     });
   };
 
+  const handleStartLocalZipPipeline = () => {
+    const designProjectId = activeProject || (newProjectName.trim()
+      ? "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4)
+      : "Projet_Local_ZIP_" + Date.now().toString().slice(-4));
+      
+    if (!activeProject) {
+      setActiveProject(designProjectId);
+    }
+
+    fetch("http://localhost:5005/api/bridge/trombone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        zip_mode: true,
+        target_ai: newProjectLogicAi,
+        target_project: designProjectId,
+        user_prompt: newProjectName.trim() ? `${newProjectName} - ${newProjectDesc}` : "Application basée sur ZIP local"
+      })
+    }).then(async res => {
+      const data = await res.json();
+      if (data.success) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString() + "_hermes",
+          role: "assistant",
+          content: `✅ ${data.message}\n\n📡 Lot 1/${data.total_batches} transmis à DeepSeek.\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
+        }]);
+        const logicAiUrl = newProjectLogicAi === "custom" ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : `https://chat.${newProjectLogicAi}.com/`;
+        window.open(logicAiUrl, '_blank');
+      } else {
+        alert('Erreur Hermes : ' + (data.error || 'Inconnue'));
+      }
+    }).catch(err => {
+      alert(`Erreur de connexion au Moteur Local : ${err.message}`);
+    });
+  };
+
   const handleFileUpload = async (files: FileList | File[] | File) => {
     let fileArray = Array.isArray(files) ? files : (files instanceof FileList ? Array.from(files) : [files]);
     let originalZipFile: File | null = null; // On garde le ZIP original pour le mode Multi-Batch
@@ -1513,11 +1550,13 @@ Description : ${newProjectDesc}.`;
 
     setTromboneFiles(appendedToTrombone);
 
-    // Si le ZIP original avait plus de 3 fichiers HTML -> MODE HERMES MULTI-BATCH
-    const totalHtmlFiles = htmlFiles.length + extractedFiles.filter(f => f.name.endsWith('.html')).length;
-    if (originalZipFile && totalHtmlFiles > 3) {
+    // KIROV5 MULTI-BATCH: Si plus de 3 fichiers HTML (ZIP ou Dossier complet)
+    const totalHtmlFiles = htmlFiles.length; // htmlFiles contains all HTML files (already extracted or dropped)
+    if (totalHtmlFiles > 3) {
       const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-      const genId = "Projet_ZIP_" + originalZipFile.name.replace(/[^a-zA-Z0-9]/g, '_').replace('.zip','') + '_' + Date.now().toString().slice(-4);
+      const genId = originalZipFile 
+        ? "Projet_ZIP_" + originalZipFile.name.replace(/[^a-zA-Z0-9]/g, '_').replace('.zip','') + '_' + Date.now().toString().slice(-4)
+        : "Projet_BATCH_" + Date.now().toString().slice(-4);
       const designProjectId = activeProject || genId;
       if (!activeProject) setActiveProject(designProjectId);
 
@@ -1531,12 +1570,23 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
       }]);
       setActivePhase(1);
 
-      // Lire le ZIP en base64 et l'envoyer à Hermes
-      const zipBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
-        reader.readAsDataURL(originalZipFile!);
-      });
+      // Créer le ZIP dynamique ou lire l'existant
+      let zipBase64 = "";
+      if (originalZipFile) {
+        zipBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
+          reader.readAsDataURL(originalZipFile!);
+        });
+      } else {
+        // Zippage dynamique des fichiers déposés (pour multi-batch sans ZIP)
+        const JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
+        const zip = new JSZip();
+        for (const f of fileArray) {
+          zip.file(f.name, f);
+        }
+        zipBase64 = await zip.generateAsync({ type: "base64" });
+      }
 
       fetch("http://localhost:5005/api/bridge/trombone", {
         method: "POST",
@@ -2714,18 +2764,29 @@ Format attendu:
 
                   <div className="flex-1"></div>
 
-                  <div className="mt-5 flex gap-2">
+                  <div className="mt-5 flex gap-2 flex-col">
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={isLocalZipMode}
+                        onChange={(e) => setIsLocalZipMode(e.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-cyan focus:ring-cyan"
+                      />
+                      Le fichier .zip est déjà déposé dans le dossier du projet
+                    </label>
                     <button
                       onClick={() => {
                         if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
                           handleStartFullPipeline();
+                        } else if (isLocalZipMode) {
+                          handleStartLocalZipPipeline();
                         } else {
                           handleStartNewV0Project();
                         }
                       }}
-                      className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center gap-2"
+                      className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center justify-center gap-2 w-max"
                     >
-                      {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : "Envoyer UI 🎨"}
+                      {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : isLocalZipMode ? "Lancer Pipeline ZIP 🚀" : "Envoyer UI 🎨"}
                     </button>
                   </div>
                 </div>
