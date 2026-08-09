@@ -538,15 +538,6 @@ const WidgetSettings = ({
 
 const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const infiniteItems = [...items, ...items, ...items, ...items, ...items, ...items, ...items];
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      // Centrer le scroll au milieu pour permettre d'aller à gauche ET à droite
-      const centerPosition = scrollRef.current.scrollWidth / 2 - scrollRef.current.clientWidth / 2;
-      scrollRef.current.scrollLeft = centerPosition;
-    }
-  }, []);
 
   return (
     <div 
@@ -554,13 +545,92 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
       className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
       style={{ scrollBehavior: 'smooth' }}
     >
-      {infiniteItems.map((item, idx) => (
+      {items.map((item, idx) => (
         <div key={idx} className="shrink-0 transition-transform duration-300 hover:scale-[1.02]">
           {item}
         </div>
       ))}
     </div>
   );
+};
+
+const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) => {
+  const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const cardStyles = [
+      "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
+      "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
+      "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
+      "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
+    ];
+    fetch("http://localhost:5005/api/projects")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.projects) {
+          setLiveProjects(data.projects.map((p: string, i: number) => ({
+            name: p,
+            desc: "Environnement Local",
+            bg: cardStyles[i % cardStyles.length]
+          })));
+        }
+        setIsLoading(false);
+      }).catch(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  if (isLoading) {
+    return <div className="p-4 text-cyan text-sm italic">Actualisation de la liste des projets...</div>;
+  }
+
+  if (liveProjects.length === 0) {
+    return (
+      <div className="p-4 text-cyan text-sm italic">
+        Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
+      </div>
+    );
+  }
+
+  return <Carousel items={[
+    ...liveProjects.map((p, i) => (
+      <div
+        key={i}
+        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`}
+        style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
+        onClick={() => setActiveProject(p.name)}
+      >
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
+        <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
+        <div className="z-10 relative pointer-events-none">
+          <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 drop-shadow-md">PROJET</div>
+          <h3 className="text-xl font-black text-white mb-2 break-all drop-shadow-lg leading-tight">{p.name}</h3>
+        </div>
+        <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md pointer-events-none">{p.desc}</div>
+
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              window.dispatchEvent(new CustomEvent('open-mouchard'));
+              const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project_id: p.name })
+              });
+              const data = await res.json();
+            } catch (err: any) {
+              alert("Erreur de lancement : " + err.message);
+            }
+          }}
+          className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
+          title="Installer les dépendances et Lancer le projet"
+        >
+          🚀 Installer & Lancer
+        </button>
+      </div>
+    ))]} />
 };
 
 export default function Dashboard() {
@@ -1700,89 +1770,6 @@ Format attendu:
     handleSend(prompt);
   };
 
-
-  const WidgetProjects = () => {
-    const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-      const cardStyles = [
-        "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
-        "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
-        "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
-        "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
-      ];
-      fetch("http://localhost:5005/api/projects")
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.projects) {
-            setLiveProjects(data.projects.map((p: string, i: number) => ({
-              name: p,
-              desc: "Environnement Local",
-              bg: cardStyles[i % cardStyles.length]
-            })));
-          }
-          setIsLoading(false);
-        }).catch(() => {
-          setIsLoading(false);
-        });
-    }, []);
-
-    if (isLoading) {
-      return <div className="p-4 text-cyan text-sm italic">Actualisation de la liste des projets...</div>;
-    }
-
-    if (liveProjects.length === 0) {
-      return (
-        <div className="p-4 text-cyan text-sm italic">
-          Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
-        </div>
-      );
-    }
-
-    return <Carousel items={[
-      ...liveProjects.map((p, i) => (
-        <div
-          key={i}
-          className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`}
-          style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
-          onClick={() => setActiveProject(p.name)}
-        >
-          {/* Effet de grain / texture pour casser le côté "uni" */}
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
-
-          <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
-
-          <div className="z-10 relative pointer-events-none">
-            <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 drop-shadow-md">PROJET</div>
-            <h3 className="text-xl font-black text-white mb-2 break-all drop-shadow-lg leading-tight">{p.name}</h3>
-          </div>
-          <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md pointer-events-none">{p.desc}</div>
-
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                window.dispatchEvent(new CustomEvent('open-mouchard'));
-                const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ project_id: p.name })
-                });
-                const data = await res.json();
-              } catch (err: any) {
-                alert("Erreur de lancement : " + err.message);
-              }
-            }}
-            className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
-            title="Installer les dépendances et Lancer le projet"
-          >
-            🚀 Installer & Lancer
-          </button>
-        </div>
-      ))]} />
-  };
-
   const WidgetNews = () => {
     if (isFetchingNews) {
       return (
@@ -2434,7 +2421,7 @@ Format attendu:
                   </div>
 
                   {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
-                  {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects />}
+                  {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
                   {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
                   {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
                   {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
@@ -2621,6 +2608,9 @@ Format attendu:
                             }
 
                             if (success) {
+                              setPreviewUrl(null);
+                              setActiveFile(null);
+                              setFileContent("");
                               setActiveProject(genId);
 
                               // --- Enregistrement dans la mémoire RAG HERMES ---
