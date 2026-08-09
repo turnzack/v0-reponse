@@ -2112,16 +2112,18 @@ Format attendu:
       )}
 
       {/* Header */}
-      <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="design-logo flex items-center justify-center">
-            <span>🐯</span>
+      {!isIdeFullscreen && (
+        <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="design-logo flex items-center justify-center">
+              <span>🐯</span>
+            </div>
+            <div>
+              <h1 className="design-titre whitespace-nowrap">v0.reponse : OS Souverain v0.1.0 - idecode-2026</h1>
+            </div>
           </div>
-          <div>
-            <h1 className="design-titre whitespace-nowrap">v0.reponse : OS Souverain v0.1.0 - idecode-2026</h1>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative z-10 w-full">
