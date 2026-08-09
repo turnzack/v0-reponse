@@ -796,8 +796,9 @@ export default function Dashboard() {
   const [tromboneFiles, setTromboneFiles] = useState<{ path: string, content: string }[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewInput, setPreviewInput] = useState<string>("");
-  const [isIdeFullscreen, setIsIdeFullscreen] = useState(false);
   const [isDesignMode, setIsDesignMode] = useState(false);
+  const [designTabMode, setDesignTabMode] = useState<'studio' | 'express'>('studio');
+
   const [projectDesign, setProjectDesign] = useState({
     // Architecture
     appLargeurMax: "100vw",
@@ -1818,23 +1819,65 @@ Format attendu:
     }
   };
 
-  const handleIDEAction = (action: string) => {
-    if (!activeProject) return;
+  const handleIDEAction = async (action: string) => {
+    if (!activeProject) {
+      alert("⚠️ Veuillez sélectionner un projet actif dans l'explorateur.");
+      return;
+    }
+    const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+
     let prompt = "";
-    if (action === "suture") prompt = `Deepseek corrige et modifie les bugs (Suture) pour le projet [${activeProject}].\n\n`;
-    if (action === "refactor") prompt = `Deepseek modifie et refactorise le code pour le projet [${activeProject}].\n\n`;
-    if (action === "improve") prompt = `Deepseek ajoute des améliorations pour le projet [${activeProject}].\n\n`;
+    if (action === "suture") prompt = `🩺 SUTURE CHIRURGICALE — Corrige les erreurs de build, de typage et de styles CSS du projet [${activeProject}].\n\n`;
+    if (action === "refactor") prompt = `🔄 REFACTORING — Refactorise le code du projet [${activeProject}] pour une qualité industrielle.\n\n`;
+    if (action === "improve") prompt = `✨ AMÉLIORATION — Ajoute des animations et améliorations UI pour le projet [${activeProject}].\n\n`;
+
+    if (activeFile && fileContent) {
+      prompt += `--- Fichier Actif en Édition : ${activeFile} ---\n\`\`\`\n${fileContent}\n\`\`\`\n\n`;
+    }
 
     if (tromboneFiles.length > 0) {
-      prompt += "Voici les fichiers de contexte depuis le trombone :\n\n";
+      prompt += "--- Fichiers de contexte du Trombone ---\n\n";
       tromboneFiles.forEach(f => {
         prompt += `--- ${f.path} ---\n\`\`\`\n${f.content}\n\`\`\`\n\n`;
       });
-      // Optionnel : vider le trombone après ? 
-      // setTromboneFiles([]); 
     }
-    handleSend(prompt);
+
+    // 1. Notification visuelle dans le chat
+    setMessages(prev => [...prev, {
+      id: Date.now().toString() + "_action",
+      role: "assistant",
+      content: `🩺 Action [${action.toUpperCase()}] déclenchée pour "${activeProject}". Transmission à ${logicAi.toUpperCase()} en cours...`
+    }]);
+
+    // 2. Envoi direct au Bridge local pour que l'extension le capte immédiatement
+    try {
+      await fetch("http://localhost:5005/bridge/prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_ai: logicAi,
+          prompt,
+          auto_submit: true,
+          project_id: activeProject,
+          phase_num: action
+        })
+      });
+      
+      // Si c'est une Suture, tenter également le moteur d'Auto-Réparation v5 en arrière-plan
+      if (action === "suture") {
+        fetch(`http://localhost:5005/api/mobile/v5/projects/${activeProject}/repair/auto`, {
+          method: "POST"
+        }).catch(() => {});
+      }
+
+      // Si l'IA n'est pas ouverte, ouvrir l'onglet
+      window.open(getTargetAiUrl(logicAi), '_blank');
+    } catch (err: any) {
+      console.error("[IDE] Erreur Suture:", err);
+      alert(`🩺 Action ${action} transmise. Assurez-vous que le Moteur Electron tourne sur port 5005.`);
+    }
   };
+
 
   const WidgetNews = () => {
     if (isFetchingNews) {
@@ -2107,13 +2150,19 @@ Format attendu:
               </button>
 
               <button
-                title="Design v0 (Éditeur Visuel)"
-                onClick={() => setIsDesignMode(!isDesignMode)}
+                title="Design v0 (Studio Visuel & Preview Split)"
+                onClick={() => {
+                  const nextState = !isDesignMode;
+                  setIsDesignMode(nextState);
+                  if (nextState && !previewUrl) {
+                    setPreviewUrl("http://localhost:5173");
+                  }
+                }}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isDesignMode ? 'bg-pink-500 text-white border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 hover:bg-pink-500/20 text-pink-500 border-white/10 hover:border-pink-500'}`}
               >
                 🎨
                 <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-pink-500 pointer-events-none transition-opacity font-bold">
-                  Design v0
+                  Design v0 (Split View)
                 </span>
               </button>
 
@@ -2197,161 +2246,253 @@ Format attendu:
                 </div>
               </div>
 
-              <div className="flex-1 relative flex">
-                {/* Section Code ou Design */}
-                <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
-                  {isDesignMode ? (
-                    <div className="flex-1 overflow-y-auto bg-[#1a1a1a] p-6 hide-scrollbar flex flex-col gap-6">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex-1 relative flex overflow-hidden">
+                {isDesignMode ? (
+                  /* --- MODE DESIGN V0 : SPLIT VIEW 2 PANNEAUX (GAUCHE: RETOUCHE, DROITE: PREVIEW 5173/5174) --- */
+                  <div className="flex-1 flex w-full h-full bg-[#0a0a0a] overflow-hidden">
+                    {/* PANNEAU GAUCHE (50%): INTERFACE DE RETOUCHE DESIGN */}
+                    <div className="w-1/2 h-full border-r border-white/10 flex flex-col bg-[#141414]">
+                      {/* HEADER DU PANNEAU DESIGN */}
+                      <div className="h-12 px-4 bg-black/90 border-b border-white/10 flex justify-between items-center shrink-0 z-10">
                         <div className="flex items-center gap-3">
-                          <span className="text-3xl">🎨</span>
+                          <span className="text-xl">🎨</span>
                           <div>
-                            <h2 className="text-xl font-black text-pink-500 tracking-widest uppercase">Design v0</h2>
-                            <p className="text-xs text-gray-400">Éditeur visuel express</p>
-                          </div>
-                        </div>
-                        <a 
-                          href="/admin-design.html" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-pink-600/20 hover:bg-pink-600 text-pink-400 hover:text-white border border-pink-500/30 font-bold text-xs rounded shadow-lg transition-all"
-                        >
-                          Ouvrir l'Éditeur Complet ↗
-                        </a>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-2 pb-20">
-                        {/* 1. Couleurs Globales */}
-                        <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
-                          <h3 className="text-xs font-bold text-cyan flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-cyan"></span>Couleurs Globales</h3>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Background Haut</label>
-                              <input type="color" value={projectDesign.appBgTop} onChange={e => setProjectDesign({ ...projectDesign, appBgTop: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Background Bas</label>
-                              <input type="color" value={projectDesign.appBgBottom} onChange={e => setProjectDesign({ ...projectDesign, appBgBottom: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Texte Principal</label>
-                              <input type="color" value={projectDesign.couleurTextePrincipal} onChange={e => setProjectDesign({ ...projectDesign, couleurTextePrincipal: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
+                            <h2 className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan tracking-widest uppercase">
+                              STUDIO DESIGN INTELLIGENT
+                            </h2>
+                            <p className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                              Projet : <span className="text-cyan font-bold">{activeProject || 'Projet Actif'}</span>
+                            </p>
                           </div>
                         </div>
 
-                        {/* 2. Accents */}
-                        <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
-                          <h3 className="text-xs font-bold text-pink-500 flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-pink-500"></span>Accents Thématiques</h3>
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Accent Cyan</label>
-                              <input type="color" value={projectDesign.couleurAccentCyan} onChange={e => setProjectDesign({ ...projectDesign, couleurAccentCyan: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Accent Rose</label>
-                              <input type="color" value={projectDesign.couleurAccentRose} onChange={e => setProjectDesign({ ...projectDesign, couleurAccentRose: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Bouton Envoi</label>
-                              <input type="color" value={projectDesign.btnEnvoiBg} onChange={e => setProjectDesign({ ...projectDesign, btnEnvoiBg: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                            </div>
+                        {/* TOGGLE STUDIO/EXPRESS & BOUTONS FERMER */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 mr-1">
+                            <button
+                              onClick={() => setDesignTabMode('studio')}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${designTabMode === 'studio' ? 'bg-pink-500 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                              title="Mode Studio Admin Complet (9 catégories)"
+                            >
+                              👑 Studio
+                            </button>
+                            <button
+                              onClick={() => setDesignTabMode('express')}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${designTabMode === 'express' ? 'bg-cyan text-black shadow-md' : 'text-gray-400 hover:text-white'}`}
+                              title="Mode Express (Accents & Formes)"
+                            >
+                              ⚡ Express
+                            </button>
                           </div>
-                        </div>
 
-                        {/* 3. Typographie & Formes */}
-                        <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5 md:col-span-2">
-                          <h3 className="text-xs font-bold text-green-400 flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-green-400"></span>Typographie & Formes</h3>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Police Principale</label>
-                              <select value={projectDesign.fontPrincipale} onChange={e => setProjectDesign({ ...projectDesign, fontPrincipale: e.target.value })} className="w-full bg-black/50 border border-white/20 text-white rounded p-2 text-xs">
-                                <option value="'Inter', sans-serif">Inter</option>
-                                <option value="'Roboto', sans-serif">Roboto</option>
-                                <option value="'Outfit', sans-serif">Outfit</option>
-                                <option value="'Consolas', monospace">Monospace</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase flex justify-between">
-                                Arrondis <span className="text-green-400">{projectDesign.arrondiGlobal}</span>
-                              </label>
-                              <input type="range" min="0" max="48" step="2" value={parseInt(projectDesign.arrondiGlobal)} onChange={e => setProjectDesign({ ...projectDesign, arrondiGlobal: `${e.target.value}px` })} className="w-full accent-green-400" />
-                            </div>
-                            <div className="space-y-2 col-span-2">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase flex justify-between">
-                                Taille Texte Base <span className="text-green-400">{projectDesign.tailleTexteBase}</span>
-                              </label>
-                              <input type="range" min="10" max="24" step="1" value={parseInt(projectDesign.tailleTexteBase)} onChange={e => setProjectDesign({ ...projectDesign, tailleTexteBase: `${e.target.value}px` })} className="w-full accent-green-400" />
-                            </div>
-                          </div>
-                        </div>
+                          {/* BOUTON 1: FERMER ET REVENIR À L'EXPLORATEUR / CODE */}
+                          <button
+                            onClick={() => setIsDesignMode(false)}
+                            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/10 text-[11px] font-bold flex items-center gap-1 transition-all shadow"
+                            title="Revenir à l'explorateur de fichiers & à l'éditeur de code"
+                          >
+                            📁 Fermer (Code)
+                          </button>
 
-                        {/* 4. Architecture */}
-                        <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5 md:col-span-2">
-                          <h3 className="text-xs font-bold text-yellow-400 flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-yellow-400"></span>Structure</h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Hauteur Header</label>
-                              <input type="text" value={projectDesign.headerHauteur} onChange={e => setProjectDesign({ ...projectDesign, headerHauteur: e.target.value })} className="w-full bg-black/50 border border-white/20 text-white rounded p-2 text-xs" />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-gray-400 font-bold uppercase">Couleur Header</label>
-                              <input type="text" value={projectDesign.headerBgCouleur} onChange={e => setProjectDesign({ ...projectDesign, headerBgCouleur: e.target.value })} className="w-full bg-black/50 border border-white/20 text-white rounded p-2 text-xs" />
-                            </div>
-                          </div>
+                          {/* BOUTON 2: FERMER ET REVENIR DIRECTEMENT À LA PAGE D'ACCUEIL */}
+                          <button
+                            onClick={() => {
+                              setIsDesignMode(false);
+                              setActiveProject(null);
+                              setIsIdeFullscreen(false);
+                            }}
+                            className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white rounded-lg border border-red-500/30 text-[11px] font-bold flex items-center gap-1 transition-all shadow"
+                            title="Quitter le projet et revenir à la page d'accueil"
+                          >
+                            🏠 Fermer (Accueil)
+                          </button>
                         </div>
                       </div>
 
-                      <div className="mt-auto p-4 bg-gradient-to-r from-pink-500/20 to-cyan/20 border border-pink-500/30 rounded-xl relative z-10 shadow-lg">
-                        <p className="text-[10px] md:text-xs text-white font-medium text-center uppercase tracking-wide">
-                          ✨ Génération en temps réel dans <code className="bg-black/50 px-1 py-0.5 rounded text-pink-400">src/design.css</code>
-                        </p>
+                      {/* CONTENU DU STUDIO DESIGN */}
+                      <div className="flex-1 overflow-hidden relative">
+                        {designTabMode === 'studio' ? (
+                          <iframe
+                            src="/admin-design.html"
+                            className="w-full h-full border-0 bg-black"
+                            title="Studio Admin Design"
+                          />
+                        ) : (
+                          /* Mode Express pour modifications rapides */
+                          <div className="flex-1 h-full overflow-y-auto bg-[#1a1a1a] p-6 hide-scrollbar flex flex-col gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-2 pb-20">
+                              {/* 1. Couleurs Globales */}
+                              <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
+                                <h3 className="text-xs font-bold text-cyan flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-cyan"></span>Couleurs Globales</h3>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Background Haut</label>
+                                    <input type="color" value={projectDesign.appBgTop} onChange={e => setProjectDesign({ ...projectDesign, appBgTop: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Background Bas</label>
+                                    <input type="color" value={projectDesign.appBgBottom} onChange={e => setProjectDesign({ ...projectDesign, appBgBottom: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Texte Principal</label>
+                                    <input type="color" value={projectDesign.couleurTextePrincipal} onChange={e => setProjectDesign({ ...projectDesign, couleurTextePrincipal: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 2. Accents */}
+                              <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
+                                <h3 className="text-xs font-bold text-pink-500 flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-pink-500"></span>Accents Thématiques</h3>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Accent Cyan</label>
+                                    <input type="color" value={projectDesign.couleurAccentCyan} onChange={e => setProjectDesign({ ...projectDesign, couleurAccentCyan: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Accent Rose</label>
+                                    <input type="color" value={projectDesign.couleurAccentRose} onChange={e => setProjectDesign({ ...projectDesign, couleurAccentRose: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Bouton Envoi</label>
+                                    <input type="color" value={projectDesign.btnEnvoiBg} onChange={e => setProjectDesign({ ...projectDesign, btnEnvoiBg: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 3. Typographie & Formes */}
+                              <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5 md:col-span-2">
+                                <h3 className="text-xs font-bold text-green-400 flex items-center gap-2 border-b border-white/10 pb-2"><span className="w-2 h-2 rounded-full bg-green-400"></span>Typographie & Formes</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase">Police Principale</label>
+                                    <select value={projectDesign.fontPrincipale} onChange={e => setProjectDesign({ ...projectDesign, fontPrincipale: e.target.value })} className="w-full bg-black/50 border border-white/20 text-white rounded p-2 text-xs">
+                                      <option value="'Inter', sans-serif">Inter</option>
+                                      <option value="'Roboto', sans-serif">Roboto</option>
+                                      <option value="'Outfit', sans-serif">Outfit</option>
+                                      <option value="'Consolas', monospace">Monospace</option>
+                                    </select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase flex justify-between">
+                                      Arrondis <span className="text-green-400">{projectDesign.arrondiGlobal}</span>
+                                    </label>
+                                    <input type="range" min="0" max="48" step="2" value={parseInt(projectDesign.arrondiGlobal)} onChange={e => setProjectDesign({ ...projectDesign, arrondiGlobal: `${e.target.value}px` })} className="w-full accent-green-400" />
+                                  </div>
+                                  <div className="space-y-2 col-span-2">
+                                    <label className="text-[10px] text-gray-400 font-bold uppercase flex justify-between">
+                                      Taille Texte Base <span className="text-green-400">{projectDesign.tailleTexteBase}</span>
+                                    </label>
+                                    <input type="range" min="10" max="24" step="1" value={parseInt(projectDesign.tailleTexteBase)} onChange={e => setProjectDesign({ ...projectDesign, tailleTexteBase: `${e.target.value}px` })} className="w-full accent-green-400" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="mt-auto p-3 bg-gradient-to-r from-pink-500/20 to-cyan/20 border border-pink-500/30 rounded-xl relative z-10 shadow-lg">
+                              <p className="text-[10px] text-white font-medium text-center uppercase tracking-wide">
+                                ✨ Synchro en temps réel dans <code className="bg-black/50 px-1 py-0.5 rounded text-pink-400">src/design.css</code>
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ) : activeFile ? (
-                    <Editor
-                      height="100%"
-                      theme="vs-dark"
-                      path={activeFile}
-                      language={activeFile.endsWith('.tsx') || activeFile.endsWith('.ts') ? 'typescript' : activeFile.endsWith('.css') ? 'css' : activeFile.endsWith('.html') ? 'html' : activeFile.endsWith('.json') ? 'json' : 'javascript'}
-                      value={fileContent}
-                      onChange={(val) => setFileContent(val || "")}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        wordWrap: "on",
-                        padding: { top: 16 }
-                      }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
-                      <span className="text-6xl opacity-20">🐯</span>
-                      <span className="font-medium tracking-wide text-sm">Sélectionnez un fichier dans l'explorateur ou activez Design v0</span>
-                    </div>
-                  )}
-                </div>
 
-                {/* Section Preview Iframe */}
-                {previewUrl && (
-                  <div className="w-1/2 relative bg-white">
-                    <iframe src={previewUrl} className="w-full h-full border-none" />
-                    <button
-                      onClick={() => setPreviewUrl(null)}
-                      className="absolute top-2 right-4 bg-black/80 border border-white/20 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-lg z-50"
-                      title="Fermer la Preview"
-                    >
-                      ✕
-                    </button>
-                    <button
-                      onClick={() => window.open(previewUrl, '_blank')}
-                      className="absolute top-2 right-14 bg-black/80 border border-white/20 text-white rounded-full px-3 h-8 flex items-center justify-center hover:bg-cyan hover:text-black transition-all shadow-lg z-50 text-xs font-bold"
-                      title="Ouvrir dans un nouvel onglet"
-                    >
-                      ↗ Ouvrir
-                    </button>
+                    {/* PANNEAU DROITE (50%): APPLICATION ACTIVE SUR LOCALHOST 5173 / 5174 */}
+                    <div className="w-1/2 h-full flex flex-col bg-black">
+                      {/* HEADER PREVIEW */}
+                      <div className="h-12 px-4 bg-black/90 border-b border-white/10 flex justify-between items-center shrink-0 z-10">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+                          <span className="text-xs font-mono font-bold text-green-400">
+                            LIVE PREVIEW (LOCALHOST:5173-5174)
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={previewUrl || "http://localhost:5173"}
+                            onChange={(e) => setPreviewInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') setPreviewUrl(previewInput);
+                            }}
+                            className="bg-black/80 border border-green-500/30 text-green-400 text-[11px] px-2.5 py-1 rounded outline-none focus:border-green-400 w-48 font-mono"
+                          />
+                          <button
+                            onClick={() => {
+                              if (!activeProject) return;
+                              fetch("http://localhost:5005/api/bridge/launch-project", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ project_id: activeProject })
+                              }).catch(e => console.error("Erreur lancement preview:", e));
+                            }}
+                            className="px-2.5 py-1 bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-[11px] rounded font-bold border border-green-500/30 transition-all flex items-center gap-1"
+                            title="Relancer / Démarrer le serveur Preview"
+                          >
+                            🚀 Relancer
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* IFRAME APPLICATION ACTIVE */}
+                      <div className="flex-1 relative bg-white overflow-hidden">
+                        <iframe
+                          src={previewUrl || "http://localhost:5173"}
+                          className="w-full h-full border-none"
+                          title="Application Preview Live"
+                        />
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  /* --- MODE ÉDITEUR STANDARD (CODE & PREVIEW OPTIONNEL) --- */
+                  <>
+                    <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
+                      {activeFile ? (
+                        <Editor
+                          height="100%"
+                          theme="vs-dark"
+                          path={activeFile}
+                          language={activeFile.endsWith('.tsx') || activeFile.endsWith('.ts') ? 'typescript' : activeFile.endsWith('.css') ? 'css' : activeFile.endsWith('.html') ? 'html' : activeFile.endsWith('.json') ? 'json' : 'javascript'}
+                          value={fileContent}
+                          onChange={(val) => setFileContent(val || "")}
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            wordWrap: "on",
+                            padding: { top: 16 }
+                          }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-4">
+                          <span className="text-6xl opacity-20">🐯</span>
+                          <span className="font-medium tracking-wide text-sm">Sélectionnez un fichier dans l'explorateur ou activez Design v0</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section Preview Iframe Standard */}
+                    {previewUrl && (
+                      <div className="w-1/2 relative bg-white">
+                        <iframe src={previewUrl} className="w-full h-full border-none" />
+                        <button
+                          onClick={() => setPreviewUrl(null)}
+                          className="absolute top-2 right-4 bg-black/80 border border-white/20 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-lg z-50"
+                          title="Fermer la Preview"
+                        >
+                          ✕
+                        </button>
+                        <button
+                          onClick={() => window.open(previewUrl, '_blank')}
+                          className="absolute top-2 right-14 bg-black/80 border border-white/20 text-white rounded-full px-3 h-8 flex items-center justify-center hover:bg-cyan hover:text-black transition-all shadow-lg z-50 text-xs font-bold"
+                          title="Ouvrir dans un nouvel onglet"
+                        >
+                          ↗ Ouvrir
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
