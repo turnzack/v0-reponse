@@ -554,7 +554,7 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div 
+    <div
       ref={scrollRef}
       className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
       style={{ scrollBehavior: 'smooth' }}
@@ -719,16 +719,16 @@ export default function Dashboard() {
   // --- WIDGET THEMES COLOR SAVER ---
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
   const [activeTheme, setActiveTheme] = useState("random");
-  const [savedThemes, setSavedThemes] = useState<{name: string, colors: Record<string, string>}[]>([]);
+  const [savedThemes, setSavedThemes] = useState<{ name: string, colors: Record<string, string> }[]>([]);
   const [newThemeName, setNewThemeName] = useState("");
 
   useEffect(() => {
     const loaded = localStorage.getItem("tiger_saved_themes");
-    
+
     if (loaded) {
       try {
         setSavedThemes(JSON.parse(loaded));
-      } catch (e) {}
+      } catch (e) { }
     } else {
       // "fold" default theme from screenshot
       const defaultTheme = {
@@ -757,7 +757,7 @@ export default function Dashboard() {
   const saveCurrentTheme = () => {
     if (!newThemeName.trim()) return alert("Nom invalide");
     if (savedThemes.length >= 10) return alert("Limite atteinte ! Vous ne pouvez sauvegarder que 10 thèmes maximum. Veuillez en supprimer un pour continuer.");
-    
+
     // On capture depuis le cache de getCachedGradient
     const newColors = {
       "icon-settings": getCachedGradient("icon-settings", 0.8),
@@ -766,7 +766,7 @@ export default function Dashboard() {
       "icon-packs": getCachedGradient("icon-packs", 0.8),
       "icon-news": getCachedGradient("icon-news", 0.8)
     };
-    
+
     const newTheme = { name: newThemeName.trim(), colors: newColors };
     const newSaved = [...savedThemes, newTheme];
     setSavedThemes(newSaved);
@@ -797,6 +797,7 @@ export default function Dashboard() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewInput, setPreviewInput] = useState<string>("");
   const [isDesignMode, setIsDesignMode] = useState(false);
+  const [isIdeFullscreen, setIsIdeFullscreen] = useState(false);
   const [designTabMode, setDesignTabMode] = useState<'studio' | 'express'>('studio');
 
   const [projectDesign, setProjectDesign] = useState({
@@ -821,6 +822,7 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    return; // DÉSACTIVÉ : Empêche d'écraser le design.css personnalisé
     if (!activeProject || !isDesignMode) return;
 
     const cssContent = `/* Tiger IA Design - Auto-generated */
@@ -1423,7 +1425,7 @@ Description : ${newProjectDesc}.`;
     const designProjectId = activeProject || (newProjectName.trim()
       ? "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4)
       : "Projet_Local_ZIP_" + Date.now().toString().slice(-4));
-      
+
     if (!activeProject) {
       setActiveProject(designProjectId);
     }
@@ -1571,8 +1573,8 @@ Description : ${newProjectDesc}.`;
     const totalHtmlFiles = htmlFiles.length; // htmlFiles contains all HTML files (already extracted or dropped)
     if (totalHtmlFiles > 3) {
       const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-      const genId = originalZipFile 
-        ? "Projet_ZIP_" + originalZipFile.name.replace(/[^a-zA-Z0-9]/g, '_').replace('.zip','') + '_' + Date.now().toString().slice(-4)
+      const genId = originalZipFile
+        ? "Projet_ZIP_" + originalZipFile.name.replace(/[^a-zA-Z0-9]/g, '_').replace('.zip', '') + '_' + Date.now().toString().slice(-4)
         : "Projet_BATCH_" + Date.now().toString().slice(-4);
       const designProjectId = activeProject || genId;
       if (!activeProject) setActiveProject(designProjectId);
@@ -1862,12 +1864,12 @@ Format attendu:
           phase_num: action
         })
       });
-      
+
       // Si c'est une Suture, tenter également le moteur d'Auto-Réparation v5 en arrière-plan
       if (action === "suture") {
         fetch(`http://localhost:5005/api/mobile/v5/projects/${activeProject}/repair/auto`, {
           method: "POST"
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Si l'IA n'est pas ouverte, ouvrir l'onglet
@@ -2614,28 +2616,28 @@ Format attendu:
 
             <div className="design-chat-bulles w-full flex flex-col">
               {messages.map((msg, index) => {
-              const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
-              const isLastWidgetOverall = index === lastWidgetIndex;
-              
-              return (
-                <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                  {/* Message Bubble */}
-                  <div
-                    className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
-                    style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
-                  >
-                    {msg.content}
-                  </div>
+                const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
+                const isLastWidgetOverall = index === lastWidgetIndex;
 
-                  {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
-                  {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
-                  {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
-                  {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
-                  {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-                  {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
-                </div>
-              );
-            })}
+                return (
+                  <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                    {/* Message Bubble */}
+                    <div
+                      className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
+                      style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
+                    >
+                      {msg.content}
+                    </div>
+
+                    {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
+                    {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
+                    {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
+                    {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
+                    {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
+                    {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
+                  </div>
+                );
+              })}
             </div>
             <div ref={chatEndRef} />
           </div>
@@ -2906,11 +2908,10 @@ Format attendu:
                     <button
                       type="button"
                       onClick={() => setIsAutoPilot(!isAutoPilot)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
-                        isAutoPilot
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${isAutoPilot
                           ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                           : "bg-amber-500/20 text-amber-300 border-amber-500/50"
-                      }`}
+                        }`}
                     >
                       ⚙️ AUTO-PILOT : {isAutoPilot ? "ON 🟢" : "OFF 🟠"}
                     </button>
@@ -2965,8 +2966,8 @@ Format attendu:
 
                   <div className="mt-5 flex gap-2 flex-col">
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={isLocalZipMode}
                         onChange={(e) => setIsLocalZipMode(e.target.checked)}
                         className="rounded border-gray-600 bg-gray-800 text-cyan focus:ring-cyan"
@@ -3060,19 +3061,19 @@ Format attendu:
             <h3 className="text-xl font-black text-white flex items-center gap-2">
               🎨 Gestion des Thèmes
             </h3>
-            
+
             <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
               <div className="text-sm font-bold text-gray-400">Mode actuel : <span className="text-cyan uppercase">{activeTheme}</span></div>
-              
+
               <div className="flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={newThemeName}
                   onChange={(e) => setNewThemeName(e.target.value)}
-                  placeholder="Nom (ex: Nuit, Océan, fold...)" 
+                  placeholder="Nom (ex: Nuit, Océan, fold...)"
                   className="flex-1 bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan"
                 />
-                <button 
+                <button
                   onClick={saveCurrentTheme}
                   className="px-4 py-2 bg-cyan text-black font-bold rounded-lg hover:bg-cyan/80 transition-colors whitespace-nowrap"
                 >
@@ -3083,8 +3084,8 @@ Format attendu:
 
             <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto hide-scrollbar">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Thèmes Enregistrés</div>
-              
-              <button 
+
+              <button
                 onClick={() => { setActiveTheme("random"); setIsColorModalOpen(false); }}
                 className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
               >
@@ -3093,7 +3094,7 @@ Format attendu:
               </button>
 
               {savedThemes.map((theme, i) => (
-                <button 
+                <button
                   key={i}
                   onClick={() => { setActiveTheme(theme.name); setIsColorModalOpen(false); }}
                   className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${activeTheme === theme.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
@@ -3108,7 +3109,7 @@ Format attendu:
                   </div>
                   <div className="flex items-center gap-2">
                     {activeTheme === theme.name && <span className="text-cyan">✓</span>}
-                    <button 
+                    <button
                       onClick={(e) => deleteTheme(theme.name, e)}
                       className="w-6 h-6 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
                       title="Supprimer ce thème"
