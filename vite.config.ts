@@ -8,6 +8,13 @@ export default defineConfig({
   server: {
     port: 3005,
     strictPort: true,
+    watch: {
+      ignored: [
+        '**/v0-moteur-electron/**', '**\\\\v0-moteur-electron\\\\**',
+        '**/v0saveprojets/**', '**\\\\v0saveprojets\\\\**',
+        '**/v0-moteur-mobile/**', '**\\\\v0-moteur-mobile\\\\**'
+      ]
+    }
   },
   build: {
     rollupOptions: {

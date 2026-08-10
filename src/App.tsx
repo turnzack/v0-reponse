@@ -83,6 +83,8 @@ const WidgetSettings = ({
   const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
   const [defaultPreviewUrl, setDefaultPreviewUrl] = useState("http://127.0.0.1:5173");
   const [apiKey, setApiKey] = useState("");
+  const [apiProvider, setApiProvider] = useState("deepseek");
+  const [apiKeyStatus, setApiKeyStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [overridePrompt, setOverridePrompt] = useState("");
   const [savedMsg, setSavedMsg] = useState(false);
   const [isExtConnected, setIsExtConnected] = useState(true);
@@ -97,9 +99,17 @@ const WidgetSettings = ({
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
     setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5173");
     setApiKey(localStorage.getItem("tiger_apiKey") || "");
+    setApiProvider(localStorage.getItem("tiger_apiProvider") || "deepseek");
+    
+    // Vérifier si une clé est déjà configurée côté moteur
+    const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005";
+    fetch(`${currentBridge}/api/config/apikey`)
+      .then(r => r.json())
+      .then(d => { if (d.hasAnyKey) setApiKeyStatus("ok"); })
+      .catch(() => {});
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const settings = { execMode, targetAi, targetUiAi, customAiName, customAiUrl, bridgeUrl, vercelUrl, defaultPreviewUrl, apiKey };
 
     localStorage.setItem("tiger_execMode", execMode);
@@ -111,6 +121,29 @@ const WidgetSettings = ({
     localStorage.setItem("tiger_vercelUrl", vercelUrl);
     localStorage.setItem("tiger_defaultPreviewUrl", defaultPreviewUrl);
     localStorage.setItem("tiger_apiKey", apiKey);
+    localStorage.setItem("tiger_apiProvider", apiProvider);
+
+    // 🔑 Envoyer la clé au moteur Electron pour persistance sur disque
+    if (apiKey && apiKey.trim().length > 5) {
+      setApiKeyStatus("sending");
+      try {
+        const res = await fetch(`${bridgeUrl}/api/config/apikey`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: apiKey.trim(), provider: apiProvider }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setApiKeyStatus("ok");
+          console.log(`[SETTINGS] ✅ Clé ${apiProvider} envoyée et persistée sur le moteur.`);
+        } else {
+          setApiKeyStatus("error");
+        }
+      } catch (e) {
+        setApiKeyStatus("error");
+        console.error("[SETTINGS] ❌ Impossible d'envoyer la clé au moteur :", e);
+      }
+    }
 
     if (typeof window !== "undefined" && (window as any).AndroidBridge && (window as any).AndroidBridge.showToast) {
       (window as any).AndroidBridge.showToast("Paramètres synchronisés !");
@@ -126,6 +159,7 @@ const WidgetSettings = ({
     setTimeout(() => setSavedMsg(false), 3000);
   };
 
+
   const tabs = [
     { id: "home", label: "TIGER IA", icon: "🐯" },
     { id: "electron", label: "Electron", icon: "💻" },
@@ -133,7 +167,6 @@ const WidgetSettings = ({
     { id: "deepseek", label: "DeepSeek", icon: "🐋" },
     { id: "pipeline", label: "Pipeline", icon: "🎯" },
     { id: "override", label: "Override", icon: "💉" },
-    { id: "mouchard", label: "Mouchard", icon: "👁️" },
     { id: "connexion", label: "Connexion", icon: "⚙️" },
   ];
 
@@ -274,35 +307,45 @@ const WidgetSettings = ({
                 </div>
               )}
 
-              {(execMode === "api" || execMode === "hybrid") && (
-                <>
                   <div className="space-y-2">
                     <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
-                    <select className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm">
+                    <select
+                      value={apiProvider}
+                      onChange={(e) => setApiProvider(e.target.value)}
+                      className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm"
+                    >
                       <option value="deepseek">🐋 DeepSeek</option>
                       <option value="openai">🟢 OpenAI (ChatGPT)</option>
-                      <option value="gemini">✨ Google Gemini</option>
-                      <option value="claude">🟣 Anthropic Claude</option>
-                      <option value="kimi">🌙 Moonshot Kimi</option>
-                      <option value="qwen">🌐 Alibaba Qwen</option>
+                      <option value="anthropic">🟣 Anthropic Claude</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Clé API DeepSeek</label>
+                    <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px] flex items-center gap-2">
+                      Clé API
+                      {apiKeyStatus === "ok" && <span className="text-green-400 text-[10px] font-bold bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/30">✅ Persistante sur disque</span>}
+                      {apiKeyStatus === "sending" && <span className="text-yellow-400 text-[10px] animate-pulse">⏳ Envoi...</span>}
+                      {apiKeyStatus === "error" && <span className="text-red-400 text-[10px]">❌ Erreur moteur</span>}
+                    </label>
                     <div className="flex gap-2 relative">
                       <input
                         type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                         placeholder="sk-..."
-                        className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm font-mono"
+                        className={`flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border rounded-xl px-4 py-3 outline-none text-sm font-mono transition-colors ${
+                          apiKeyStatus === "ok" ? "border-green-500/50 focus:border-green-400" :
+                          apiKeyStatus === "error" ? "border-red-500/50" :
+                          "border-white/20 focus:border-pink"
+                        }`}
                       />
-                      <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">👁</button>
                     </div>
                     <div className="flex items-center gap-4 mt-2">
-                      <button onClick={handleSave} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold text-white uppercase tracking-wider transition-colors">
-                        💾 SAUVEGARDER_CONFIG
+                      <button
+                        onClick={handleSave}
+                        className="px-4 py-2 bg-cyan/20 hover:bg-cyan/40 border border-cyan/40 text-cyan rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-2"
+                      >
+                        💾 SAUVEGARDER + ENVOYER AU MOTEUR
                       </button>
-                      <span className="text-gray-500 text-xs italic">Clé stockée localement dans le navigateur.</span>
+                      <span className="text-gray-500 text-xs italic">Persistée sur disque (reste après redémarrage).</span>
                     </div>
                   </div>
 
@@ -316,8 +359,7 @@ const WidgetSettings = ({
                       <span className="text-gray-500 text-xs italic">Auto-détecté à l'enregistrement.</span>
                     </div>
                   </div>
-                </>
-              )}
+
 
               {/* SECTION BRIDGE PC vs MOBILE NATIF */}
               <div className="pt-4 border-t border-white/10">
@@ -1059,7 +1101,7 @@ export default function Dashboard() {
 
   const [availableProjects, setAvailableProjects] = useState<string[]>([]);
   const [selectedLaunchProject, setSelectedLaunchProject] = useState<string>("");
-  const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé."]);
+  const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé. " + new Date().toLocaleTimeString()]);
   const [realProjects, setRealProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
 
   // --- ETAT : PACKS PRD SELECTIONNES & VISIBILITE CARROUSEL ---
@@ -1415,7 +1457,7 @@ export default function Dashboard() {
     setIsClient(true);
   }, []);
 
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
 
   useEffect(() => {
     const handleOpenMouchard = () => setIsRightSidebarOpen(true);
@@ -2835,12 +2877,36 @@ Format attendu:
                 </div>
                 <span className="design-app-texte drop-shadow-md">Actualités</span>
               </button>
+              {/* NOUVEAU BOUTON : CONSOLE-V0 */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMouchardLogs(prev => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...prev]);
+                  setIsRightSidebarOpen(true);
+                }}
+                className="group flex flex-col items-center gap-3"
+              >
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: "linear-gradient(135deg, #4b5563 0%, #1f2937 100%)" }}>
+                  🖥️
+                </div>
+                <span className="design-app-texte drop-shadow-md">Console-V0</span>
+              </button>
 
               {/* NOUVEAU BOUTON : PATCHER UI */}
               <button
-                onClick={async () => {
+                type="button"
+                onClick={async (e) => {
+                  e.preventDefault();
                   try {
-                    alert("🚀 Envoi de l'Intent PATCH_UI à l'AgentRouter (Console Electron)...");
+                    setIsRightSidebarOpen(true);
+                    setTimeout(() => {
+                      const logContainer = document.getElementById('mouchard-terminal-logs');
+                      if (logContainer) {
+                        logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#e27396]">> 🚀 Lancement du Patch UI (Bypass React)...</div>` + logContainer.innerHTML;
+                      }
+                    }, 50);
+                    
                     const res = await fetch("http://localhost:5005/api/design/intent", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -2848,15 +2914,36 @@ Format attendu:
                         intent: "PATCH_UI",
                         payload: {
                           targetFile: "e:\\\\v0reponses\\\\v0-moteur-electron\\\\v0saveprojets\\\\Projet_blog_8831\\\\src\\\\pages\\\\Dashboard.tsx",
-                          templateId: "stitch_mock" // Dans la v finale, ce sera dynamique !
+                          templateId: "stitch_mock"
                         }
                       })
                     });
+                    
+                    const logContainerAfter = document.getElementById('mouchard-terminal-logs');
+                    if (!res.ok) {
+                      const text = await res.text();
+                      if (logContainerAfter) logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ❌ Erreur HTTP ${res.status}: ${text}</div>` + logContainerAfter.innerHTML;
+                      return;
+                    }
+
                     const data = await res.json();
-                    console.log("PATCH PLAN REÇU :", data);
-                    alert("✅ Patch Plan généré et sauvegardé en .bak ! (Regarde la console de ton navigateur pour voir le Plan)");
-                  } catch (e) {
-                    alert("❌ Erreur de connexion au Moteur.");
+                    
+                    if (logContainerAfter) {
+                      if (data.patchPlan) {
+                        logContainerAfter.innerHTML = `
+                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> ✅ Analyse AST terminée !</div>
+                          <div class="mb-1 opacity-90 break-words text-[#f29f43]">> 🛡️ Backup créé avec succès (.bak).</div>
+                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> 🧠 IA Plan prêt pour Hermes !</div>
+                        ` + logContainerAfter.innerHTML;
+                      } else {
+                        logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#f29f43]">> ⚠️ Réponse du Moteur : ${JSON.stringify(data)}</div>` + logContainerAfter.innerHTML;
+                      }
+                    }
+                  } catch (err: any) {
+                    const logContainer = document.getElementById('mouchard-terminal-logs');
+                    if (logContainer) {
+                      logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ❌ Fetch Error: ${err.name} - ${err.message}</div>` + logContainer.innerHTML;
+                    }
                   }
                 }}
                 className="group flex flex-col items-center gap-3"
@@ -2930,7 +3017,7 @@ Format attendu:
 
         {/* Right Sidebar (Mouchard d'Installation) */}
         {isRightSidebarOpen && (
-          <aside className="w-80 border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] animate-fadeIn shadow-[-10px_0_30px_rgba(0,0,0,0.5)] bg-black">
+          <aside className="w-80 border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] shadow-[-10px_0_30px_rgba(0,0,0,0.5)] bg-black">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#050505]">
               <h3 className="text-cyan font-black text-sm uppercase tracking-widest flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
@@ -2939,7 +3026,7 @@ Format attendu:
               <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
             </div>
             <div className="flex-1 p-4 font-mono text-xs overflow-y-auto flex flex-col-reverse hide-scrollbar bg-black">
-              <div>
+              <div id="mouchard-terminal-logs">
                 {mouchardLogs.map((log, idx) => {
                   let colorClass = "text-[#52c1c9]"; // Teal clair (Défaut)
                   if (log.includes("[INSTALL]")) colorClass = "text-[#f29f43]"; // Orange
