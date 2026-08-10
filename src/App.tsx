@@ -2931,9 +2931,11 @@ Format attendu:
                     if (logContainerAfter) {
                       if (data.patchPlan) {
                         logContainerAfter.innerHTML = `
-                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> ✅ Analyse AST terminée !</div>
-                          <div class="mb-1 opacity-90 break-words text-[#f29f43]">> 🛡️ Backup créé avec succès (.bak).</div>
+                          <div class="mb-1 opacity-90 break-words text-[#00e676]">> 🎯 Patch appliqué avec succès par le LLM !</div>
+                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> 🧠 Code généré reçu de l'IA (Hermes).</div>
                           <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> 🧠 IA Plan prêt pour Hermes !</div>
+                          <div class="mb-1 opacity-90 break-words text-[#f29f43]">> 🛡️ Backup créé avec succès (.bak).</div>
+                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> ✅ Analyse AST terminée !</div>
                         ` + logContainerAfter.innerHTML;
                       } else {
                         logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#f29f43]">> ⚠️ Réponse du Moteur : ${JSON.stringify(data)}</div>` + logContainerAfter.innerHTML;
