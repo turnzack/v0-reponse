@@ -1110,7 +1110,7 @@ export default function Dashboard() {
 
     try {
       const keyToUse = apiKey || localStorage.getItem("tiger_apiKey");
-      if (!keyToUse) {
+      if (!keyToUse || !keyToUse.startsWith("sk-") || keyToUse.length < 20) {
         setLiveNewsData(defaultNews);
         setIsFetchingNews(false);
         return;
@@ -1562,6 +1562,13 @@ export default function Dashboard() {
             if (bridge.showToast) bridge.showToast("Stitch s'ouvre. Générez le HTML, puis utilisez le Trombone.");
           } else {
             // 💻 MOTEUR PC : Fallback pour navigateur standard / Electron (Multifenêtrage)
+            const uiPromptText = "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend;
+            try {
+              if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(uiPromptText);
+              }
+            } catch (e) {}
+
             // On envoie le prompt UI au Bridge
             const sendUiPrompt = () => {
               if (selectedPacks && selectedPacks.length > 0) {
@@ -1570,7 +1577,7 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     target_ai: uiAi,
-                    user_prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                    user_prompt: uiPromptText,
                     packs: selectedPacks,
                     target_project: newProjectId
                   })
@@ -1581,7 +1588,7 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     target_ai: uiAi,
-                    prompt: "Génère l'interface UI/UX complète et moderne pour ce projet : " + textToSend,
+                    prompt: uiPromptText,
                     auto_submit: true,
                     project_id: newProjectId,
                     phase_num: 1
@@ -1591,16 +1598,26 @@ export default function Dashboard() {
             };
 
             if (selectedStartPhase !== 200 && !reuseActiveTab) {
+              window.open(getUrl(uiAi, true), "_blank");
               sendUiPrompt().then(() => {
                 console.log("Prompt UI envoyé au Bridge");
-                window.open(getUrl(uiAi, true), "_blank");
-              }).catch(() => {
-                window.open(getUrl(uiAi, true), "_blank");
-              });
+              }).catch((e) => console.error("Erreur sendUiPrompt", e));
             }
 
-            // On envoie le prompt Logique au Bridge avec un léger décalage réseau (pas visuel)
+            // On envoie le prompt Logique au Bridge avec un léger décalage réseau
             setTimeout(() => {
+              const logicPromptText = (selectedPacks && selectedPacks.length > 0)
+                ? textToSend
+                : "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.";
+
+              try {
+                if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(logicPromptText);
+                }
+              } catch (e) {}
+
+              window.open(getUrl(logicAi), "_blank");
+
               if (selectedPacks && selectedPacks.length > 0) {
                 // TROMBONE PIPELINE (PRD)
                 fetch("http://localhost:5005/api/bridge/trombone", {
@@ -1614,10 +1631,8 @@ export default function Dashboard() {
                   })
                 }).then(() => {
                   console.log("Méga-Prompt Trombone envoyé !");
-                  window.open(getUrl(logicAi), "_blank");
                 }).catch(err => {
                   console.log("Erreur Trombone Bridge:", err);
-                  window.open(getUrl(logicAi), "_blank");
                 });
               } else {
                 // STANDARD PIPELINE
@@ -1626,19 +1641,16 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     target_ai: logicAi,
-                    prompt: "L'interface UI/UX est actuellement en cours de génération. Prépare la structure backend et les états React pour un projet complexe : " + textToSend + ". Reste en attente, je te fournirai le fichier HTML pour le câblage final.",
+                    prompt: logicPromptText,
                     auto_submit: true,
                     project_id: newProjectId,
                     phase_num: 1
                   })
                 }).then(() => {
                   console.log("Prompt Logique envoyé au Bridge");
-                  window.open(getUrl(logicAi), "_blank");
-                }).catch(() => {
-                  window.open(getUrl(logicAi), "_blank");
-                });
+                }).catch(() => {});
               }
-            }, 500);
+            }, 800);
 
             console.log("Les IA ont été ouvertes. Les prompts ont été envoyés au Bridge local pour injection via l'extension.");
           }
@@ -2824,6 +2836,37 @@ Format attendu:
                 <span className="design-app-texte drop-shadow-md">Actualités</span>
               </button>
 
+              {/* NOUVEAU BOUTON : PATCHER UI */}
+              <button
+                onClick={async () => {
+                  try {
+                    alert("🚀 Envoi de l'Intent PATCH_UI à l'AgentRouter (Console Electron)...");
+                    const res = await fetch("http://localhost:5005/api/design/intent", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        intent: "PATCH_UI",
+                        payload: {
+                          targetFile: "e:\\\\v0reponses\\\\v0-moteur-electron\\\\v0saveprojets\\\\Projet_blog_8831\\\\src\\\\pages\\\\Dashboard.tsx",
+                          templateId: "stitch_mock" // Dans la v finale, ce sera dynamique !
+                        }
+                      })
+                    });
+                    const data = await res.json();
+                    console.log("PATCH PLAN REÇU :", data);
+                    alert("✅ Patch Plan généré et sauvegardé en .bak ! (Regarde la console de ton navigateur pour voir le Plan)");
+                  } catch (e) {
+                    alert("❌ Erreur de connexion au Moteur.");
+                  }
+                }}
+                className="group flex flex-col items-center gap-3"
+              >
+                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: "linear-gradient(135deg, #10b981 0%, #047857 100%)" }}>
+                  🧬
+                </div>
+                <span className="design-app-texte drop-shadow-md">Patch UI</span>
+              </button>
+
               {/* BOUTON SAUVEGARDE DE THEME 🎨 */}
               <button
                 onClick={() => setIsColorModalOpen(true)}
@@ -3170,7 +3213,7 @@ Format attendu:
                   </div>
 
                   <div className="mt-5">
-                    <button onClick={() => setIsPrdModalOpen(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
+                    <button onClick={() => setShowPacksCarousel(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
                       💎 Packs PRD ({selectedPacks.length})
                     </button>
                   </div>
