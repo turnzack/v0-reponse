@@ -138,7 +138,7 @@ const WidgetSettings = ({
   ];
 
   return (
-    <div className={`w-full h-screen bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl border-none shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row pointer-events-auto`}>
+    <div className={`design-config-modal w-full h-screen bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl border-none shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row pointer-events-auto`}>
 
       {/* Sidebar */}
       {!isEmbedded && (
@@ -509,11 +509,233 @@ const WidgetSettings = ({
             </div>
           )}
 
-          {["home", "electron", "vercel", "deepseek"].includes(activeTab) && (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-fadeIn opacity-50">
-              <span className="text-6xl">{tabs.find(t => t.id === activeTab)?.icon}</span>
-              <h3 className="text-xl font-bold text-white">Module {tabs.find(t => t.id === activeTab)?.label}</h3>
-              <p className="text-sm text-gray-400">Section technique héritée du cœur Kirov5.</p>
+          {activeTab === "home" && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="text-cyan">🐯</span> TIGER IA — Hub d'Orchestration Souverain
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Supervision de l'écosystème Zero-Touch et de l'orchestrateur G5.</p>
+                </div>
+                <span className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold animate-pulse">
+                  ● Moteur IA Actif
+                </span>
+              </div>
+
+              {/* Grid des Cartes de Statut */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-black/40 to-black/70 p-4 rounded-2xl border border-cyan/30 shadow-lg">
+                  <div className="text-cyan text-xs font-bold uppercase tracking-wider mb-1">Moteur Local</div>
+                  <div className="text-2xl font-black text-white">v5.0.0</div>
+                  <div className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-cyan"></span> Bridge 5005 Opérationnel
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-black/40 to-black/70 p-4 rounded-2xl border border-purple-500/30 shadow-lg">
+                  <div className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-1">Agent Réflexion</div>
+                  <div className="text-2xl font-black text-white">DeepSeek-R1</div>
+                  <div className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-purple-400"></span> Mode Hybride Actif
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-black/40 to-black/70 p-4 rounded-2xl border border-pink/30 shadow-lg">
+                  <div className="text-pink text-xs font-bold uppercase tracking-wider mb-1">Studio UI/UX</div>
+                  <div className="text-2xl font-black text-white">Zero-Touch</div>
+                  <div className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-pink"></span> Synchro Temps Réel
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Rapides */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🚀 Actions Système Rapides</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => window.open('http://localhost:3005', '_blank')}
+                    className="p-4 bg-gradient-to-r from-cyan/20 to-blue-500/20 hover:from-cyan/30 hover:to-blue-500/30 border border-cyan/40 rounded-xl text-left transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-white font-bold text-sm group-hover:text-cyan transition-colors">🌐 Ouvrir l'Interface Studio (Vercel)</div>
+                      <div className="text-xs text-gray-400">Accès direct au tableau de bord localhost:3005</div>
+                    </div>
+                    <span className="text-xl">➔</span>
+                  </button>
+
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("http://localhost:5005/api/theme");
+                        const data = await res.json();
+                        alert("Thème synchronisé : " + (data.activeTheme?.nom || "Thème par défaut"));
+                      } catch (e) {
+                        alert("Vérifiez que le serveur Electron :5005 est démarré.");
+                      }
+                    }}
+                    className="p-4 bg-gradient-to-r from-purple-500/20 to-pink/20 hover:from-purple-500/30 hover:to-pink/30 border border-purple-500/40 rounded-xl text-left transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-white font-bold text-sm group-hover:text-purple-300 transition-colors">🎨 Tester la Synchronisation Thème</div>
+                      <div className="text-xs text-gray-400">Interroge l'API bridge :5005/api/theme</div>
+                    </div>
+                    <span className="text-xl">🔄</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "electron" && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="text-cyan">💻</span> Moteur Electron PC — Serveur Local
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Gestion du pont d'exécution et du système de fichiers local.</p>
+                </div>
+                <span className="px-3 py-1 bg-cyan/20 text-cyan border border-cyan/40 rounded-full text-xs font-bold">
+                  Port :5005
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-black/50 p-4 rounded-xl border border-white/10 space-y-3 font-mono text-xs text-gray-300">
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Dossier Racine Workspace :</span>
+                    <span className="text-cyan font-bold">E:\v0reponses</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Répertoire des Projets Sauvegardés :</span>
+                    <span className="text-green-400 font-bold">v0-moteur-electron/v0saveprojets</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Fichier Configuration Thème :</span>
+                    <span className="text-yellow-400 font-bold">theme-config.json</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Mode Bridge HTTP :</span>
+                    <span className="text-blue-400 font-bold">Express API REST Active</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("http://localhost:5005/api/projects");
+                        const data = await res.json();
+                        alert(`Projets détectés (${data.projects?.length || 0}) : \n` + (data.projects?.join('\n') || 'Aucun'));
+                      } catch (e) {
+                        alert("Erreur de connexion au bridge Express :5005");
+                      }
+                    }}
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                  >
+                    📁 Lister les Projets Locaux
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      alert("Le moteur Electron tourne sur la tâche principale Windows.");
+                    }}
+                    className="flex-1 py-3 bg-cyan/20 hover:bg-cyan/30 border border-cyan/40 rounded-xl text-cyan font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                  >
+                    ⚡ État du Processus Electron
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "vercel" && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="text-pink">▲</span> Studio Web Vercel — Preview & HMR
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Interface frontend réactive et synchronisation en direct.</p>
+                </div>
+                <span className="px-3 py-1 bg-pink/20 text-pink border border-pink/40 rounded-full text-xs font-bold">
+                  Vite Dev Server
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-black/50 p-4 rounded-xl border border-white/10 space-y-3 text-xs text-gray-300">
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">URL Dev Local :</span>
+                    <span className="text-cyan font-mono font-bold">http://localhost:3005</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Design System CSS :</span>
+                    <span className="text-pink font-mono font-bold">src/design.css</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Source de Vérité Design Tokens :</span>
+                    <span className="text-purple-400 font-mono font-bold">src/design-tokens.json</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Hot Module Replacement (HMR) :</span>
+                    <span className="text-green-400 font-bold">Actif (Modifications Instantanées)</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => window.open('http://localhost:3005/admin-design', '_blank')}
+                    className="flex-1 py-3 bg-gradient-to-r from-pink/30 to-purple-500/30 hover:from-pink/40 hover:to-purple-500/40 border border-pink/50 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                  >
+                    🎨 Ouvrir le Studio Admin Design
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "deepseek" && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="text-purple-400">🐋</span> Modèle IA DeepSeek — Agent Logique
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Paramètres du modèle de génération de code et d'architecture.</p>
+                </div>
+                <span className="px-3 py-1 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-full text-xs font-bold">
+                  DeepSeek-V3 / R1
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-black/50 p-4 rounded-xl border border-white/10 space-y-3 text-xs text-gray-300">
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Mode d'Exécution IA :</span>
+                    <span className="text-cyan font-bold">Chat Web & API Hybride</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-gray-400">Fenêtre de Contexte :</span>
+                    <span className="text-green-400 font-bold">128,000 Tokens</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Rôle Principal :</span>
+                    <span className="text-purple-400 font-bold">Cerveau Backend & Génération de Fichiers</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => window.open('https://chat.deepseek.com/', '_blank')}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/40 hover:to-blue-500/40 border border-purple-500/40 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                  >
+                    🐋 Ouvrir DeepSeek Web
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -649,7 +871,7 @@ const WidgetPrdPacks = ({
   return (
     <div id="prd-packs-carousel-section" className="w-full my-4">
       <div className="flex items-center justify-between mb-3 px-2">
-        <h4 className="text-xs font-black uppercase tracking-widest text-cyan flex items-center gap-2">
+        <h4 className="design-prd-titre-section font-black uppercase tracking-widest text-cyan flex items-center gap-2">
           <span>💎</span> PACKS PRD DE CONNAISSANCES ({AVAILABLE_PACKS.length})
         </h4>
         {selectedPacks && selectedPacks.length > 0 && (
@@ -2698,26 +2920,26 @@ Format attendu:
       {/* Input Area + Connection Status Bar */}
       <footer className="design-footer absolute bottom-0 left-0 w-full backdrop-blur-2xl z-50 flex flex-col">
         {/* Connection Status Indicators */}
-        <div className="px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar text-[10px] font-bold tracking-wider uppercase">
+        <div className="design-status-bar px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar font-bold uppercase">
           <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
-            <span className="text-green-400">Online</span>
+            <span className="design-status-pastille w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
+            <span className="design-status-text text-green-400">Online</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-            <span className="text-blue-400">Ext: Tiger</span>
+            <span className="design-status-pastille w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+            <span className="design-status-text text-blue-400">Ext: Tiger</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
-            <span className="text-purple-400">LLM: DeepSeek</span>
+            <span className="design-status-pastille w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
+            <span className="design-status-text text-purple-400">LLM: DeepSeek</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
-            <span className="text-cyan">Electron</span>
+            <span className="design-status-pastille w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
+            <span className="design-status-text text-cyan">Electron</span>
           </div>
           <div className="flex items-center gap-2 shrink-0 opacity-50">
-            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-            <span className="text-gray-400">Mobile (Capacitor)</span>
+            <span className="design-status-pastille w-2 h-2 rounded-full bg-gray-500"></span>
+            <span className="design-status-text text-gray-400">Mobile (Capacitor)</span>
           </div>
         </div>
 
@@ -3099,6 +3321,11 @@ Format attendu:
                   setActiveTheme("fold");
                   document.body.style.background = defaultBg;
                   document.body.style.backgroundAttachment = "fixed";
+                  fetch("http://localhost:5005/api/theme", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ activeTheme: "fold", bgApp: defaultBg })
+                  }).catch(() => {});
                   setIsColorModalOpen(false);
                 }}
                 className="w-full mt-1 py-2.5 bg-cyan text-black font-extrabold rounded-lg hover:bg-cyan/80 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
@@ -3130,27 +3357,27 @@ Format attendu:
             <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto hide-scrollbar">
               <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Thèmes Enregistrés</div>
 
-              <button
+              <div
                 onClick={() => { setActiveTheme("random"); setIsColorModalOpen(false); }}
-                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
               >
                 <span className="font-bold flex items-center gap-2">🎲 Mode Aléatoire (Dynamique)</span>
                 {activeTheme === "random" && <span className="text-cyan">✓</span>}
-              </button>
+              </div>
 
-              <button
+              <div
                 onClick={() => { setActiveTheme("fold"); setIsColorModalOpen(false); }}
-                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${activeTheme === "fold" ? "bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === "fold" ? "bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
               >
                 <span className="font-bold flex items-center gap-2">⚡ Thème FOLD (Fixe Enregistré)</span>
                 {activeTheme === "fold" && <span className="text-cyan">✓</span>}
-              </button>
+              </div>
 
               {savedThemes.map((theme, i) => (
-                <button
+                <div
                   key={i}
                   onClick={() => { setActiveTheme(theme.name); setIsColorModalOpen(false); }}
-                  className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${activeTheme === theme.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                  className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${activeTheme === theme.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex -space-x-2">
@@ -3170,7 +3397,7 @@ Format attendu:
                       ✕
                     </button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>

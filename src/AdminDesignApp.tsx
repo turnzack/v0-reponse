@@ -31,6 +31,12 @@ const designStructure = {
       'carteCarrouselTexteCouleur'
     ],
     "Packs PRD Carrousel": [
+      'prdTitreSectionTaillePolice',
+      'prdTitreSectionCouleur',
+      'prdTitreSectionPosition',
+      'prdTitreSectionPositionX',
+      'prdTitreSectionPositionY',
+      'prdTitreSectionMargeBas',
       'prdCarteLargeur',
       'prdCarteHauteur',
       'prdCartePadding',
@@ -63,6 +69,10 @@ const designStructure = {
       'fenetreReadmeLargeurMax',
       'fenetreReadmeHauteurMax',
       'fenetreReadmeTaillePolice'
+    ],
+    "⚙️ Fenêtre Configuration": [
+      'configModalTaillePolice',
+      'configModalTitreTaille'
     ]
   },
   "💬 Chat & Footer": {
@@ -1310,12 +1320,12 @@ body {
    top: var(--fenetre-readme-position-y, 0px) !important;
    transform: translate(var(--fenetre-readme-position-x, 0px), var(--fenetre-readme-position-y, 0px)) !important;
    max-width: var(--fenetre-readme-largeur-max, 768px) !important;
-   width: var(--fenetre-readme-largeur-max, 768px) !important;
+   width: 100% !important;
 }
 
 .design-readme-contenu {
    max-height: var(--fenetre-readme-hauteur-max, 600px) !important;
-   height: var(--fenetre-readme-hauteur-max, 600px) !important;
+   overflow-y: auto !important;
    font-size: var(--fenetre-readme-taille-police, 15px) !important;
 }
 
@@ -1828,37 +1838,43 @@ body {
                     </div>
                     
                     {isPosition ? (
-                      <div className="flex flex-col gap-3">
-                        <select 
-                          value={val} 
-                          onChange={(e) => handleChange(key as any, e.target.value)} 
-                          disabled={isLocked}
-                          className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
-                        >
-                          <option value="relative">Relative</option>
-                          <option value="absolute">Absolute</option>
-                          <option value="fixed">Fixed</option>
-                          <option value="sticky">Sticky</option>
-                          <option value="static">Static</option>
-                        </select>
-                        <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between">
-                            <span>📐 Glissement Position (Slide Bar)</span>
-                            <span className="text-cyan font-mono font-black">{(design['carteCarrouselPositionX'] || '0px')}</span>
-                          </label>
-                          <div className="flex justify-between items-center bg-black/60 p-3 rounded-xl border border-white/10 transition-colors hover:border-white/30">
-                            <input 
-                              type="range" 
-                              min={-1000} 
-                              max={1000} 
-                              value={parseInt((design['carteCarrouselPositionX'] || '0px').replace('px', '')) || 0} 
+                      (() => {
+                        const posXKey = (key.replace(/Position$/, '') + 'PositionX') as any;
+                        const posXVal = (design as any)[posXKey] || '0px';
+                        return (
+                          <div className="flex flex-col gap-3">
+                            <select 
+                              value={val} 
+                              onChange={(e) => handleChange(key as any, e.target.value)} 
                               disabled={isLocked}
-                              onChange={(e) => handleChange('carteCarrouselPositionX' as any, `${e.target.value}px`)} 
-                              className={`w-full accent-cyan ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            />
+                              className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
+                            >
+                              <option value="relative">Relative</option>
+                              <option value="absolute">Absolute</option>
+                              <option value="fixed">Fixed</option>
+                              <option value="sticky">Sticky</option>
+                              <option value="static">Static</option>
+                            </select>
+                            <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between">
+                                <span>📐 Glissement Position X (Slide Bar)</span>
+                                <span className="text-cyan font-mono font-black">{posXVal}</span>
+                              </label>
+                              <div className="flex justify-between items-center bg-black/60 p-3 rounded-xl border border-white/10 transition-colors hover:border-white/30">
+                                <input 
+                                  type="range" 
+                                  min={-1000} 
+                                  max={1000} 
+                                  value={parseInt(posXVal.replace('px', '')) || 0} 
+                                  disabled={isLocked}
+                                  onChange={(e) => handleChange(posXKey, `${e.target.value}px`)} 
+                                  className={`w-full accent-cyan ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                        );
+                      })()
                     ) : isDisplay ? (
                       <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="flex">flex</option>
@@ -1901,8 +1917,8 @@ body {
                           <div className="flex items-center gap-2 mb-1 bg-black/40 p-2.5 rounded-xl border border-white/10">
                             <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Mode Position :</label>
                             <select
-                              value={(design as any)[key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition'] || 'relative'}
-                              onChange={(e) => handleChange((key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition') as any, e.target.value)}
+                              value={(design as any)[key.includes('prdTitreSection') ? 'prdTitreSectionPosition' : key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition'] || 'relative'}
+                              onChange={(e) => handleChange((key.includes('prdTitreSection') ? 'prdTitreSectionPosition' : key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition') as any, e.target.value)}
                               disabled={isLocked}
                               className={`w-full bg-black/80 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-cyan outline-none font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
                             >
