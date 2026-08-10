@@ -1,33 +1,1035 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Editor from '@monaco-editor/react';
 import defaultDesign from './design-tokens.json';
 
-const categories = {
-  '1. ARCHITECTURE': ['appLargeurMax', 'appHauteurMax', 'sidebarDroitePosition', 'sidebarDroiteTop', 'sidebarDroiteBas', 'sidebarDroiteLargeur'],
-  '2. FONDS & COULEURS': ['appBgTop', 'appBgBottom', 'couleurTextePrincipal', 'couleurTexteSecondaire', 'couleurAccentCyan', 'couleurAccentRose', 'couleurAccentVert', 'couleurAccentViolet', 'flouGlobalArrierePlan'],
-  '3. TYPOGRAPHIE': ['fontPrincipale', 'fontTitre', 'fontCode', 'tailleTexteNano', 'tailleTexteMini', 'tailleTexteBase', 'tailleTexteTitre', 'tailleTexteGeant'],
-  '4. EN-TÊTE': ['headerPosition', 'headerTop', 'headerLeft', 'headerLargeur', 'headerZIndex', 'headerHauteur', 'headerPadding', 'headerBgCouleur', 'headerBordureBas', 'headerOmbre', 'logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille', 'titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
-  '5. MENU ACCUEIL': ['iconeReglagesBg', 'iconeAssistantBg', 'iconeProjetsBg', 'iconePacksBg', 'iconeActualitesBg', 'grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'carteCarrouselHauteur', 'carteCarrouselLargeur', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
-  '6. CHAT & FOOTER': ['footerPosition', 'footerBas', 'footerGauche', 'footerLargeur', 'footerZIndex', 'chatLayoutGap', 'chatBullesEspacement', 'chatSeparateurMargeY', 'chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX', 'statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille', 'inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne', 'btnEnvoiPosition', 'btnEnvoiTop', 'btnEnvoiBottom', 'btnEnvoiLeft', 'btnEnvoiRight', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'trombonePosition', 'tromboneTop', 'tromboneBottom', 'tromboneLeft', 'tromboneRight', 'tromboneTaille', 'tromboneCouleur', 'tromboneMargin', 'newV0Position', 'newV0Top', 'newV0Bottom', 'newV0Left', 'newV0Right', 'newV0Padding', 'newV0Taille', 'newV0Bg', 'newV0Couleur', 'newV0Arrondi', 'newV0Bordure', 'newV0Margin'],
-  '7. IDE ESPACE TRAVAIL': ['ideToolbarHauteur', 'ideToolbarBg', 'ideToolbarBordure', 'ideBtnActionTaille', 'ideBtnActionArrondi', 'ideBtnActionBg', 'ideBtnActionBordure', 'ideBtnActionEmoji', 'explorateurLargeur', 'explorateurBg', 'explorateurBordureDroite', 'explorateurTexteTaille', 'explorateurDossierCouleur', 'explorateurFichierCouleur', 'editeurBg', 'editeurOngletHauteur', 'editeurOngletBg', 'editeurOngletBordure', 'previewBg', 'previewLargeur', 'previewBordureGauche'],
-  '8. MOUCHARD': ['mouchardBg', 'mouchardBordureGauche', 'mouchardOmbre', 'mouchardEnteteBg', 'mouchardEnteteHauteur', 'mouchardTitreCouleur', 'mouchardTexteTaille', 'mouchardTexteCouleurDefaut', 'mouchardTexteCouleurErreur'],
-  '9. MODALES': ['modalFondAssombrissement', 'modalFondFlou', 'modalLargeurMax', 'modalHauteurMax', 'modalBgTop', 'modalBgBottom', 'modalBordure', 'modalArrondi', 'modalOmbre', 'modalPrdBg', 'modalPrdBordure', 'modalPrdEnteteBg', 'modalPrdTitreCouleur', 'modalSidebarLargeur', 'modalSidebarBg', 'modalOngletPadding', 'modalOngletArrondi', 'modalOngletGap', 'modalOngletBgActif', 'modalOngletBordureActif', 'modalOngletCouleurActif', 'modalOngletCouleurInactif']
+const designStructure = {
+  "🌍 Structure Globale": {
+    "Architecture": ['appLargeurMax', 'appHauteurMax'],
+    "Fonds & Couleurs": ['appBgTop', 'appBgBottom', 'couleurTextePrincipal', 'couleurTexteSecondaire', 'couleurAccentCyan', 'couleurAccentRose', 'couleurAccentVert', 'couleurAccentViolet', 'flouGlobalArrierePlan'],
+    "Typographie": ['fontPrincipale', 'fontTitre', 'fontCode', 'tailleTexteNano', 'tailleTexteMini', 'tailleTexteBase', 'tailleTexteTitre', 'tailleTexteGeant']
+  },
+  "🏠 Page d'Accueil": {
+    "En-tête (Header)": ['headerPosition', 'headerTop', 'headerLeft', 'headerLargeur', 'headerZIndex', 'headerHauteur', 'headerPadding', 'headerBgCouleur', 'headerBordureBas', 'headerOmbre'],
+    "Logo": ['logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille'],
+    "Titre & Sous-Titre": ['titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
+    "Icônes Applications": ['iconeReglagesBg', 'iconeAssistantBg', 'iconeProjetsBg', 'iconePacksBg', 'iconeActualitesBg', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
+    "Grille d'Applications": ['grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY'],
+    "Cartes & Carrousel": ['carteCarrouselHauteur', 'carteCarrouselLargeur']
+  },
+  "💬 Chat & Footer": {
+    "Conteneur Principal": ['chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX'],
+    "Mise en Page": ['chatLayoutGap', 'chatBullesEspacement', 'chatSeparateurMargeY'],
+    "Statut (Badge)": ['statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille'],
+    "Barre de Saisie": ['inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne'],
+    "Boutons d'Action": ['btnEnvoiPosition', 'btnEnvoiTop', 'btnEnvoiBottom', 'btnEnvoiLeft', 'btnEnvoiRight', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'trombonePosition', 'tromboneTop', 'tromboneBottom', 'tromboneLeft', 'tromboneRight', 'tromboneTaille', 'tromboneCouleur', 'tromboneMargin', 'newV0Position', 'newV0Top', 'newV0Bottom', 'newV0Left', 'newV0Right', 'newV0Padding', 'newV0Taille', 'newV0Bg', 'newV0Couleur', 'newV0Arrondi', 'newV0Bordure', 'newV0Margin'],
+    "Pied de Page": ['footerPosition', 'footerBas', 'footerGauche', 'footerLargeur', 'footerZIndex']
+  },
+  "💻 Espace IDE": {
+    "Barre d'Outils": ['ideToolbarHauteur', 'ideToolbarBg', 'ideToolbarBordure', 'ideBtnActionTaille', 'ideBtnActionArrondi', 'ideBtnActionBg', 'ideBtnActionBordure', 'ideBtnActionEmoji'],
+    "Explorateur (Fichiers)": ['explorateurLargeur', 'explorateurBg', 'explorateurBordureDroite', 'explorateurTexteTaille', 'explorateurDossierCouleur', 'explorateurFichierCouleur'],
+    "Éditeur de Code": ['editeurBg', 'editeurOngletHauteur', 'editeurOngletBg', 'editeurOngletBordure'],
+    "Live Preview": ['previewBg', 'previewLargeur', 'previewBordureGauche'],
+    "Panneau Droit (Mouchard)": ['sidebarDroitePosition', 'sidebarDroiteTop', 'sidebarDroiteBas', 'sidebarDroiteLargeur', 'mouchardBg', 'mouchardBordureGauche', 'mouchardOmbre', 'mouchardEnteteBg', 'mouchardEnteteHauteur', 'mouchardTitreCouleur', 'mouchardTexteTaille', 'mouchardTexteCouleurDefaut', 'mouchardTexteCouleurErreur']
+  },
+  "🪟 Modales & Popups": {
+    "Fond & Arrière-Plan": ['modalFondAssombrissement', 'modalFondFlou', 'modalLargeurMax', 'modalHauteurMax', 'modalBgTop', 'modalBgBottom', 'modalBordure', 'modalArrondi', 'modalOmbre'],
+    "Contenu (PRD)": ['modalPrdBg', 'modalPrdBordure', 'modalPrdEnteteBg', 'modalPrdTitreCouleur'],
+    "Sidebar Modale": ['modalSidebarLargeur', 'modalSidebarBg', 'modalOngletPadding', 'modalOngletArrondi', 'modalOngletGap', 'modalOngletBgActif', 'modalOngletBordureActif', 'modalOngletCouleurActif', 'modalOngletCouleurInactif']
+  }
+};
+
+const ElementSettingCard = ({ element, onSave, onSetLayer }: any) => {
+  const [text, setText] = useState(element.text);
+  
+  // Custom Visual Controls State
+  const [fontSize, setFontSize] = useState(16);
+  const [fontColor, setFontColor] = useState("#ffffff");
+  const [posX, setPosX] = useState(0);
+  const [posY, setPosY] = useState(0);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  
+  // RAW State (for advanced mode & underlying code)
+  const [rawSize, setRawSize] = useState(element.size);
+  const [rawColor, setRawColor] = useState(element.color);
+  const [rawLayout, setRawLayout] = useState(element.layout);
+
+  // Sync state if element changes externally
+  useEffect(() => {
+    setText(element.text);
+    setRawSize(element.size);
+    setRawColor(element.color);
+    setRawLayout(element.layout);
+    
+    // Attempt to parse visual values
+    const colorMatch = element.color.match(/text-\[#([0-9a-fA-F]{6})\]/);
+    if (colorMatch) setFontColor(`#${colorMatch[1]}`);
+    else setFontColor("#ffffff"); // fallback
+    
+    const sizeMatch = element.size.match(/text-\[([0-9]+)px\]/);
+    if (sizeMatch) setFontSize(parseInt(sizeMatch[1]));
+    else setFontSize(16); // fallback
+    
+    const mlMatch = element.layout.match(/ml-\[(-?[0-9]+)px\]/);
+    if (mlMatch) setPosX(parseInt(mlMatch[1]));
+    else setPosX(0); // fallback
+
+    const mtMatch = element.layout.match(/mt-\[(-?[0-9]+)px\]/);
+    if (mtMatch) setPosY(parseInt(mtMatch[1]));
+    else setPosY(0);
+  }, [element]);
+
+  // When visual controls change, we update the RAW strings automatically
+  const handleVisualSave = (type: string, value: any) => {
+    let newRawSize = rawSize;
+    let newRawColor = rawColor;
+    let newRawLayout = rawLayout;
+
+    if (type === 'fontSize') {
+      setFontSize(value);
+      if (element.originalText === null) {
+        // C'est un bloc structurel, changer la taille cible le padding ou la taille brute, mais restons simple
+        newRawSize = newRawSize.replace(/\bp-\S+/g, '').trim();
+        newRawSize += ` p-[${value}px]`;
+      } else {
+        newRawSize = newRawSize.replace(/\btext-\S+/g, '').trim();
+        newRawSize += ` text-[${value}px]`;
+      }
+    }
+    if (type === 'fontColor') {
+      setFontColor(value);
+      if (element.originalText === null) {
+        // C'est un bloc structurel, on cible la couleur de fond
+        newRawColor = newRawColor.replace(/\bbg-\S+/g, '').trim();
+        newRawColor += ` bg-[${value}]`;
+      } else {
+        newRawColor = newRawColor.replace(/\btext-\S+/g, '').trim();
+        newRawColor += ` text-[${value}]`;
+      }
+    }
+    if (type === 'posX') {
+      setPosX(value);
+      newRawLayout = newRawLayout.replace(/\b-?ml-\S+/g, '').trim();
+      newRawLayout += ` ml-[${value}px]`;
+    }
+    if (type === 'posY') {
+      setPosY(value);
+      newRawLayout = newRawLayout.replace(/\b-?mt-\S+/g, '').trim();
+      newRawLayout += ` mt-[${value}px]`;
+    }
+
+    setRawSize(newRawSize.trim());
+    setRawColor(newRawColor.trim());
+    setRawLayout(newRawLayout.trim());
+
+    onSave(element, { text, size: newRawSize.trim(), color: newRawColor.trim(), layout: newRawLayout.trim() });
+  };
+
+  const handleRawSave = (field: string, val: string) => {
+    if (field === 'text') setText(val);
+    if (field === 'size') setRawSize(val);
+    if (field === 'color') setRawColor(val);
+    if (field === 'layout') setRawLayout(val);
+    
+    onSave(element, {
+      text: field === 'text' ? val : text,
+      size: field === 'size' ? val : rawSize,
+      color: field === 'color' ? val : rawColor,
+      layout: field === 'layout' ? val : rawLayout,
+    });
+  };
+
+  const handleLayerClick = (plan: 'top' | 'up' | 'down' | 'bottom') => {
+    if (onSetLayer) {
+      onSetLayer(plan);
+      return;
+    }
+    let l = rawLayout.replace(/z-\S+/g, '').replace(/\s+/g, ' ').trim();
+    if (!l.includes('relative') && !l.includes('absolute') && !l.includes('fixed') && !l.includes('sticky')) {
+      l = `relative ${l}`;
+    }
+    const zClass = plan === 'top' ? 'z-[9999]' : plan === 'up' ? 'z-[100]' : plan === 'down' ? 'z-[10]' : 'z-[1]';
+    l = `${l} ${zClass}`.trim();
+    handleRawSave('layout', l);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 bg-black/60 p-5 rounded-xl border border-white/10 hover:border-cyan/30 transition-colors shadow-inner col-span-full">
+      
+      <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🧩</span>
+          <h3 className="font-bold text-white uppercase tracking-wider text-xs">Élément : {element.tag}</h3>
+        </div>
+        <button onClick={() => setAdvancedMode(!advancedMode)} className="text-[10px] text-gray-500 hover:text-cyan uppercase font-bold transition-colors">
+          {advancedMode ? 'Basculer en Vue Simplifiée (Sliders)' : 'Basculer en Vue Avancée (Classes)'}
+        </button>
+      </div>
+      {element.originalText !== null && (
+        <div className="flex flex-col gap-2 w-full">
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">📝 Texte de l'élément</label>
+          <input type="text" value={text} onChange={(e) => handleRawSave('text', e.target.value)} className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none font-mono" />
+        </div>
+      )}
+
+      {!advancedMode ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2 p-4 bg-white/5 rounded-lg border border-white/5">
+          {/* Couleur */}
+          <div className="flex flex-col gap-3">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">🎨 Couleur {element.originalText === null ? '(Fond/Bordure)' : 'du Texte'}</label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={fontColor} onChange={(e) => handleVisualSave('fontColor', e.target.value)} className="w-10 h-10 rounded cursor-pointer bg-transparent border-0" />
+              <span className="text-xs font-mono text-gray-400">{fontColor}</span>
+            </div>
+          </div>
+
+          {/* Taille */}
+          <div className="flex flex-col gap-3">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+              <span>📏 {element.originalText === null ? 'Dimension Globale' : 'Taille de Police'}</span>
+              <span className="text-cyan font-mono">{fontSize}px</span>
+            </label>
+            <input type="range" min="8" max="120" value={fontSize} onChange={(e) => handleVisualSave('fontSize', Number(e.target.value))} className="w-full accent-cyan" />
+          </div>
+
+          {/* Positionnement */}
+          <div className="flex flex-col gap-3">
+             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">📐 Déplacement (X / Y)</label>
+             <div className="flex flex-col gap-2">
+               <div className="flex items-center gap-2 text-xs text-gray-500">
+                 <span>↔️ X</span>
+                 <input type="range" min="-1000" max="1000" value={posX} onChange={(e) => handleVisualSave('posX', Number(e.target.value))} className="flex-1 accent-pink-500" />
+                 <span className="w-10 text-right font-mono">{posX}</span>
+               </div>
+               <div className="flex items-center gap-2 text-xs text-gray-500">
+                 <span>↕️ Y</span>
+                 <input type="range" min="-1000" max="1000" value={posY} onChange={(e) => handleVisualSave('posY', Number(e.target.value))} className="flex-1 accent-pink-500" />
+                 <span className="w-10 text-right font-mono">{posY}</span>
+               </div>
+             </div>
+          </div>
+
+          {/* Calques (Z-Index / Ordre d'affichage) */}
+          <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">📚 Calque (Ordre d'Affichage)</label>
+             <div className="grid grid-cols-4 gap-1.5">
+               <button onClick={() => handleLayerClick('top')} className="py-1.5 px-2 bg-white/5 hover:bg-cyan/20 hover:text-cyan border border-white/10 rounded text-[10px] font-bold transition-all text-center" title="Mettre au 1er plan (Devant tout)">🔝 1er Plan</button>
+               <button onClick={() => handleLayerClick('up')} className="py-1.5 px-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold transition-all text-center">⬆️ Monter</button>
+               <button onClick={() => handleLayerClick('down')} className="py-1.5 px-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-bold transition-all text-center">⬇️ Descendre</button>
+               <button onClick={() => handleLayerClick('bottom')} className="py-1.5 px-2 bg-white/5 hover:bg-pink-500/20 hover:text-pink-400 border border-white/10 rounded text-[10px] font-bold transition-all text-center" title="Mettre au 2nd plan (Derrière tout)">🔻 2nd Plan</button>
+             </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 border-t border-white/5 pt-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">🎨 Classes Couleur</label>
+            <input type="text" value={rawColor} onChange={(e) => handleRawSave('color', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-cyan focus:border-cyan outline-none font-mono" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">📏 Classes Taille</label>
+            <input type="text" value={rawSize} onChange={(e) => handleRawSave('size', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-pink-400 focus:border-cyan outline-none font-mono" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">📐 Classes Position</label>
+            <input type="text" value={rawLayout} onChange={(e) => handleRawSave('layout', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-gray-400 focus:border-cyan outline-none font-mono" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const AdminDesignApp = () => {
-  const [activeCategory, setActiveCategory] = useState(Object.keys(categories)[0]);
+  const [activeCategory, setActiveCategory] = useState(Object.keys(designStructure)[0]);
+  const [activeSubCategory, setActiveSubCategory] = useState(Object.keys(designStructure[Object.keys(designStructure)[0] as keyof typeof designStructure])[0]);
   const [design, setDesign] = useState(defaultDesign);
   const [lockedSettings, setLockedSettings] = useState<Record<string, boolean>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const [dynamicStructure, setDynamicStructure] = useState<any>(null);
+
+  const [activePagePath, setActivePagePath] = useState<string | null>(null);
+  const [pageContent, setPageContent] = useState<string>("");
+  const [pageFilter, setPageFilter] = useState<string>("all"); // 'all' | 'text' | 'blocks'
+  const [clickedElementData, setClickedElementData] = useState<any>(null);
+  const [draggedElementData, setDraggedElementData] = useState<any>(null);
+  const [resizedElementData, setResizedElementData] = useState<any>(null);
+  const [collidedElementData, setCollidedElementData] = useState<any>(null);
+
+  // Mode Design (Actif / Inactif) et Persistence
+  const [isDesignMode, setIsDesignMode] = useState<boolean>(() => {
+    return localStorage.getItem('sovereign_is_design_mode') !== 'false';
+  });
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [isSavedButton, setIsSavedButton] = useState<boolean>(false);
+
+  const toggleDesignMode = () => {
+    const next = !isDesignMode;
+    setIsDesignMode(next);
+    localStorage.setItem('sovereign_is_design_mode', String(next));
+    if (!next) {
+      setClickedElementData(null);
+    }
+
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'SET_DESIGN_MODE',
+        enabled: next
+      }, '*');
+    }
+  };
+
+  const handleManualSave = () => {
+    if (pageContent && activePagePath) {
+      handleSavePage(pageContent, true);
+      setIsSavedButton(true);
+      setSaveSuccessMessage("✓ Projet Sauvegardé avec Succès ! Fichiers TSX à jour sur disque.");
+      setTimeout(() => {
+        setSaveSuccessMessage(null);
+        setIsSavedButton(false);
+      }, 1800);
+    }
+  };
+
+  // Auto-Save de Secours dans localStorage
+  useEffect(() => {
+    if (pageContent && activePagePath) {
+      localStorage.setItem(`sovereign_backup_${activePagePath}`, pageContent);
+    }
+  }, [pageContent, activePagePath]);
+
+  // Save de Secours automatique à la fermeture ou crash du navigateur (beforeunload / pagehide)
+  useEffect(() => {
+    const handleUnload = () => {
+      if (pageContent && activePagePath) {
+        handleSavePage(pageContent, false);
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, [pageContent, activePagePath]);
+
+  // Synchronisation du Mode Design avec l'iframe au changement de page ou chargement
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'SET_DESIGN_MODE',
+          enabled: isDesignMode
+        }, '*');
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activePagePath, isDesignMode]);
+
+  // Historique Undo / Redo (8 snapshots max)
+  const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  const pushHistoryState = (newContent: string) => {
+    setHistoryStack(prev => {
+      const currentHistory = prev.slice(0, historyIndex + 1);
+      const updated = [...currentHistory, newContent];
+      if (updated.length > 8) {
+        updated.shift();
+      }
+      setHistoryIndex(updated.length - 1);
+      return updated;
+    });
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIdx = historyIndex - 1;
+      setHistoryIndex(newIdx);
+      const prevContent = historyStack[newIdx];
+      setPageContent(prevContent);
+      handleSavePage(prevContent, false);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < historyStack.length - 1) {
+      const newIdx = historyIndex + 1;
+      setHistoryIndex(newIdx);
+      const nextContent = historyStack[newIdx];
+      setPageContent(nextContent);
+      handleSavePage(nextContent, false);
+    }
+  };
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'DESIGN_ELEMENT_CLICKED') {
+         setClickedElementData(event.data.payload);
+         setPageFilter('all');
+      }
+      if (event.data?.type === 'DESIGN_ELEMENT_DRAGGED') {
+         setDraggedElementData(event.data.payload);
+      }
+      if (event.data?.type === 'DESIGN_ELEMENT_RESIZED') {
+         setResizedElementData(event.data.payload);
+      }
+      if (event.data?.type === 'DESIGN_ELEMENT_COLLIDED') {
+         setCollidedElementData(event.data.payload);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
+    const struct = dynamicStructure || designStructure;
+    if (activeCategory.startsWith("📁") && struct[activeCategory]?.[activeSubCategory]) {
+      const path = struct[activeCategory][activeSubCategory][0];
+      if (path && path !== activePagePath) {
+        setActivePagePath(path);
+      }
+    }
+  }, [activeCategory, activeSubCategory, dynamicStructure, designStructure]);
+
+  useEffect(() => {
+    if (activePagePath) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetProject = urlParams.get('project');
+      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
+        .then(res => res.json())
+        .then(data => {
+           if (data.success) {
+             setPageContent(data.content);
+             setHistoryStack([data.content]);
+             setHistoryIndex(0);
+           }
+        });
+    }
+  }, [activePagePath]);
+
+  const handleSavePage = (content: string, recordHistory = true) => {
+    setPageContent(content);
+    if (recordHistory) {
+      pushHistoryState(content);
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project');
+    fetch("http://localhost:5005/api/fs/write", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: targetProject, file: activePagePath, content })
+    });
+  };
+
+  const parsedPageSettings = useMemo(() => {
+    if (!activeCategory || !activeCategory.startsWith("📁") || !pageContent) return [];
+    
+    const elements: any[] = [];
+    
+    // On cherche <tag className="...">Texte</tag>
+    const elementRegex = /<([a-zA-Z0-9]+)([^>]*)>\s*([^<{}]+?)\s*<\/\1>/g;
+    let match;
+    while ((match = elementRegex.exec(pageContent)) !== null) {
+      const tag = match[1];
+      const attrs = match[2];
+      const text = match[3].trim();
+      
+      if (text.length > 1 && !text.startsWith('/*') && !text.startsWith('//') && /[a-zA-Z]/.test(text)) {
+        
+        let className = "";
+        let originalClassMatch = "";
+        const classMatch = attrs.match(/className=(['"])(.*?)\1/);
+        if (classMatch) {
+          originalClassMatch = classMatch[0];
+          className = classMatch[2];
+        }
+
+        // Split className heuristically
+        const classes = className.split(' ').filter((c: string) => c.trim() !== '');
+        
+        const sizeClasses: string[] = [];
+        const colorClasses: string[] = [];
+        const layoutClasses: string[] = [];
+        
+        classes.forEach((c: string) => {
+          if (c.startsWith('text-') && (c.includes('sm') || c.includes('md') || c.includes('lg') || c.includes('xl') || c.includes('['))) {
+            if (c.includes('primary') || c.includes('error') || c.includes('surface') || c.includes('#')) {
+              colorClasses.push(c);
+            } else {
+              sizeClasses.push(c);
+            }
+          } else if (c.startsWith('font-') || c.startsWith('leading-') || c.startsWith('tracking-') || c.startsWith('w-') || c.startsWith('h-')) {
+            if (c.startsWith('w-') || c.startsWith('h-')) layoutClasses.push(c);
+            else sizeClasses.push(c);
+          } else if (c.startsWith('bg-') || c.startsWith('border-') || c.startsWith('text-')) {
+            colorClasses.push(c);
+          } else {
+            layoutClasses.push(c);
+          }
+        });
+
+        elements.push({
+          id: `el_${match.index}`,
+          tag: tag,
+          originalMatch: match[0],
+          originalText: match[3],
+          originalClassMatch: originalClassMatch,
+          
+          text: text,
+          size: sizeClasses.join(' '),
+          color: colorClasses.join(' '),
+          layout: layoutClasses.join(' '),
+          
+          matchIndex: match.index
+        });
+      }
+    }
+
+    // 2. Extraire les blocs structurels (Cards, Containers) sans capturer le texte intérieur
+    const blockRegex = /<(div|section|article|aside|nav)[^>]*?className=(['"])(.*?)\2[^>]*?>/g;
+    let blockMatch;
+    while ((blockMatch = blockRegex.exec(pageContent)) !== null) {
+      const fullTag = blockMatch[0];
+      const tag = blockMatch[1];
+      const classNameMatch = blockMatch[3];
+      
+      // On cible uniquement les balises qui agissent comme des "Cards" ou "Blocs" (fond, bordure, ombre)
+      if (classNameMatch && (classNameMatch.includes('bg-') || classNameMatch.includes('border') || classNameMatch.includes('shadow-'))) {
+        
+        const classes = classNameMatch.split(' ').filter((c: string) => c.trim() !== '');
+        
+        const sizeClasses: string[] = [];
+        const colorClasses: string[] = [];
+        const layoutClasses: string[] = [];
+        
+        classes.forEach((c: string) => {
+           if (c.startsWith('bg-') || c.startsWith('border-') || c.startsWith('shadow-') || c.startsWith('text-')) {
+             colorClasses.push(c);
+           } else if (c.startsWith('w-') || c.startsWith('h-') || c.startsWith('min-') || c.startsWith('max-') || c.startsWith('rounded-')) {
+             sizeClasses.push(c);
+           } else {
+             layoutClasses.push(c);
+           }
+        });
+
+        // originalClassMatch exact extraction
+        const classMatch = fullTag.match(/className=(['"])(.*?)\1/);
+        
+        // Créer un petit aperçu pour aider l'utilisateur à identifier le bloc (ex: les fonds de page)
+        let blockPreview = "";
+        if (classNameMatch.includes('bg-[')) {
+          const bgMatch = classNameMatch.match(/bg-\[[^\]]+\]/);
+          if (bgMatch) blockPreview = ` (${bgMatch[0]})`;
+        } else if (classNameMatch.includes('bg-')) {
+          const bgMatch = classNameMatch.match(/bg-[a-zA-Z0-9-/]+/);
+          if (bgMatch) blockPreview = ` (${bgMatch[0]})`;
+        }
+        
+        elements.push({
+          id: `block_${blockMatch.index}`,
+          tag: `BLOC ${tag.toUpperCase()}${blockPreview}`, // Différenciation UI
+          originalMatch: fullTag,
+          originalText: null, // Pas de texte associé
+          originalClassMatch: classMatch ? classMatch[0] : "",
+          
+          text: "",
+          size: sizeClasses.join(' '),
+          color: colorClasses.join(' '),
+          layout: layoutClasses.join(' '),
+          
+          matchIndex: blockMatch.index
+        });
+      }
+    }
+    
+    // Sort
+
+    elements.sort((a, b) => a.matchIndex - b.matchIndex);
+    return elements;
+  }, [pageContent, activeCategory]);
+
+  const handleSavePageSetting = (element: any, newVals: any) => {
+    let newContent = pageContent;
+    
+    // 1. Reconstruire la className
+    const newClasses = [newVals.size, newVals.color, newVals.layout].filter(Boolean).join(' ');
+    let newAttrs = element.originalClassMatch;
+    
+    if (newClasses !== "") {
+      if (element.originalClassMatch) {
+        // preserve quote type
+        const quote = element.originalClassMatch.match(/['"]/)[0];
+        newAttrs = `className=${quote}${newClasses}${quote}`;
+      } else {
+        newAttrs = ` className="${newClasses}"`;
+      }
+    } else {
+      if (element.originalClassMatch) {
+        newAttrs = ""; // remove className
+      }
+    }
+
+    let newHTML = element.originalMatch;
+    
+    if (element.originalClassMatch) {
+      newHTML = newHTML.replace(element.originalClassMatch, newAttrs);
+    } else if (newAttrs !== "") {
+      // Insert className after tag (récupérer le vrai nom de balise si préfixé)
+      const realTag = element.tag.replace('BLOC ', '').toLowerCase();
+      newHTML = newHTML.replace(`<${realTag}`, `<${realTag}${newAttrs}`);
+    }
+    
+    // Replace text (only the extracted group to preserve newlines/spaces)
+    if (element.originalText !== null) {
+      newHTML = newHTML.replace(element.originalText, newVals.text);
+    }
+
+    newContent = newContent.replace(element.originalMatch, newHTML);
+    
+    setPageContent(newContent);
+    if ((window as any).pageSaveTimer) clearTimeout((window as any).pageSaveTimer);
+    (window as any).pageSaveTimer = setTimeout(() => handleSavePage(newContent), 500);
+  };
+
+  // Traitement du Glisser-Déposer (Drag & Drop)
+  useEffect(() => {
+    if (draggedElementData && parsedPageSettings.length > 0) {
+      const payloadList = Array.isArray(draggedElementData) ? draggedElementData : [draggedElementData];
+      let updatedContent = pageContent;
+
+      payloadList.forEach((item: any) => {
+        const element = parsedPageSettings.find((el: any) => {
+          if (item.text && el.originalText) {
+             return el.originalText === item.text || el.text === item.text;
+          } else if (item.className && el.originalClassMatch) {
+             const firstClass = item.className.split(' ').filter(Boolean)[0];
+             if (firstClass && el.originalClassMatch.includes(firstClass)) return true;
+          }
+          return false;
+        });
+
+        if (element) {
+          let currentLayout = element.layout || "";
+          
+          // 1. Extraire les marges existantes du code TSX
+          const mlMatch = currentLayout.match(/ml-\[(-?\d+)px\]/);
+          const currentMl = mlMatch ? parseInt(mlMatch[1]) : 0;
+
+          const mtMatch = currentLayout.match(/mt-\[(-?\d+)px\]/);
+          const currentMt = mtMatch ? parseInt(mtMatch[1]) : 0;
+
+          // 2. Cumul Absolu : Nouvelle Marge = Marge existante + Déplacement réél dx/dy
+          const newMl = currentMl + (item.dx || 0);
+          const newMt = currentMt + (item.dy || 0);
+
+          // 3. Nettoyage des anciennes classes de position
+          currentLayout = currentLayout
+            .replace(/mt-\[-?\d+px\]/g, '')
+            .replace(/ml-\[-?\d+px\]/g, '')
+            .replace(/translate-x-\[-?\d+px\]/g, '')
+            .replace(/translate-y-\[-?\d+px\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (newMl !== 0) currentLayout += ` ml-[${newMl}px]`;
+          if (newMt !== 0) currentLayout += ` mt-[${newMt}px]`;
+          currentLayout = currentLayout.trim();
+
+          const newClasses = [element.size, element.color, currentLayout].filter(Boolean).join(' ');
+          let newAttrs = element.originalClassMatch;
+          
+          if (newClasses !== "") {
+            if (element.originalClassMatch) {
+              const quote = element.originalClassMatch.match(/['"]/)?.[0] || '"';
+              newAttrs = `className=${quote}${newClasses}${quote}`;
+            } else {
+              newAttrs = ` className="${newClasses}"`;
+            }
+          } else {
+            newAttrs = "";
+          }
+
+          let newHTML = element.originalMatch;
+          if (element.originalClassMatch) {
+            newHTML = newHTML.replace(element.originalClassMatch, newAttrs);
+          } else if (newAttrs !== "") {
+            const realTag = element.tag.replace('BLOC ', '').toLowerCase();
+            newHTML = newHTML.replace(`<${realTag}`, `<${realTag}${newAttrs}`);
+          }
+          if (element.originalText !== null) {
+            newHTML = newHTML.replace(element.originalText, element.text);
+          }
+          updatedContent = updatedContent.replace(element.originalMatch, newHTML);
+        }
+      });
+
+      handleSavePage(updatedContent);
+      setDraggedElementData(null); // Consommer l'événement
+    }
+  }, [draggedElementData, parsedPageSettings]);
+
+  // Traitement du Redimensionnement (Resize Handle)
+  useEffect(() => {
+    if (resizedElementData && parsedPageSettings.length > 0) {
+      const element = parsedPageSettings.find((el: any) => {
+        if (resizedElementData.text && el.originalText) {
+           return el.originalText === resizedElementData.text || el.text === resizedElementData.text;
+        } else if (resizedElementData.className && el.originalClassMatch) {
+           const firstClass = resizedElementData.className.split(' ').filter(Boolean)[0];
+           if (firstClass && el.originalClassMatch.includes(firstClass)) return true;
+        }
+        return false;
+      });
+
+      if (element) {
+        let currentLayout = element.layout || "";
+        currentLayout = currentLayout.replace(/w-\[-?\d+px\]/g, '').trim();
+        currentLayout = currentLayout.replace(/h-\[-?\d+px\]/g, '').trim();
+        
+        currentLayout += ` w-[${resizedElementData.width}px] h-[${resizedElementData.height}px]`;
+        currentLayout = currentLayout.trim();
+
+        handleSavePageSetting(element, {
+           size: element.size,
+           color: element.color,
+           layout: currentLayout,
+           text: element.text
+        });
+      }
+      setResizedElementData(null); // Consommer l'événement
+    }
+  }, [resizedElementData, parsedPageSettings]);
+
+  // Définir des positions de calques coordonnées pour 2 éléments (topElement z-[9999], bottomElement z-[1])
+  const setTwoElementLayers = (topElement: any, bottomElement: any) => {
+    if (!topElement || !bottomElement) return;
+
+    let layoutTop = (topElement.layout || "").replace(/z-\S+/g, '').replace(/\s+/g, ' ').trim();
+    if (!layoutTop.includes('relative') && !layoutTop.includes('absolute') && !layoutTop.includes('fixed') && !layoutTop.includes('sticky')) {
+      layoutTop = `relative ${layoutTop}`;
+    }
+    layoutTop = `${layoutTop} z-[9999]`.trim();
+
+    let layoutBottom = (bottomElement.layout || "").replace(/z-\S+/g, '').replace(/\s+/g, ' ').trim();
+    if (!layoutBottom.includes('relative') && !layoutBottom.includes('absolute') && !layoutBottom.includes('fixed') && !layoutBottom.includes('sticky')) {
+      layoutBottom = `relative ${layoutBottom}`;
+    }
+    layoutBottom = `${layoutBottom} z-[1]`.trim();
+
+    let updatedContent = pageContent;
+
+    const updateSingleElementHTML = (el: any, newLayout: string, content: string) => {
+      const newClasses = [el.size, el.color, newLayout].filter(Boolean).join(' ');
+      let newAttrs = el.originalClassMatch;
+      
+      if (newClasses !== "") {
+        if (el.originalClassMatch) {
+          const quote = el.originalClassMatch.match(/['"]/)?.[0] || '"';
+          newAttrs = `className=${quote}${newClasses}${quote}`;
+        } else {
+          newAttrs = ` className="${newClasses}"`;
+        }
+      } else {
+        newAttrs = "";
+      }
+
+      let newHTML = el.originalMatch;
+      if (el.originalClassMatch) {
+        newHTML = newHTML.replace(el.originalClassMatch, newAttrs);
+      } else if (newAttrs !== "") {
+        const realTag = el.tag.replace('BLOC ', '').toLowerCase();
+        newHTML = newHTML.replace(`<${realTag}`, `<${realTag}${newAttrs}`);
+      }
+      if (el.originalText !== null) {
+        newHTML = newHTML.replace(el.originalText, el.text);
+      }
+
+      return content.replace(el.originalMatch, newHTML);
+    };
+
+    updatedContent = updateSingleElementHTML(topElement, layoutTop, updatedContent);
+    updatedContent = updateSingleElementHTML(bottomElement, layoutBottom, updatedContent);
+
+    pushHistoryState(updatedContent);
+    setPageContent(updatedContent);
+    handleSavePage(updatedContent);
+  };
+
+  useEffect(() => {
+    if (collidedElementData && parsedPageSettings.length > 0) {
+      const { dragged, collided } = collidedElementData;
+
+      const draggedEl = parsedPageSettings.find((el: any) => {
+        if (dragged.text && el.originalText) return el.originalText === dragged.text || el.text === dragged.text;
+        if (dragged.className && el.originalClassMatch) {
+          const first = dragged.className.split(' ').filter(Boolean)[0];
+          if (first && el.originalClassMatch.includes(first)) return true;
+        }
+        return false;
+      });
+
+      const collidedEl = parsedPageSettings.find((el: any) => {
+        if (collided.text && el.originalText) return el.originalText === collided.text || el.text === collided.text;
+        if (collided.className && el.originalClassMatch) {
+          const first = collided.className.split(' ').filter(Boolean)[0];
+          if (first && el.originalClassMatch.includes(first)) return true;
+        }
+        return false;
+      });
+
+      if (draggedEl && collidedEl) {
+        setTwoElementLayers(draggedEl, collidedEl);
+      }
+      setCollidedElementData(null);
+    }
+  }, [collidedElementData, parsedPageSettings]);
+
+  const handleSwapLayers = () => {
+    if (!clickedElementData || !Array.isArray(clickedElementData) || clickedElementData.length < 2) return;
+    
+    const item1 = clickedElementData[0];
+    const item2 = clickedElementData[1];
+
+    const el1 = parsedPageSettings.find((el: any) => {
+      if (item1.text && el.originalText) return el.originalText === item1.text || el.text === item1.text;
+      if (item1.className && el.originalClassMatch) {
+        const first = item1.className.split(' ').filter(Boolean)[0];
+        if (first && el.originalClassMatch.includes(first)) return true;
+      }
+      return false;
+    });
+
+    const el2 = parsedPageSettings.find((el: any) => {
+      if (item2.text && el.originalText) return el.originalText === item2.text || el.text === item2.text;
+      if (item2.className && el.originalClassMatch) {
+        const first = item2.className.split(' ').filter(Boolean)[0];
+        if (first && el.originalClassMatch.includes(first)) return true;
+      }
+      return false;
+    });
+
+    if (!el1 || !el2) return;
+
+    const layout1 = el1.layout || "";
+    const isEl1Top = layout1.includes('z-[50]') || layout1.includes('z-[9999]') || layout1.includes('z-[100]');
+
+    if (isEl1Top) {
+      setTwoElementLayers(el2, el1);
+    } else {
+      setTwoElementLayers(el1, el2);
+    }
+  };
+
+  const handleTwoElementLayerChange = (currentEl: any, otherEl: any, plan: 'top' | 'up' | 'down' | 'bottom') => {
+    if (plan === 'top') {
+      setTwoElementLayers(currentEl, otherEl);
+    } else if (plan === 'bottom') {
+      setTwoElementLayers(otherEl, currentEl);
+    } else {
+      let l = (currentEl.layout || "").replace(/z-\S+/g, '').replace(/\s+/g, ' ').trim();
+      if (!l.includes('relative') && !l.includes('absolute') && !l.includes('fixed') && !l.includes('sticky')) {
+        l = `relative ${l}`;
+      }
+      const zClass = plan === 'up' ? 'z-[100]' : 'z-[1]';
+      l = `${l} ${zClass}`.trim();
+      handleSavePageSetting(currentEl, { size: currentEl.size, color: currentEl.color, layout: l, text: currentEl.text });
+    }
+  };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project');
+
+    if (!targetProject || targetProject === "../../v0-interface-versel") {
+      // Cas 1 : Interface Admin V0 (L'IDE lui-même)
+      fetch(`http://localhost:5005/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.content) {
+            try {
+              setDesign(prev => ({ ...prev, ...JSON.parse(data.content) }));
+            } catch (e) { }
+          }
+        })
+        .finally(() => setIsLoaded(true));
+    } else {
+      // Cas 2 : Projet Utilisateur (Parser dynamiquement son design.css)
+      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=src/design.css`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.content) {
+            const cssContent = data.content;
+            const varRegex = /--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g;
+            let match;
+            const parsedDesign: Record<string, string> = {};
+            const structure: Record<string, Record<string, string[]>> = {
+              "🎨 Paramètres du Projet": {}
+            };
+
+            while ((match = varRegex.exec(cssContent)) !== null) {
+              const fullVarName = match[1];
+              const value = match[2].trim().replace(/!important$/, '').trim();
+              const camelCaseKey = fullVarName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+              parsedDesign[camelCaseKey] = value;
+
+              // Détermination Intelligente de la Catégorie (Niveau 1) et Sous-Catégorie (Niveau 2)
+              let n1 = "🧩 Autres Composants";
+              let n2 = "Divers";
+              const keyLow = fullVarName.toLowerCase();
+
+              // Heuristiques de catégorisation :
+              if (keyLow.includes('app') || keyLow.includes('global') || keyLow.includes('body')) {
+                n1 = "🌍 Structure Globale"; n2 = "Architecture";
+              }
+              if (keyLow.includes('couleur') || keyLow.includes('color') || keyLow.includes('bg') || keyLow.includes('fond')) {
+                n1 = "🌍 Structure Globale"; n2 = "Couleurs & Fonds";
+              }
+              if (keyLow.includes('font') || keyLow.includes('text') || keyLow.includes('typ')) {
+                n1 = "🌍 Structure Globale"; n2 = "Typographie";
+              }
+
+              if (keyLow.includes('header') || keyLow.includes('nav') || keyLow.includes('menu')) {
+                n1 = "🏠 Page d'Accueil"; n2 = "En-tête (Header)";
+              }
+              if (keyLow.includes('hero') || keyLow.includes('banner')) {
+                n1 = "🏠 Page d'Accueil"; n2 = "Section Héro";
+              }
+              if (keyLow.includes('footer') || keyLow.includes('pied')) {
+                n1 = "🏠 Page d'Accueil"; n2 = "Pied de page (Footer)";
+              }
+
+              if (keyLow.includes('btn') || keyLow.includes('bouton') || keyLow.includes('button')) {
+                n1 = "📱 Composants"; n2 = "Boutons";
+              }
+              if (keyLow.includes('card') || keyLow.includes('carte') || keyLow.includes('box')) {
+                n1 = "📱 Composants"; n2 = "Cartes & Blocs";
+              }
+              if (keyLow.includes('input') || keyLow.includes('form') || keyLow.includes('saisie')) {
+                n1 = "📱 Composants"; n2 = "Formulaires";
+              }
+              if (keyLow.includes('modal') || keyLow.includes('popup') || keyLow.includes('dialog')) {
+                n1 = "🪟 Modales & Popups"; n2 = "Fenêtres";
+              }
+
+              // Règle de fallback pour grouper intelligemment s'il n'y a pas de match spécifique
+              if (n1 === "🧩 Autres Composants") {
+                const prefix = fullVarName.split('-')[0];
+                if (prefix.length > 2) {
+                  n2 = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+                }
+              }
+
+              if (!structure[n1]) structure[n1] = {};
+              if (!structure[n1][n2]) structure[n1][n2] = [];
+              if (!structure[n1][n2].includes(camelCaseKey)) {
+                structure[n1][n2].push(camelCaseKey);
+              }
+            }
+
+            if (Object.keys(structure["🎨 Paramètres du Projet"]).length === 0) {
+              delete structure["🎨 Paramètres du Projet"];
+            }
+
+            // --- NOUVEAU: Fetch du dossier src/pages ---
+            fetch(`http://localhost:5005/api/fs/tree?project=${targetProject}`)
+              .then(resTree => resTree.json())
+              .then(treeData => {
+                if (treeData.success && treeData.tree) {
+                  try {
+                    const newStructure: Record<string, any> = {};
+                    
+                    const extractFolder = (node: any, targetFolder: string, outArr: string[]) => {
+                      if (!node) return;
+                      
+                      // L'API bridge-server fournit déjà 'path' (ex: "src/pages/Dashboard.tsx")
+                      if (node.type === 'file' && node.name && node.name.endsWith('.tsx') && node.path && node.path.startsWith(targetFolder)) {
+                        outArr.push(node.path);
+                      }
+                      
+                      if (node.children && Array.isArray(node.children)) {
+                        node.children.forEach((child: any) => extractFolder(child, targetFolder, outArr));
+                      }
+                    };
+                    
+                    // Extract pages
+                    const pagesArr: string[] = [];
+                    extractFolder(treeData.tree, 'src/pages', pagesArr);
+                    if (pagesArr.length > 0) {
+                      newStructure["📁 src/pages"] = {};
+                      pagesArr.forEach(path => {
+                        const name = path.split('/').pop();
+                        if (name) newStructure["📁 src/pages"][name] = [path];
+                      });
+                    }
+
+                    // Le composant src/components a été retiré à la demande de l'utilisateur.
+                    if (Object.keys(newStructure).length > 0) {
+                      setDesign(parsedDesign);
+                      setDynamicStructure(newStructure);
+                      const firstCat = Object.keys(newStructure)[0];
+                      setActiveCategory(firstCat);
+                      setActiveSubCategory(Object.keys(newStructure[firstCat])[0] || "");
+                      return;
+                    }
+                  } catch (err) {
+                    console.error("Erreur lors de l'extraction de l'arbre:", err);
+                  }
+                }
+
+                // Fallback si l'arbre est vide ou erreur
+                setDesign(parsedDesign);
+                setDynamicStructure(structure);
+                const firstCat = Object.keys(structure)[0];
+                if (firstCat) {
+                  setActiveCategory(firstCat);
+                  setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                }
+              }).catch((err) => {
+                console.error("Erreur réseau fetch tree:", err);
+                // Fallback si l'arbre ne charge pas
+                setDesign(parsedDesign);
+                setDynamicStructure(structure);
+                const firstCat = Object.keys(structure)[0];
+                if (firstCat) {
+                  setActiveCategory(firstCat);
+                  setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                }
+              });
+          }
+        })
+        .finally(() => setIsLoaded(true));
+    }
+  }, []);
+
+  const currentStructure = dynamicStructure || designStructure;
 
   const formatKeyToCSSVar = (key: string) => {
     return '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
   };
 
-  const generateCSS = (d: typeof defaultDesign) => {
+  const generateCSS = (d: typeof defaultDesign | Record<string, string>) => {
     let cssVars = '';
     for (const [key, value] of Object.entries(d)) {
       cssVars += `  ${formatKeyToCSSVar(key)}: ${value};\n`;
     }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project');
+    const isExternalProject = targetProject && targetProject !== "../../v0-interface-versel";
+
+    if (isExternalProject) {
+      // Si c'est un projet externe, on recrache juste les variables root
+      return `/* Design Auto-Généré pour ${targetProject} */
+:root {
+${cssVars}
+}
+`;
+    }
     
+    // Sinon, c'est l'IDE, on crache tout le CSS complexe
     return `/* Tiger IA Design - Admin Studio FULL */
 :root {
 ${cssVars}
@@ -229,15 +1231,78 @@ body {
    border-left: var(--mouchard-bordure-gauche) !important;
    box-shadow: var(--mouchard-ombre) !important;
 }
+
+/* --- CLASSES ESPACE IDE --- */
+.design-ide-toolbar {
+   height: var(--ide-toolbar-hauteur) !important;
+   background: var(--ide-toolbar-bg) !important;
+   border-bottom: var(--ide-toolbar-bordure) !important;
+}
+
+.design-ide-btn-action {
+   width: var(--ide-btn-action-taille) !important;
+   height: var(--ide-btn-action-taille) !important;
+   border-radius: var(--ide-btn-action-arrondi) !important;
+   background: var(--ide-btn-action-bg) !important;
+   border: var(--ide-btn-action-bordure) !important;
+   font-size: var(--ide-btn-action-emoji) !important;
+}
+
+.design-explorateur {
+   width: var(--explorateur-largeur) !important;
+   background: var(--explorateur-bg) !important;
+   border-right: var(--explorateur-bordure-droite) !important;
+}
+
+.design-explorateur-texte {
+   font-size: var(--explorateur-texte-taille) !important;
+}
+
+.design-explorateur-dossier {
+   color: var(--explorateur-dossier-couleur) !important;
+}
+
+.design-explorateur-fichier {
+   color: var(--explorateur-fichier-couleur) !important;
+}
+
+.design-editeur {
+   background: var(--editeur-bg) !important;
+}
+
+.design-editeur-onglet {
+   height: var(--editeur-onglet-hauteur) !important;
+   background: var(--editeur-onglet-bg) !important;
+   border-bottom: var(--editeur-onglet-bordure) !important;
+}
+
+.design-preview {
+   background: var(--preview-bg) !important;
+   width: var(--preview-largeur) !important;
+   border-left: var(--preview-bordure-gauche) !important;
+}
 `;
   };
 
   useEffect(() => {
+    if (!isLoaded) return; // Ne JAMAIS sauvegarder avant d'avoir chargé les tokens du projet !
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project') || "../../v0-interface-versel";
+
     const timer = setTimeout(() => {
       fetch("http://localhost:5005/api/fs/write", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project: "../../v0-interface-versel", file: "src/design.css", content: generateCSS(design) })
+        body: JSON.stringify({ project: targetProject, file: "src/design.css", content: generateCSS(design) })
       }).catch(console.error);
+
+      // Si projet externe, sauvegarder aussi les tokens
+      if (targetProject !== "../../v0-interface-versel") {
+        fetch("http://localhost:5005/api/fs/write", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
+        }).catch(console.error);
+      }
     }, 150); // Plus rapide pour une sensation temps-réel absolue
     return () => clearTimeout(timer);
   }, [design]);
@@ -252,15 +1317,27 @@ body {
   };
 
   const saveToSource = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project') || "../../v0-interface-versel";
+
     fetch("http://localhost:5005/api/fs/write", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project: "../../v0-interface-versel", file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
+      body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
     })
-    .then(() => alert("✅ Réglages GRAVÉS dans le code source de l'application !"))
+    .then(() => alert(`✅ Réglages GRAVÉS dans le projet ${targetProject} !`))
     .catch(err => alert("❌ Erreur lors de la sauvegarde : " + err.message));
   };
 
   const isColor = (val: string) => val.startsWith('#') || val.startsWith('rgba') || val.startsWith('rgb');
+
+  if (!isLoaded) {
+    return (
+      <div className="w-full h-screen bg-black flex flex-col items-center justify-center font-sans">
+        <span className="w-6 h-6 rounded-full bg-cyan animate-ping mb-4"></span>
+        <p className="text-cyan font-bold tracking-widest text-sm">CHARGEMENT DES PARAMÈTRES DU PROJET...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-[#050505] text-white flex flex-col font-sans overflow-hidden">
@@ -284,20 +1361,76 @@ body {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT: CATEGORIES */}
+        {/* LEFT: 2-LEVEL NAVIGATION (PAGES -> COMPOSANTS) */}
         <div className="w-80 bg-black/40 border-r border-white/10 flex flex-col overflow-y-auto custom-scrollbar">
           <div className="p-4">
-            <h2 className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4 pl-2">Zones & Composants</h2>
-            <div className="space-y-1">
-              {Object.keys(categories).map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setActiveCategory(cat)}
-                  className={`w-full text-left px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeCategory === cat ? 'bg-gradient-to-r from-cyan/20 to-pink-500/10 text-white border-l-4 border-cyan' : 'text-gray-400 hover:bg-white/5 border-l-4 border-transparent'}`}
-                >
-                  {cat}
-                </button>
+            <h2 className="text-[10px] font-black text-gray-500 tracking-widest uppercase mb-6 pl-2 border-b border-white/5 pb-2">Arborescence du Design</h2>
+            
+            <div className="space-y-4">
+              {Object.keys(currentStructure).map(cat => (
+                <div key={cat} className="flex flex-col">
+                  {/* Niveau 1 : Page ou Zone Globale */}
+                  <button 
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      setActiveSubCategory(Object.keys((currentStructure as any)[cat])[0]);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg text-[13px] font-black uppercase transition-all flex justify-between items-center ${activeCategory === cat ? 'bg-gradient-to-r from-cyan/20 to-pink-500/10 text-white border-l-4 border-cyan shadow-[0_0_15px_rgba(8,179,201,0.2)]' : 'text-gray-400 hover:bg-white/5 border-l-4 border-transparent'}`}
+                  >
+                    <span>{cat}</span>
+                    <span className="text-[10px] opacity-50">{activeCategory === cat ? '▼' : '▶'}</span>
+                  </button>
+                  
+                  {/* Niveau 2 : Sous-composants */}
+                  {activeCategory === cat && (
+                    <div className="mt-2 ml-4 pl-3 border-l border-white/10 flex flex-col gap-1 relative before:absolute before:top-0 before:left-[-1px] before:w-[2px] before:h-full before:bg-gradient-to-b before:from-cyan/50 before:to-transparent">
+                      {Object.keys((currentStructure as any)[cat]).map(subcat => (
+                        <button
+                          key={subcat}
+                          onClick={() => {
+                            setActiveSubCategory(subcat);
+                            if (cat.startsWith("📁")) {
+                               let route = "/";
+                               if (subcat === 'AgentsManagement.tsx') route = '/agents';
+                               else if (subcat === 'ProfileSettings.tsx') route = '/profile';
+                               else if (subcat === 'SkillsLibrary.tsx') route = '/skills';
+                               else if (subcat === 'SystemActivity.tsx') route = '/activity';
+                               else if (subcat === 'Dashboard.tsx') route = '/';
+                               window.parent.postMessage({ type: 'CHANGE_PREVIEW_URL', route }, '*');
+                            }
+                          }}
+                          className={`w-full text-left px-4 py-2.5 rounded-md text-xs font-bold transition-all relative ${activeSubCategory === subcat ? 'bg-white/10 text-cyan translate-x-1 shadow-md' : 'text-gray-500 hover:text-white hover:bg-white/5 hover:translate-x-1'}`}
+                        >
+                          {subcat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
+            </div>
+
+            {/* BOUTONS UNDO / REDO (HISTORIQUE DE 8 NIVEAUX) */}
+            <div className="mt-8 pt-4 border-t border-white/10 flex flex-col gap-2">
+              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-1">Historique d'Édition (Snapshots)</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1 ${historyIndex > 0 ? 'bg-white/10 text-white border-white/20 hover:bg-white/20 cursor-pointer shadow-sm' : 'bg-black/20 text-gray-600 border-white/5 cursor-not-allowed opacity-50'}`}
+                  title="Annuler la dernière modification"
+                >
+                  ↩️ Annuler ({historyIndex})
+                </button>
+                <button
+                  onClick={handleRedo}
+                  disabled={historyIndex >= historyStack.length - 1}
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1 ${historyIndex < historyStack.length - 1 ? 'bg-white/10 text-white border-white/20 hover:bg-white/20 cursor-pointer shadow-sm' : 'bg-black/20 text-gray-600 border-white/5 cursor-not-allowed opacity-50'}`}
+                  title="Rétablir la modification suivante"
+                >
+                  ↪️ Rétablir
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -305,14 +1438,171 @@ body {
         {/* RIGHT: DYNAMIC CONTROLS */}
         <div className="flex-1 bg-[#0a0a0a] p-8 overflow-y-auto custom-scrollbar relative">
           
-          <div className="max-w-4xl mx-auto pb-32">
-            <h2 className="text-3xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">
-              {activeCategory}
-            </h2>
+          <div className="max-w-5xl mx-auto pb-32">
+            <div className="mb-10 flex flex-col gap-2 border-b border-white/10 pb-6">
+              <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">{activeCategory}</span>
+              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">
+                {activeSubCategory}
+              </h2>
+            </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {(categories as any)[activeCategory].map((key: string) => {
-                const val = (design as any)[key];
+            {activeCategory.startsWith("📁") ? (
+              <div className="flex flex-col gap-6 col-span-full">
+                {activePagePath && (
+                  <div className="flex flex-col items-center gap-4 mb-4 mx-auto w-full">
+                    {/* PANNEAU MODE DESIGN ET PERSISTANCE */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/10 w-full shadow-md">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={toggleDesignMode}
+                          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 ${
+                            isDesignMode
+                              ? 'bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.7)] scale-105 border border-emerald-400'
+                              : 'bg-gray-800 text-gray-400 border border-gray-700 hover:bg-gray-700 hover:text-white'
+                          }`}
+                          title={isDesignMode ? "Désactiver le Mode Design pour tester l'application en direct" : "Activer le Mode Design pour modifier le style"}
+                        >
+                          {isDesignMode ? '🎨 Mode Design : ACTIVÉ' : '🚀 Mode Design : DÉSACTIVÉ (App Live)'}
+                        </button>
+
+                        <span className="text-xs font-medium text-gray-400 hidden sm:inline">
+                          {isDesignMode ? '(Souris active pour glisser, redimensionner, calques)' : '(Boutons cliquables, navigation & backend actifs)'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleManualSave}
+                          className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg cursor-pointer active:scale-95 ${
+                            isSavedButton
+                              ? 'bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.8)] scale-105 border border-emerald-400'
+                              : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md'
+                          }`}
+                          title="Sauvegarder définitivement toutes les modifications dans les fichiers source TSX"
+                        >
+                          {isSavedButton ? '✅ Sauvegarde Validée !' : '💾 Sauvegarder le Projet'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {saveSuccessMessage && (
+                      <div className="w-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 p-2.5 rounded-xl text-xs font-bold text-center animate-pulse">
+                        {saveSuccessMessage}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+                      <button onClick={() => { setPageFilter('all'); setClickedElementData(null); }} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${pageFilter === 'all' && !clickedElementData ? 'bg-cyan text-black' : 'text-gray-400 hover:text-white'}`}>Tout voir</button>
+                      <button onClick={() => { setPageFilter('text'); setClickedElementData(null); }} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${pageFilter === 'text' && !clickedElementData ? 'bg-cyan text-black' : 'text-gray-400 hover:text-white'}`}>📝 Textes uniquement</button>
+                      <button onClick={() => { setPageFilter('blocks'); setClickedElementData(null); }} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${pageFilter === 'blocks' && !clickedElementData ? 'bg-cyan text-black' : 'text-gray-400 hover:text-white'}`}>🔲 Blocs & Fonds</button>
+                    </div>
+                    {clickedElementData && (
+                      Array.isArray(clickedElementData) && clickedElementData.length >= 2 ? (
+                        <div className="bg-pink-500/20 text-pink-300 px-5 py-3 rounded-xl border border-pink-500/50 flex items-center justify-between gap-4 text-sm font-bold shadow-[0_0_20px_rgba(236,72,153,0.4)] w-full">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🎯</span>
+                            <span>Mode {clickedElementData.length} Éléments Liés</span>
+                            <span className="text-xs font-normal text-pink-200">(Ctrl + Clic dans la preview)</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setClickedElementData(null)} className="hover:text-white hover:bg-black/80 bg-black/40 px-2.5 py-1 rounded-lg transition-colors text-xs">
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-pink-500/20 text-pink-300 px-4 py-2 rounded-lg border border-pink-500/50 flex items-center gap-2 text-sm font-bold shadow-[0_0_15px_rgba(236,72,153,0.3)]">
+                          🎯 Mode Ciblage Actif (Sélection via Preview)
+                          <button onClick={() => setClickedElementData(null)} className="ml-2 hover:text-white hover:bg-black/80 bg-black/40 px-2 py-0.5 rounded transition-colors text-xs">Annuler</button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                  {activePagePath ? (
+                    parsedPageSettings.length > 0 ? (
+                      parsedPageSettings
+                        .filter((element: any) => {
+                          if (clickedElementData) {
+                            if (Array.isArray(clickedElementData)) {
+                               return clickedElementData.some((item: any) => {
+                                  if (item.text && element.originalText) {
+                                     return element.originalText === item.text || element.text === item.text;
+                                  } else if (item.className && element.originalClassMatch) {
+                                     const firstClass = item.className.split(' ').filter(Boolean)[0];
+                                     if (firstClass && element.originalClassMatch.includes(firstClass)) return true;
+                                  }
+                                  return false;
+                               });
+                            }
+                            if (clickedElementData.text && element.originalText) {
+                               return element.originalText === clickedElementData.text || element.text === clickedElementData.text;
+                            } else if (clickedElementData.className && element.originalClassMatch) {
+                               const firstClass = clickedElementData.className.split(' ').filter(Boolean)[0];
+                               if (firstClass && element.originalClassMatch.includes(firstClass)) return true;
+                            }
+                            return false;
+                          }
+                          if (pageFilter === 'all') return true;
+                          if (pageFilter === 'text') return element.originalText !== null;
+                          if (pageFilter === 'blocks') return element.originalText === null;
+                          return true;
+                        })
+                        .map((element: any, idx: number) => {
+                          let onSetLayer: any = undefined;
+                          if (Array.isArray(clickedElementData) && clickedElementData.length >= 2) {
+                            const otherItem = clickedElementData.find((item: any) => {
+                               if (item.text && element.originalText) return !(element.originalText === item.text || element.text === item.text);
+                               if (item.className && element.originalClassMatch) {
+                                  const first = item.className.split(' ').filter(Boolean)[0];
+                                  return first ? !element.originalClassMatch.includes(first) : true;
+                               }
+                               return true;
+                            });
+                            if (otherItem) {
+                               const otherEl = parsedPageSettings.find((el: any) => {
+                                  if (otherItem.text && el.originalText) return el.originalText === otherItem.text || el.text === otherItem.text;
+                                  if (otherItem.className && el.originalClassMatch) {
+                                     const first = otherItem.className.split(' ').filter(Boolean)[0];
+                                     if (first && el.originalClassMatch.includes(first)) return true;
+                                  }
+                                  return false;
+                               });
+                               if (otherEl) {
+                                  onSetLayer = (plan: 'top' | 'up' | 'down' | 'bottom') => handleTwoElementLayerChange(element, otherEl, plan);
+                               }
+                            }
+                          }
+                          return (
+                            <ElementSettingCard 
+                              key={`${element.id}_${idx}`} 
+                              element={element} 
+                              onSave={handleSavePageSetting} 
+                              onSetLayer={onSetLayer}
+                            />
+                          );
+                        })
+                    ) : (
+                      <div className="col-span-full flex items-center justify-center text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed h-40">
+                        Aucun paramètre texte modifiable trouvé dans cette page.
+                      </div>
+                    )
+                  ) : (
+                    <div className="col-span-full flex items-center justify-center text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed h-40">
+                      Sélectionnez un fichier dans le menu de gauche pour éditer ses paramètres.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentStructure[activeCategory] && (currentStructure as any)[activeCategory][activeSubCategory] &&
+                  (currentStructure as any)[activeCategory][activeSubCategory].map((key: string) => {
+                    const val = (design as any)[key];
+                if (val === undefined) return null;
+
                 const cssVarName = formatKeyToCSSVar(key);
 
                 // --- SMART AUTO-RENDERER ---
@@ -353,15 +1643,15 @@ body {
                 const isLocked = !!lockedSettings[key];
 
                 return (
-                  <div key={key} className={`bg-white/5 p-5 rounded-xl border transition-colors shadow-lg flex flex-col justify-between group ${isLocked ? 'border-red-500/30 opacity-75' : 'border-white/10 hover:border-cyan/50'}`}>
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={key} className={`bg-white/5 p-6 rounded-2xl border transition-all shadow-lg flex flex-col justify-between group ${isLocked ? 'border-red-500/30 opacity-75' : 'border-white/10 hover:border-cyan/50 hover:bg-white/10 hover:-translate-y-1'}`}>
+                    <div className="flex justify-between items-start mb-6">
                       <div>
-                        <label className="block text-sm font-black text-white mb-1 drop-shadow-md">{ludicLabel}</label>
-                        <code className="text-[10px] text-cyan block mb-1 font-mono opacity-60">var({cssVarName})</code>
+                        <label className="block text-sm font-black text-white mb-2 drop-shadow-md">{ludicLabel}</label>
+                        <code className="text-[10px] bg-black/50 px-2 py-1 rounded text-cyan block font-mono opacity-80 border border-cyan/20">var({cssVarName})</code>
                       </div>
                       <button 
                         onClick={() => toggleLock(key)} 
-                        className={`p-2 rounded-lg text-lg transition-all ${isLocked ? 'bg-red-500/20 text-red-400 border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-black/50 text-gray-500 hover:text-white border border-white/5 hover:border-white/20'}`}
+                        className={`p-2.5 rounded-xl text-lg transition-all ${isLocked ? 'bg-red-500/20 text-red-400 border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-black/50 text-gray-500 hover:text-white border border-white/5 hover:border-white/30 hover:shadow-lg hover:bg-white/10'}`}
                         title={isLocked ? "Déverrouiller" : "Verrouiller ce réglage"}
                       >
                         {isLocked ? '🔒' : '🔓'}
@@ -373,7 +1663,7 @@ body {
                         value={val} 
                         onChange={(e) => handleChange(key as any, e.target.value)} 
                         disabled={isLocked}
-                        className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                        className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
                       >
                         <option value="relative">Relative</option>
                         <option value="absolute">Absolute</option>
@@ -382,20 +1672,20 @@ body {
                         <option value="static">Static</option>
                       </select>
                     ) : isDisplay ? (
-                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="flex">flex</option>
                         <option value="grid">grid</option>
                         <option value="block">block</option>
                         <option value="none">none</option>
                       </select>
                     ) : isFlexWrap ? (
-                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="nowrap">nowrap</option>
                         <option value="wrap">wrap</option>
                         <option value="wrap-reverse">wrap-reverse</option>
                       </select>
                     ) : isJustify ? (
-                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="flex-start">flex-start</option>
                         <option value="flex-end">flex-end</option>
                         <option value="center">center</option>
@@ -404,20 +1694,22 @@ body {
                         <option value="space-evenly">space-evenly</option>
                       </select>
                     ) : isOverflow ? (
-                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                      <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="visible">visible</option>
                         <option value="hidden">hidden</option>
                         <option value="scroll">scroll</option>
                         <option value="auto">auto</option>
                       </select>
                     ) : isColorVal && val.startsWith('#') ? (
-                      <div className={`flex items-center gap-3 bg-black/50 p-2 rounded-lg border border-white/10 ${isLocked ? 'opacity-50' : ''}`}>
-                        <input type="color" value={val} disabled={isLocked} onChange={(e) => handleChange(key as any, e.target.value)} className={`w-10 h-10 rounded bg-transparent border-0 shrink-0 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
-                        <input type="text" value={val} disabled={isLocked} onChange={(e) => handleChange(key as any, e.target.value)} className={`w-full bg-transparent border-none text-sm text-white font-mono outline-none ${isLocked ? 'cursor-not-allowed' : ''}`} />
+                      <div className={`flex items-center gap-4 bg-black/60 p-3 rounded-xl border border-white/10 transition-colors ${isLocked ? 'opacity-50' : 'hover:border-white/30'}`}>
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 shadow-inner shrink-0">
+                          <input type="color" value={val} disabled={isLocked} onChange={(e) => handleChange(key as any, e.target.value)} className={`absolute top-[-10px] left-[-10px] w-20 h-20 bg-transparent border-0 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
+                        </div>
+                        <input type="text" value={val} disabled={isLocked} onChange={(e) => handleChange(key as any, e.target.value)} className={`w-full bg-transparent border-none text-base text-white font-mono font-bold outline-none ${isLocked ? 'cursor-not-allowed' : ''}`} />
                       </div>
                     ) : sliderMatch ? (
-                      <div className={`flex flex-col gap-2 ${isLocked ? 'opacity-50' : ''}`}>
-                        <div className="flex justify-between items-center bg-black/50 p-2 rounded-lg border border-white/10">
+                      <div className={`flex flex-col gap-3 ${isLocked ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center bg-black/60 p-3 rounded-xl border border-white/10 transition-colors hover:border-white/30">
                           <input 
                             type="range" 
                             min={sliderMatch[2] === '%' ? 0 : -500} 
@@ -428,8 +1720,17 @@ body {
                             className={`w-full accent-cyan ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           />
                         </div>
-                        <div className={`text-right text-xs font-mono px-2 py-1 rounded inline-block self-end border ${isLocked ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-cyan bg-black/30 border-cyan/20'}`}>
-                          {val}
+                        <div className="flex items-center gap-3">
+                          <input 
+                            type="number"
+                            value={sliderMatch[1]}
+                            disabled={isLocked}
+                            onChange={(e) => handleChange(key as any, `${e.target.value}${sliderMatch[2]}`)}
+                            className={`w-20 bg-black/80 border border-white/10 rounded-lg p-2 text-sm text-right text-white focus:border-cyan outline-none font-mono font-black ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
+                          />
+                          <span className={`text-sm font-mono font-black px-3 py-2 rounded-lg border shadow-sm ${isLocked ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-cyan bg-cyan/10 border-cyan/30'}`}>
+                            {sliderMatch[2]}
+                          </span>
                         </div>
                       </div>
                     ) : (
@@ -438,14 +1739,15 @@ body {
                         value={val} 
                         disabled={isLocked}
                         onChange={(e) => handleChange(key as any, e.target.value)} 
-                        className={`w-full bg-black/80 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-cyan outline-none transition-colors font-mono ${isLocked ? 'cursor-not-allowed opacity-50' : ''}`}
+                        className={`w-full bg-black/80 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold shadow-inner ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
                         placeholder="ex: 12px, rgba(...)"
                       />
                     )}
                   </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </div>
       </div>

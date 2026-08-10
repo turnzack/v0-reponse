@@ -140,24 +140,24 @@
   --new-v0-arrondi: 282px;
   --new-v0-bordure: 1px solid rgba(8, 179, 201, 0.3);
   --new-v0-margin: 0px;
-  --ide-toolbar-hauteur: -125px;
+  --ide-toolbar-hauteur: -3px;
   --ide-toolbar-bg: linear-gradient(to right, rgba(49, 46, 129, 0.4), rgba(0, 0, 0, 0.8));
-  --ide-toolbar-bordure: 1px solid rgba(99, 102, 241, 0.2);
-  --ide-btn-action-taille: 36px;
-  --ide-btn-action-arrondi: 12px;
+  --ide-toolbar-bordure: 150px solid rgba(99, 102, 241, 0.2);
+  --ide-btn-action-taille: 30px;
+  --ide-btn-action-arrondi: 10px;
   --ide-btn-action-bg: rgba(255, 255, 255, 0.05);
-  --ide-btn-action-bordure: 1px solid rgba(255, 255, 255, 0.1);
-  --ide-btn-action-emoji: 33px;
+  --ide-btn-action-bordure: 30px solid rgba(255, 255, 255, 0.1);
+  --ide-btn-action-emoji: 34px;
   --explorateur-largeur: 207px;
   --explorateur-bg: rgba(10, 10, 10, 0.95);
-  --explorateur-bordure-droite: 1px solid rgba(255, 255, 255, 0.1);
-  --explorateur-texte-taille: 12px;
+  --explorateur-bordure-droite: 10px solid rgba(255, 255, 255, 0.1);
+  --explorateur-texte-taille: 02px;
   --explorateur-dossier-couleur: #60a5fa;
   --explorateur-fichier-couleur: #9ca3af;
   --editeur-bg: #1e1e1e;
-  --editeur-onglet-hauteur: 48px;
+  --editeur-onglet-hauteur: 64px;
   --editeur-onglet-bg: #252526;
-  --editeur-onglet-bordure: 1px solid #000000;
+  --editeur-onglet-bordure: 0px solid #000000;
   --preview-bg: #ffffff;
   --preview-largeur: 50%;
   --preview-bordure-gauche: 1px solid #000000;
@@ -390,4 +390,54 @@ body {
    background: var(--mouchard-bg) !important;
    border-left: var(--mouchard-bordure-gauche) !important;
    box-shadow: var(--mouchard-ombre) !important;
+}
+
+/* --- CLASSES ESPACE IDE --- */
+.design-ide-toolbar {
+   height: var(--ide-toolbar-hauteur) !important;
+   background: var(--ide-toolbar-bg) !important;
+   border-bottom: var(--ide-toolbar-bordure) !important;
+}
+
+.design-ide-btn-action {
+   width: var(--ide-btn-action-taille) !important;
+   height: var(--ide-btn-action-taille) !important;
+   border-radius: var(--ide-btn-action-arrondi) !important;
+   background: var(--ide-btn-action-bg) !important;
+   border: var(--ide-btn-action-bordure) !important;
+   font-size: var(--ide-btn-action-emoji) !important;
+}
+
+.design-explorateur {
+   width: var(--explorateur-largeur) !important;
+   background: var(--explorateur-bg) !important;
+   border-right: var(--explorateur-bordure-droite) !important;
+}
+
+.design-explorateur-texte {
+   font-size: var(--explorateur-texte-taille) !important;
+}
+
+.design-explorateur-dossier {
+   color: var(--explorateur-dossier-couleur) !important;
+}
+
+.design-explorateur-fichier {
+   color: var(--explorateur-fichier-couleur) !important;
+}
+
+.design-editeur {
+   background: var(--editeur-bg) !important;
+}
+
+.design-editeur-onglet {
+   height: var(--editeur-onglet-hauteur) !important;
+   background: var(--editeur-onglet-bg) !important;
+   border-bottom: var(--editeur-onglet-bordure) !important;
+}
+
+.design-preview {
+   background: var(--preview-bg) !important;
+   width: var(--preview-largeur) !important;
+   border-left: var(--preview-bordure-gauche) !important;
 }
