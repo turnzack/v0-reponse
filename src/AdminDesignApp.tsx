@@ -13,12 +13,72 @@ const designStructure = {
     "Logo": ['logoTaille', 'logoArrondi', 'logoBgCouleur', 'logoOmbre', 'logoEmojiTaille'],
     "Titre & Sous-Titre": ['titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
     "Icônes Applications": ['iconeReglagesBg', 'iconeAssistantBg', 'iconeProjetsBg', 'iconePacksBg', 'iconeActualitesBg', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
-    "Grille d'Applications": ['grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'grilleMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY'],
-    "Cartes & Carrousel": ['carteCarrouselHauteur', 'carteCarrouselLargeur']
+    "Grille d'Applications": ['grillePosition', 'grillePositionX', 'grillePositionY', 'grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'grilleMaxLargeur', 'chatLayoutMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY'],
+    "Cartes & Carrousel": [
+      'carteCarrouselHauteur',
+      'carteCarrouselLargeur',
+      'carteCarrouselPosition',
+      'carteCarrouselPositionX',
+      'carteCarrouselPositionY',
+      'carteCarrouselPadding',
+      'carteCarrouselArrondi',
+      'carteCarrouselBordure',
+      'carteCarrouselBg',
+      'carteCarrouselOmbre',
+      'carteCarrouselTitreTaille',
+      'carteCarrouselTitreCouleur',
+      'carteCarrouselTexteTaille',
+      'carteCarrouselTexteCouleur'
+    ],
+    "Packs PRD Carrousel": [
+      'prdCarteLargeur',
+      'prdCarteHauteur',
+      'prdCartePadding',
+      'prdCarteArrondi',
+      'prdBadgeTaillePolice',
+      'prdBadgeCouleur',
+      'prdBadgeBg',
+      'prdCarteTitreTaille',
+      'prdCarteTitreCouleur',
+      'prdTitrePoids',
+      'prdTitreMargeHaut',
+      'prdTitreMargeBas',
+      'prdCarteDescTaille',
+      'prdCarteDescCouleur',
+      'prdDescHauteur',
+      'prdDescMargeBas',
+      'prdCarteBoutonTaillePolice',
+      'prdCarteBoutonBg',
+      'prdCarteBoutonCouleur',
+      'prdBoutonPadding',
+      'prdBoutonArrondi',
+      'prdBoutonPosition',
+      'prdBoutonPositionX',
+      'prdBoutonPositionY'
+    ],
+    "Fenêtre Readme & Documentation": [
+      'fenetreReadmePosition',
+      'fenetreReadmePositionX',
+      'fenetreReadmePositionY',
+      'fenetreReadmeLargeurMax',
+      'fenetreReadmeHauteurMax',
+      'fenetreReadmeTaillePolice'
+    ]
   },
   "💬 Chat & Footer": {
     "Conteneur Principal": ['chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX'],
-    "Mise en Page": ['chatLayoutGap', 'chatBullesEspacement', 'chatSeparateurMargeY'],
+    "Mise en Page": ['chatLayoutGap', 'chatLayoutMaxLargeur', 'chatBullesEspacement', 'chatBulleTaillePolice', 'chatBullePadding', 'chatBulleArrondi', 'chatSeparateurMargeY'],
+    "Message d'Accueil (Système)": [
+      'msgAccueilPosition',
+      'msgAccueilPositionX',
+      'msgAccueilPositionY',
+      'msgAccueilTaillePolice',
+      'msgAccueilCouleur',
+      'msgAccueilBg',
+      'msgAccueilPadding',
+      'msgAccueilArrondi',
+      'msgAccueilLargeurMax'
+    ],
     "Statut (Badge)": ['statutPadding', 'statutBg', 'statutBordureBas', 'statutGap', 'statutTexteTaille', 'statutTextePoids', 'statutTexteEspacement', 'statutPastilleTaille'],
     "Barre de Saisie": ['inputHauteur', 'inputLargeur', 'inputBgCouleur', 'inputBordureCouleur', 'inputTexteTaille', 'inputTexteCouleur', 'inputPlaceholderCouleur', 'inputArrondi', 'inputPaddingGauche', 'inputPaddingDroite', 'inputOmbreInterne'],
     "Boutons d'Action": ['btnEnvoiPosition', 'btnEnvoiTop', 'btnEnvoiBottom', 'btnEnvoiLeft', 'btnEnvoiRight', 'btnEnvoiTaille', 'btnEnvoiBg', 'btnEnvoiCouleur', 'btnEnvoiArrondi', 'btnEnvoiIconeTaille', 'trombonePosition', 'tromboneTop', 'tromboneBottom', 'tromboneLeft', 'tromboneRight', 'tromboneTaille', 'tromboneCouleur', 'tromboneMargin', 'newV0Position', 'newV0Top', 'newV0Bottom', 'newV0Left', 'newV0Right', 'newV0Padding', 'newV0Taille', 'newV0Bg', 'newV0Couleur', 'newV0Arrondi', 'newV0Bordure', 'newV0Margin'],
@@ -258,27 +318,35 @@ const AdminDesignApp = () => {
 
   // Mode Design (Actif / Inactif) et Persistence
   const [isDesignMode, setIsDesignMode] = useState<boolean>(() => {
-    return localStorage.getItem('sovereign_is_design_mode') !== 'false';
+    return localStorage.getItem('sovereign_is_design_mode') === 'true';
   });
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [isSavedButton, setIsSavedButton] = useState<boolean>(false);
 
-  const toggleDesignMode = () => {
-    const next = !isDesignMode;
-    setIsDesignMode(next);
-    localStorage.setItem('sovereign_is_design_mode', String(next));
-    if (!next) {
-      setClickedElementData(null);
-    }
-
-    const iframe = document.querySelector('iframe') as HTMLIFrameElement;
-    if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: 'SET_DESIGN_MODE',
-        enabled: next
-      }, '*');
-    }
+  // Notifier le serveur local du changement de mode et de page active → la preview le poll
+  const sendDesignMode = (enabled: boolean) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project');
+    fetch('http://localhost:5005/api/design-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled, project: targetProject, file: activePagePath })
+    }).catch(() => {});
+    // Fallback postMessage pour les éventuelles iframes dans la même fenêtre
+    document.querySelectorAll('iframe').forEach((fr: HTMLIFrameElement) => {
+      try { fr.contentWindow?.postMessage({ type: 'SET_DESIGN_MODE', enabled }, '*'); } catch(_) {}
+    });
   };
+
+  // Persistance et diffusion à chaque changement de mode ou de page
+  useEffect(() => {
+    localStorage.setItem('sovereign_is_design_mode', String(isDesignMode));
+    if (!isDesignMode) setClickedElementData(null);
+    sendDesignMode(isDesignMode);
+  }, [isDesignMode, activePagePath]);
+
+  // Bascule Mode Design / App Live
+  const toggleDesignMode = () => setIsDesignMode(prev => !prev);
 
   const handleManualSave = () => {
     if (pageContent && activePagePath) {
@@ -314,19 +382,7 @@ const AdminDesignApp = () => {
     };
   }, [pageContent, activePagePath]);
 
-  // Synchronisation du Mode Design avec l'iframe au changement de page ou chargement
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const iframe = document.querySelector('iframe') as HTMLIFrameElement;
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          type: 'SET_DESIGN_MODE',
-          enabled: isDesignMode
-        }, '*');
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [activePagePath, isDesignMode]);
+
 
   // Historique Undo / Redo (8 snapshots max)
   const [historyStack, setHistoryStack] = useState<string[]>([]);
@@ -421,7 +477,12 @@ const AdminDesignApp = () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: activePagePath, content })
-    });
+    }).catch(() => {});
+    fetch("http://localhost:5005/api/design-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project: targetProject, file: activePagePath, content })
+    }).catch(() => {});
   };
 
   const parsedPageSettings = useMemo(() => {
@@ -1099,6 +1160,10 @@ body {
    margin-top: var(--grille-marge-haut) !important;
    margin-bottom: var(--grille-marge-bas) !important;
    gap: var(--grille-gap-x) var(--grille-gap-y) !important;
+   position: var(--grille-position, relative) !important;
+   left: var(--grille-position-x, 0px) !important;
+   top: var(--grille-position-y, 0px) !important;
+   transform: translate(var(--grille-position-x, 0px), var(--grille-position-y, 0px)) !important;
 }
 
 .design-app-icone {
@@ -1149,15 +1214,109 @@ body {
 
 .design-chat-layout {
    gap: var(--chat-layout-gap) !important;
+   max-width: var(--chat-layout-max-largeur, 1200px) !important;
 }
 
 .design-chat-bulles {
    gap: var(--chat-bulles-espacement) !important;
 }
 
+.design-chat-bulle {
+   font-size: var(--chat-bulle-taille-police, 15px) !important;
+   padding: var(--chat-bulle-padding, 1.25rem) !important;
+   border-radius: var(--chat-bulle-arrondi, 1.5rem) !important;
+}
+
+.design-msg-accueil {
+   font-size: var(--msg-accueil-taille-police, 15px) !important;
+   color: var(--msg-accueil-couleur, #f3f4f6) !important;
+   background: var(--msg-accueil-bg, rgba(30, 27, 75, 0.6)) !important;
+   padding: var(--msg-accueil-padding, 1.25rem) !important;
+   border-radius: var(--msg-accueil-arrondi, 1.5rem) !important;
+   max-width: var(--msg-accueil-largeur-max, 70%) !important;
+   position: var(--msg-accueil-position, relative) !important;
+   left: var(--msg-accueil-position-x, 0px) !important;
+   top: var(--msg-accueil-position-y, 0px) !important;
+   transform: translate(var(--msg-accueil-position-x, 0px), var(--msg-accueil-position-y, 0px)) !important;
+}
+
 .design-carte-carrousel {
    height: var(--carte-carrousel-hauteur) !important;
    width: var(--carte-carrousel-largeur) !important;
+   padding: var(--carte-carrousel-padding, 1.25rem) !important;
+   border-radius: var(--carte-carrousel-arrondi, 1rem) !important;
+   border: var(--carte-carrousel-bordure, 1px solid rgba(99, 102, 241, 0.3)) !important;
+   background: var(--carte-carrousel-bg, rgba(30, 27, 75, 0.7)) !important;
+   box-shadow: var(--carte-carrousel-ombre, 0 10px 25px -5px rgba(0, 0, 0, 0.5)) !important;
+   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) !important;
+}
+
+.design-carte-carrousel h3 {
+   font-size: var(--carte-carrousel-titre-taille, 1.125rem) !important;
+   color: var(--carte-carrousel-titre-couleur, #ffffff) !important;
+}
+
+.design-carte-carrousel p {
+   font-size: var(--carte-carrousel-texte-taille, 0.75rem) !important;
+   color: var(--carte-carrousel-texte-couleur, #9ca3af) !important;
+}
+
+.design-prd-carte {
+   width: var(--prd-carte-largeur, 320px) !important;
+   min-width: var(--prd-carte-largeur, 320px) !important;
+   height: var(--prd-carte-hauteur, 220px) !important;
+   padding: var(--prd-carte-padding, 1.25rem) !important;
+   border-radius: var(--prd-carte-arrondi, 1rem) !important;
+}
+
+.design-prd-badge {
+   font-size: var(--prd-badge-taille-police, 10px) !important;
+   color: var(--prd-badge-couleur, #08b3c9) !important;
+   background: var(--prd-badge-bg, rgba(8, 179, 201, 0.2)) !important;
+}
+
+.design-prd-titre {
+   font-size: var(--prd-carte-titre-taille, 16px) !important;
+   color: var(--prd-carte-titre-couleur, #ffffff) !important;
+   font-weight: var(--prd-titre-poids, 700) !important;
+   margin-top: var(--prd-titre-marge-haut, 0px) !important;
+   margin-bottom: var(--prd-titre-marge-bas, 8px) !important;
+}
+
+.design-prd-desc {
+   font-size: var(--prd-carte-desc-taille, 12px) !important;
+   color: var(--prd-carte-desc-couleur, #9ca3af) !important;
+   line-height: 1.4 !important;
+   max-height: var(--prd-desc-hauteur, 80px) !important;
+   margin-bottom: var(--prd-desc-marge-bas, 16px) !important;
+   overflow: hidden !important;
+}
+
+.design-prd-btn {
+   font-size: var(--prd-carte-bouton-taille-police, 12px) !important;
+   background: var(--prd-carte-bouton-bg, rgba(8, 179, 201, 0.1)) !important;
+   color: var(--prd-carte-bouton-couleur, #08b3c9) !important;
+   padding: var(--prd-bouton-padding, 6px 12px) !important;
+   border-radius: var(--prd-bouton-arrondi, 12px) !important;
+   position: var(--prd-bouton-position, relative) !important;
+   left: var(--prd-bouton-position-x, 0px) !important;
+   top: var(--prd-bouton-position-y, 0px) !important;
+   transform: translate(var(--prd-bouton-position-x, 0px), var(--prd-bouton-position-y, 0px)) !important;
+}
+
+.design-fenetre-readme {
+   position: var(--fenetre-readme-position, relative) !important;
+   left: var(--fenetre-readme-position-x, 0px) !important;
+   top: var(--fenetre-readme-position-y, 0px) !important;
+   transform: translate(var(--fenetre-readme-position-x, 0px), var(--fenetre-readme-position-y, 0px)) !important;
+   max-width: var(--fenetre-readme-largeur-max, 768px) !important;
+   width: var(--fenetre-readme-largeur-max, 768px) !important;
+}
+
+.design-readme-contenu {
+   max-height: var(--fenetre-readme-hauteur-max, 600px) !important;
+   height: var(--fenetre-readme-hauteur-max, 600px) !important;
+   font-size: var(--fenetre-readme-taille-police, 15px) !important;
 }
 
 .design-chat-separateur {
@@ -1608,6 +1767,12 @@ body {
                 // --- SMART AUTO-RENDERER ---
                 // 1. Génération du nom ludique avec Emojis
                 const getLudicLabel = (k: string) => {
+                  if (k === 'iconeReglagesBg') return '🎨 Fond Icône ⚙️ Réglages';
+                  if (k === 'iconeAssistantBg') return '🎨 Fond Icône 🧠 Assistant IA';
+                  if (k === 'iconeProjetsBg') return '🎨 Fond Icône 📁 Projets';
+                  if (k === 'iconePacksBg') return '🎨 Fond Icône 💎 Packs PRD';
+                  if (k === 'iconeActualitesBg') return '🎨 Fond Icône 📰 Actualités';
+
                   const words = k.replace(/([A-Z])/g, ' $1').toLowerCase().split(' ');
                   let emoji = '⚙️';
                   if (words.some(w => ['couleur', 'bg', 'fond'].includes(w))) emoji = '🎨';
@@ -1634,13 +1799,17 @@ body {
 
                 // 2. Détection du type d'input
                 const isColorVal = isColor(val);
-                const sliderMatch = typeof val === 'string' ? val.match(/^(-?\d+\.?\d*)(px|vw|vh|%|rem|em)$/) : null;
-                const isPosition = key.toLowerCase().includes('position');
-                const isDisplay = key.toLowerCase().includes('display');
-                const isFlexWrap = key.toLowerCase().includes('flexwrap');
-                const isJustify = key.toLowerCase().includes('justify');
-                const isOverflow = key.toLowerCase().includes('overflow');
+                const keyLow = key.toLowerCase();
+                const isPosXY = keyLow.includes('positionx') || keyLow.includes('positiony') || keyLow.includes('posx') || keyLow.includes('posy');
+                const isPosition = !isPosXY && (keyLow.endsWith('position') || keyLow.includes('positiontype') || keyLow === 'headerposition' || keyLow === 'footerposition' || keyLow === 'chatmainposition' || keyLow === 'sidebardroiteposition' || keyLow === 'newv0position' || keyLow === 'tromboneposition');
+                const isDisplay = keyLow.includes('display');
+                const isFlexWrap = keyLow.includes('flexwrap');
+                const isJustify = keyLow.includes('justify');
+                const isOverflow = keyLow.includes('overflow');
                 const isLocked = !!lockedSettings[key];
+
+                const sliderMatch = typeof val === 'string' ? val.match(/^(-?\d+\.?\d*)(px|vw|vh|%|rem|em)$/) : null;
+                const effectiveSlider = sliderMatch || (isPosXY ? [val, (val.match(/^(-?\d+\.?\d*)/)?.[1] || "0"), "px"] : null);
 
                 return (
                   <div key={key} className={`bg-white/5 p-6 rounded-2xl border transition-all shadow-lg flex flex-col justify-between group ${isLocked ? 'border-red-500/30 opacity-75' : 'border-white/10 hover:border-cyan/50 hover:bg-white/10 hover:-translate-y-1'}`}>
@@ -1659,18 +1828,37 @@ body {
                     </div>
                     
                     {isPosition ? (
-                      <select 
-                        value={val} 
-                        onChange={(e) => handleChange(key as any, e.target.value)} 
-                        disabled={isLocked}
-                        className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
-                      >
-                        <option value="relative">Relative</option>
-                        <option value="absolute">Absolute</option>
-                        <option value="fixed">Fixed</option>
-                        <option value="sticky">Sticky</option>
-                        <option value="static">Static</option>
-                      </select>
+                      <div className="flex flex-col gap-3">
+                        <select 
+                          value={val} 
+                          onChange={(e) => handleChange(key as any, e.target.value)} 
+                          disabled={isLocked}
+                          className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
+                        >
+                          <option value="relative">Relative</option>
+                          <option value="absolute">Absolute</option>
+                          <option value="fixed">Fixed</option>
+                          <option value="sticky">Sticky</option>
+                          <option value="static">Static</option>
+                        </select>
+                        <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between">
+                            <span>📐 Glissement Position (Slide Bar)</span>
+                            <span className="text-cyan font-mono font-black">{(design['carteCarrouselPositionX'] || '0px')}</span>
+                          </label>
+                          <div className="flex justify-between items-center bg-black/60 p-3 rounded-xl border border-white/10 transition-colors hover:border-white/30">
+                            <input 
+                              type="range" 
+                              min={-1000} 
+                              max={1000} 
+                              value={parseInt((design['carteCarrouselPositionX'] || '0px').replace('px', '')) || 0} 
+                              disabled={isLocked}
+                              onChange={(e) => handleChange('carteCarrouselPositionX' as any, `${e.target.value}px`)} 
+                              className={`w-full accent-cyan ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     ) : isDisplay ? (
                       <select value={val} onChange={(e) => handleChange(key as any, e.target.value)} disabled={isLocked} className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}>
                         <option value="flex">flex</option>
@@ -1707,29 +1895,46 @@ body {
                         </div>
                         <input type="text" value={val} disabled={isLocked} onChange={(e) => handleChange(key as any, e.target.value)} className={`w-full bg-transparent border-none text-base text-white font-mono font-bold outline-none ${isLocked ? 'cursor-not-allowed' : ''}`} />
                       </div>
-                    ) : sliderMatch ? (
+                    ) : effectiveSlider ? (
                       <div className={`flex flex-col gap-3 ${isLocked ? 'opacity-50' : ''}`}>
+                        {isPosXY && (
+                          <div className="flex items-center gap-2 mb-1 bg-black/40 p-2.5 rounded-xl border border-white/10">
+                            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Mode Position :</label>
+                            <select
+                              value={(design as any)[key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition'] || 'relative'}
+                              onChange={(e) => handleChange((key.includes('fenetreReadme') ? 'fenetreReadmePosition' : key.includes('grille') ? 'grillePosition' : key.includes('prdBouton') ? 'prdBoutonPosition' : key.includes('msgAccueil') ? 'msgAccueilPosition' : 'carteCarrouselPosition') as any, e.target.value)}
+                              disabled={isLocked}
+                              className={`w-full bg-black/80 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-cyan outline-none font-mono font-bold ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-white/30'}`}
+                            >
+                              <option value="relative">Relative</option>
+                              <option value="absolute">Absolute</option>
+                              <option value="fixed">Fixed</option>
+                              <option value="sticky">Sticky</option>
+                              <option value="static">Static</option>
+                            </select>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center bg-black/60 p-3 rounded-xl border border-white/10 transition-colors hover:border-white/30">
                           <input 
                             type="range" 
-                            min={sliderMatch[2] === '%' ? 0 : -500} 
-                            max={sliderMatch[2] === '%' ? 100 : (sliderMatch[2] === 'px' ? 1500 : 200)} 
-                            value={sliderMatch[1]} 
+                            min={isPosXY ? -1000 : (effectiveSlider[2] === '%' ? 0 : -500)} 
+                            max={isPosXY ? 1000 : (effectiveSlider[2] === '%' ? 100 : (effectiveSlider[2] === 'px' ? 1500 : 200))} 
+                            value={effectiveSlider[1]} 
                             disabled={isLocked}
-                            onChange={(e) => handleChange(key as any, `${e.target.value}${sliderMatch[2]}`)} 
+                            onChange={(e) => handleChange(key as any, `${e.target.value}${effectiveSlider[2] || 'px'}`)} 
                             className={`w-full accent-cyan ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           />
                         </div>
                         <div className="flex items-center gap-3">
                           <input 
                             type="number"
-                            value={sliderMatch[1]}
+                            value={effectiveSlider[1]}
                             disabled={isLocked}
-                            onChange={(e) => handleChange(key as any, `${e.target.value}${sliderMatch[2]}`)}
-                            className={`w-20 bg-black/80 border border-white/10 rounded-lg p-2 text-sm text-right text-white focus:border-cyan outline-none font-mono font-black ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
+                            onChange={(e) => handleChange(key as any, `${e.target.value}${effectiveSlider[2] || 'px'}`)}
+                            className={`w-24 bg-black/80 border border-white/10 rounded-lg p-2 text-sm text-right text-white focus:border-cyan outline-none font-mono font-black ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
                           />
                           <span className={`text-sm font-mono font-black px-3 py-2 rounded-lg border shadow-sm ${isLocked ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-cyan bg-cyan/10 border-cyan/30'}`}>
-                            {sliderMatch[2]}
+                            {effectiveSlider[2] || 'px'}
                           </span>
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
@@ -568,6 +568,148 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   );
 };
 
+const LOCAL_PRD_READMES = import.meta.glob('../../prd_packs/*/README.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+
+const getLocalPackReadme = (packId: string): string | null => {
+  for (const pathKey in LOCAL_PRD_READMES) {
+    if (pathKey.includes(`/${packId}/README.md`) || pathKey.includes(`\\${packId}\\README.md`)) {
+      return LOCAL_PRD_READMES[pathKey];
+    }
+  }
+  return null;
+};
+
+const WidgetPrdPacks = ({
+  selectedPacks,
+  togglePack,
+  isClient,
+  getCachedGradient,
+  onDetailStateChange
+}: any) => {
+  const [packReadmes, setPackReadmes] = useState<{ [id: string]: string }>({});
+  const [selectedPrdDetail, setSelectedPrdDetail] = useState<{ packId: string, packName: string, readmeText: string } | null>(null);
+
+  const handleSetSelectedPrdDetail = (detail: { packId: string, packName: string, readmeText: string } | null) => {
+    setSelectedPrdDetail(detail);
+    if (onDetailStateChange) {
+      onDetailStateChange(!!detail);
+    }
+  };
+
+  useEffect(() => {
+    AVAILABLE_PACKS.forEach((pack: any) => {
+      const packId = pack.id;
+      if (!packReadmes[packId]) {
+        const localContent = getLocalPackReadme(packId);
+        if (localContent) {
+          setPackReadmes(prev => ({ ...prev, [packId]: localContent }));
+        }
+      }
+    });
+  }, []);
+
+  // 1. Vue détaillée de l'article README quand sélectionné
+  if (selectedPrdDetail) {
+    const fullReadme = packReadmes[selectedPrdDetail.packId] || getLocalPackReadme(selectedPrdDetail.packId) || selectedPrdDetail.readmeText;
+
+    return (
+      <div className="design-fenetre-readme w-full backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)] mt-4 relative animate-fadeIn text-white" style={{ background: isClient ? getCachedGradient('prd-detail-' + selectedPrdDetail.packId, 0.9) : 'rgba(0,0,0,0.9)' }}>
+        <button
+          onClick={() => handleSetSelectedPrdDetail(null)}
+          className="absolute top-6 right-6 w-8 h-8 bg-white/10 hover:bg-red-500 rounded-full flex flex-col items-center justify-center text-white font-bold transition-colors z-20"
+          title="Fermer"
+        >
+          ✕
+        </button>
+
+        <span className="px-3 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-4 inline-block border border-cyan/30">💎 PACK PRD : {selectedPrdDetail.packId}</span>
+        <h2 className="text-2xl md:text-3xl font-black text-white mb-4 leading-tight">{selectedPrdDetail.packName}</h2>
+
+        <div className="w-full h-px bg-white/10 mb-6"></div>
+
+        {/* DOCUMENTATION README COMPLÈTE */}
+        <div className="design-readme-contenu text-gray-100 leading-relaxed whitespace-pre-line overflow-y-auto hide-scrollbar bg-black/40 p-6 rounded-2xl border border-white/10 font-mono">
+          {fullReadme}
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
+          <span className="text-xs text-cyan font-mono font-bold tracking-widest uppercase">CONTRAT SUTURE ARCHITECTURE</span>
+          <button
+            onClick={() => handleSetSelectedPrdDetail(null)}
+            className="px-6 py-3 bg-white/5 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/10 hover:border-cyan"
+          >
+            ← Retour à la liste
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Vue Carrousel de TOUS les Packs PRD sur la Page d'Accueil
+  return (
+    <div id="prd-packs-carousel-section" className="w-full my-4">
+      <div className="flex items-center justify-between mb-3 px-2">
+        <h4 className="text-xs font-black uppercase tracking-widest text-cyan flex items-center gap-2">
+          <span>💎</span> PACKS PRD DE CONNAISSANCES ({AVAILABLE_PACKS.length})
+        </h4>
+        {selectedPacks && selectedPacks.length > 0 && (
+          <span className="text-[11px] font-bold text-cyan bg-cyan/20 px-2.5 py-1 rounded-full border border-cyan/30">
+            {selectedPacks.length} pack(s) actif(s)
+          </span>
+        )}
+      </div>
+      <Carousel items={AVAILABLE_PACKS.map((pack: any) => {
+        const packId = pack.id;
+        const packName = pack.name;
+        const Icon = pack.icon || Box;
+        const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
+        const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
+        const cleanSummary = readmeText.replace(/^#+.*$/gm, '').trim();
+        const shortDesc = cleanSummary ? (cleanSummary.substring(0, 110) + "...") : "Spécifications techniques du contrat PRD.";
+
+        return (
+          <div
+            key={packId}
+            className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-cyan shadow-[0_0_25px_rgba(8,179,201,0.4)]' : 'border-white/10 hover:border-cyan/50'}`}
+            style={{ background: isClient ? getCachedGradient('prd-card-' + packId, 0.7) : 'rgba(0,0,0,0.7)' }}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-cyan text-black shadow-md' : (pack.color || 'bg-cyan/20 text-cyan')}`}>
+                  <Icon size={20} />
+                </div>
+                <span className="px-2 py-0.5 bg-cyan/20 text-cyan text-[10px] font-bold rounded-md uppercase tracking-wider">💎 PRD</span>
+              </div>
+              {togglePack && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePack(packId);
+                  }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-cyan text-black shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}
+                  title={isSelected ? "Désélectionner ce pack" : "Sélectionner ce pack pour l'IA"}
+                >
+                  {isSelected ? '✓' : '+'}
+                </button>
+              )}
+            </div>
+
+            <h3 className="design-prd-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
+            <p className="design-prd-desc flex-1 opacity-85">{shortDesc}</p>
+
+            <button
+              onClick={() => handleSetSelectedPrdDetail({ packId, packName, readmeText })}
+              className="design-prd-btn text-cyan text-xs font-bold hover:underline self-end cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan/30 transition-all"
+            >
+              <span>📖</span> Lire le README →
+            </button>
+          </div>
+        );
+      })} />
+    </div>
+  );
+};
+
 const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) => {
   const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -674,6 +816,7 @@ export default function Dashboard() {
   const [activePhase, setActivePhase] = useState(1);
   const [isClient, setIsClient] = useState(false);
   const [isMobileNative, setIsMobileNative] = useState(false);
+  const [isPrdDetailOpen, setIsPrdDetailOpen] = useState(false);
 
   useEffect(() => {
     // Détection agressive de l'environnement Mobile (Boucle de vérification)
@@ -697,9 +840,9 @@ export default function Dashboard() {
   const [mouchardLogs, setMouchardLogs] = useState<string[]>(["> Système Kirov5 initialisé."]);
   const [realProjects, setRealProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
 
-  // --- NOUVEAUX ETATS : IDE & TROMBONE ---
-  const [isPrdModalOpen, setIsPrdModalOpen] = useState(false);
+  // --- ETAT : PACKS PRD SELECTIONNES & VISIBILITE CARROUSEL ---
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
+  const [showPacksCarousel, setShowPacksCarousel] = useState(false);
 
   // MODAL NOUVEAU PROJET V0 -> CREATION MODE INLINE
   const [isCreationMode, setIsCreationMode] = useState(false);
@@ -712,9 +855,89 @@ export default function Dashboard() {
   const [isLocalZipMode, setIsLocalZipMode] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
-  // --- WIDGET NEWS (LIVE API) ---
+  // --- WIDGET NEWS (LIVE API & FALLBACK RAPIDE) ---
   const [liveNewsData, setLiveNewsData] = useState<any[]>([]);
   const [isFetchingNews, setIsFetchingNews] = useState(false);
+
+  const fetchLiveNews = useCallback(async (apiKey?: string) => {
+    setIsFetchingNews(true);
+
+    const defaultNews = [
+      {
+        id: "deepseek-r1-v0",
+        tag: "⚡ DEEPSEEK R1",
+        title: "DeepSeek-R1 & Moteur Souverain v0.1",
+        desc: "Capacités de raisonnement avancé et de suture pour interfaces React.",
+        content: "DeepSeek-R1 offre des capacités de raisonnement avancé pour l'analyse de contrats PRD et la génération zéro-touch de projets web complets.\n\nPoints clés :\n- Extraction automatique des variables CSS :root\n- Injection dynamique des packs d'architecture PRD\n- Synchronisation HMR ultra-rapide avec Electron."
+      },
+      {
+        id: "sovereign-ide-2026",
+        tag: "🚀 SOUVEREIGN OS",
+        title: "IDE Code 2026 : Passerelle Electron Local & Mobile Native",
+        desc: "Nouvelle mise à jour du bridge local :5005 et support Android Capacitor.",
+        content: "La version v0.1.0 de l'OS Souverain intègre une passerelle universelle Electron & Capacitor.\n\nPoints forts :\n- Exécution en arrière-plan des pipelines Trombone\n- Sauvegarde directe dans le workspace local\n- Studio de retouche visuelle en Split-View instantané."
+      },
+      {
+        id: "prd-packs-v14",
+        tag: "💎 PACKS PRD",
+        title: "64 Packs PRD d'Architecture en Carrousel",
+        desc: "Directeurs de code pour E-Commerce, Auth Gateway, SaaS Billing...",
+        content: "Les contrats d'interfaces PRD (Product Requirements Documents) s'activent directement depuis le carrousel principal.\n\nUtilisation :\n1. Sélection des packs d'architecture\n2. Consultation du README en direct dans le carrousel\n3. Création du projet et câblage avec Stitch."
+      }
+    ];
+
+    try {
+      const keyToUse = apiKey || localStorage.getItem("tiger_apiKey");
+      if (!keyToUse) {
+        setLiveNewsData(defaultNews);
+        setIsFetchingNews(false);
+        return;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${keyToUse}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: "Tu es le fil d'actualités technologiques de l'OS Souverain. Réponds UNIQUEMENT en JSON avec une clé 'news' contenant 3 articles récents au format [{id, tag, title, desc, content}]." },
+            { role: "user", content: "Donne 3 actualités récentes sur l'IA et le développement web." }
+          ],
+          response_format: { type: "json_object" }
+        })
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const parsed = JSON.parse(data.choices[0].message.content);
+        if (parsed.news && Array.isArray(parsed.news) && parsed.news.length > 0) {
+          setLiveNewsData(parsed.news);
+        } else {
+          setLiveNewsData(defaultNews);
+        }
+      } else {
+        setLiveNewsData(defaultNews);
+      }
+    } catch (err) {
+      console.warn("[Actualités] Erreur ou Timeout API DeepSeek, chargement fallback:", err);
+      setLiveNewsData(defaultNews);
+    } finally {
+      setIsFetchingNews(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveNews();
+  }, [fetchLiveNews]);
+
 
   // --- WIDGET THEMES COLOR SAVER ---
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
@@ -727,7 +950,10 @@ export default function Dashboard() {
 
     if (loaded) {
       try {
-        setSavedThemes(JSON.parse(loaded));
+        let parsed = JSON.parse(loaded);
+        const defaultBg = "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
+        parsed = parsed.map((t: any) => t.name === "fold" && !t.colors["bg-app"] ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
+        setSavedThemes(parsed);
       } catch (e) { }
     } else {
       // "fold" default theme from screenshot
@@ -738,13 +964,25 @@ export default function Dashboard() {
           "icon-ai": "linear-gradient(135deg, #9d508e, #622e5a)",
           "icon-projects": "linear-gradient(135deg, #d38b5d, #a26038)",
           "icon-packs": "linear-gradient(135deg, #445499, #252e66)",
-          "icon-news": "linear-gradient(135deg, #389eb2, #1f6475)"
+          "icon-news": "linear-gradient(135deg, #389eb2, #1f6475)",
+          "bg-app": "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)"
         }
       };
       setSavedThemes([defaultTheme]);
       localStorage.setItem("tiger_saved_themes", JSON.stringify([defaultTheme]));
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("tiger_active_theme", activeTheme);
+    if (activeTheme !== "random") {
+      const bg = savedThemes.find(t => t.name === activeTheme)?.colors["bg-app"] || "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
+      document.body.style.background = bg;
+      document.body.style.backgroundAttachment = "fixed";
+    } else {
+      document.body.style.background = "";
+    }
+  }, [activeTheme, savedThemes]);
 
   const getIconStyle = (iconId: string) => {
     if (activeTheme === "random") {
@@ -764,7 +1002,8 @@ export default function Dashboard() {
       "icon-ai": getCachedGradient("icon-ai", 0.8),
       "icon-projects": getCachedGradient("icon-projects", 0.8),
       "icon-packs": getCachedGradient("icon-packs", 0.8),
-      "icon-news": getCachedGradient("icon-news", 0.8)
+      "icon-news": getCachedGradient("icon-news", 0.8),
+      "bg-app": getCachedGradient("bg-app", 0.9)
     };
 
     const newTheme = { name: newThemeName.trim(), colors: newColors };
@@ -1027,44 +1266,7 @@ export default function Dashboard() {
     scrollToBottom();
   }, [messages]);
 
-  const fetchLiveNews = async (apiKey: string) => {
-    if (!apiKey) {
-      alert("Veuillez configurer votre clé API DeepSeek dans les réglages (Connexion) pour utiliser la recherche en direct.");
-      return;
-    }
-    setIsFetchingNews(true);
-    try {
-      const res = await fetch("https://api.deepseek.com/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [
-            {
-              role: "system",
-              content: "Tu es un journaliste IA spécialisé en technologie. Rédige 6 actualités RÉELLES, récentes et détaillées sur l'Intelligence Artificielle (Modèles, Frameworks, Tech). Tu DOIS retourner UNIQUEMENT un objet JSON strictement valide avec cette exacte structure : {\"news\": [{\"id\": 1, \"title\": \"Titre court\", \"desc\": \"Brève description\", \"tag\": \"Catégorie\", \"content\": \"Texte complet de l'article très détaillé avec des paragraphes...\"}]}"
-            }
-          ],
-          response_format: { type: "json_object" }
-        })
-      });
-      const data = await res.json();
-      if (data.choices && data.choices[0]) {
-        const content = JSON.parse(data.choices[0].message.content);
-        if (content && content.news) {
-          setLiveNewsData(content.news);
-        }
-      }
-    } catch (e) {
-      console.error("Erreur DeepSeek News API", e);
-      alert("Erreur de connexion à l'API DeepSeek. Vérifiez votre clé ou votre connexion.");
-    } finally {
-      setIsFetchingNews(false);
-    }
-  };
+
 
   const handleSend = (overrideText?: any) => {
     // Si overrideText est un événement (ex: depuis onClick ou onKeyDown), on l'ignore.
@@ -1237,9 +1439,9 @@ export default function Dashboard() {
         responseMsg.widget = "youtube";
       } else if (normalizedInput.includes("actualite") || normalizedInput.includes("ia") || normalizedInput.includes("news") || normalizedInput.includes("recherche")) {
         const currentApiKey = localStorage.getItem("tiger_apiKey");
-        responseMsg.content = currentApiKey ? "Recherche des dernières actualités en direct via DeepSeek API..." : "Veuillez configurer votre clé API DeepSeek dans les réglages.";
+        responseMsg.content = "Actualités & Dernières Innovations IA :";
         responseMsg.widget = "news";
-        if (currentApiKey) fetchLiveNews(currentApiKey);
+        fetchLiveNews(currentApiKey || undefined);
       } else if (normalizedInput.includes("parametre") || normalizedInput.includes("reglage") || normalizedInput.includes("configuration") || normalizedInput.includes("setting")) {
         responseMsg.content = "Ouverture du panneau de configuration système :";
         responseMsg.widget = "settings";
@@ -1948,8 +2150,15 @@ Format attendu:
     );
   };
 
+  const currentThemeBg = activeTheme !== "random"
+    ? (savedThemes.find(t => t.name === activeTheme)?.colors["bg-app"] || "radial-gradient(ellipse at 50% 20%, #1e1b4b 0%, #090a0f 70%, #000000 100%)")
+    : undefined;
+
   return (
-    <div className="design-app-root flex-1 w-full h-full flex flex-col overflow-hidden relative">
+    <div
+      className="design-app-root flex-1 w-full h-full flex flex-col overflow-hidden relative transition-all duration-700"
+      style={{ background: currentThemeBg }}
+    >
       {/* Decorative Background Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink/20 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan/10 blur-[150px] rounded-full pointer-events-none" />
@@ -1980,55 +2189,7 @@ Format attendu:
         </div>
       )}
 
-      {/* PRD Packs Modal */}
-      {isPrdModalOpen && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: isClient ? getCachedGradient('modal-prd', 0.8) : 'rgba(0,0,0,0.8)' }}>
-          <div className="w-full max-w-5xl bg-black/95 border border-indigo-500/50 shadow-[0_0_50px_rgba(79,70,229,0.4)] rounded-3xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-indigo-900/30">
-              <h3 className="text-xl font-black text-indigo-300 tracking-wider flex items-center gap-3">
-                💎 SÉLECTION DES PACKS PRD (Contexte Suture)
-              </h3>
-              <button onClick={() => setIsPrdModalOpen(false)} className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors">✕</button>
-            </div>
-            <div className="p-4 bg-indigo-900/10 border-b border-white/5 text-sm text-indigo-200/80 px-6">
-              Sélectionnez les paquets de connaissances (Product Requirement Documents) à injecter dans le contexte système de l'Intelligence Artificielle avant de générer le projet.
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 hide-scrollbar">
-              {AVAILABLE_PACKS.map(pack => {
-                const Icon = pack.icon;
-                const isSelected = selectedPacks.includes(pack.id);
-                return (
-                  <button
-                    key={pack.id}
-                    onClick={() => togglePack(pack.id)}
-                    className={`relative p-4 rounded-2xl border flex flex-col items-center gap-3 transition-all text-center ${isSelected ? 'bg-indigo-600/40 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-105' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'}`}
-                  >
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isSelected ? 'bg-indigo-500 text-white' : pack.color}`}>
-                      <Icon size={24} />
-                    </div>
-                    <span className={`text-[10px] font-bold leading-tight ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                      {pack.name}
-                    </span>
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 text-indigo-300">
-                        <CheckCircle2 size={16} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="p-6 border-t border-white/10 bg-black flex justify-between items-center">
-              <div className="text-sm font-bold text-indigo-400">
-                {selectedPacks.length} pack(s) sélectionné(s)
-              </div>
-              <button onClick={() => setIsPrdModalOpen(false)} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-all">
-                Valider la sélection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Header */}
       {!isIdeFullscreen && (
@@ -2356,7 +2517,7 @@ Format attendu:
             </div>
           )}
 
-          <div className="design-chat-layout max-w-5xl mx-auto w-full flex flex-col pb-[140px]">
+          <div className="design-chat-layout mx-auto w-full flex flex-col pb-[140px]">
 
             {/* Mobile-style Home Screen Grid */}
             <div className="design-grille w-full px-4 mx-auto hide-scrollbar">
@@ -2408,7 +2569,13 @@ Format attendu:
 
               {/* NOUVEAU BOUTON : PACKS PRD */}
               <button
-                onClick={() => setIsPrdModalOpen(true)}
+                onClick={() => {
+                  setShowPacksCarousel(prev => !prev);
+                  setTimeout(() => {
+                    const el = document.getElementById("prd-packs-carousel-section");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 50);
+                }}
                 className="group flex flex-col items-center gap-3 relative"
               >
                 {selectedPacks.length > 0 && (
@@ -2447,33 +2614,51 @@ Format attendu:
               </button>
             </div>
 
-            <div className="design-chat-separateur w-full h-px bg-white/10"></div>
+            <div className="design-chat-separateur w-full h-px bg-white/10 my-4"></div>
 
-            <div className="design-chat-bulles w-full flex flex-col">
-              {messages.map((msg, index) => {
-                const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
-                const isLastWidgetOverall = index === lastWidgetIndex;
+            {/* CARROUSEL DES PACKS PRD SUR CLIC DE L'ICONE */}
+            {showPacksCarousel && !activeProject && (
+              <WidgetPrdPacks
+                selectedPacks={selectedPacks}
+                togglePack={togglePack}
+                newProjectName={newProjectName}
+                setNewProjectName={setNewProjectName}
+                setActiveProject={setActiveProject}
+                handleSend={handleSend}
+                isClient={isClient}
+                getCachedGradient={getCachedGradient}
+                onDetailStateChange={setIsPrdDetailOpen}
+              />
+            )}
 
-                return (
-                  <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                    {/* Message Bubble */}
-                    <div
-                      className={`max-w-[85%] md:max-w-[70%] p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
-                      style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
-                    >
-                      {msg.content}
+            {!isPrdDetailOpen && (
+              <div className="design-chat-bulles w-full flex flex-col">
+                {messages.map((msg, index) => {
+                  const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
+                  const isLastWidgetOverall = index === lastWidgetIndex;
+                  const isAccueilMsg = index === 0;
+
+                  return (
+                    <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                      {/* Message Bubble */}
+                      <div
+                        className={`${isAccueilMsg ? 'design-msg-accueil' : 'design-chat-bulle'} p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
+                        style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
+                      >
+                        {msg.content}
+                      </div>
+
+                      {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
+                      {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
+                      {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
+                      {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
+                      {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
+                      {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
                     </div>
-
-                    {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
-                    {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
-                    {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
-                    {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
-                    {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-                    {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
             <div ref={chatEndRef} />
           </div>
         </main>
@@ -2897,6 +3082,31 @@ Format attendu:
               🎨 Gestion des Thèmes
             </h3>
 
+            {/* BOUTON DÉDIÉ : FIXER LE FOND D'ÉCRAN ELECTRON */}
+            <div className="bg-cyan/10 border border-cyan/30 rounded-xl p-4 flex flex-col gap-2">
+              <div className="text-xs font-bold text-cyan uppercase tracking-wider flex items-center gap-2">
+                <span>🖥️</span> Page d'Accueil Electron
+              </div>
+              <p className="text-xs text-gray-300">
+                Fixer le fond d'écran enregistré ("fold") pour la page d'accueil Electron.
+              </p>
+              <button
+                onClick={() => {
+                  const defaultBg = "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
+                  const updatedThemes = savedThemes.map(t => t.name === "fold" ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
+                  setSavedThemes(updatedThemes);
+                  localStorage.setItem("tiger_saved_themes", JSON.stringify(updatedThemes));
+                  setActiveTheme("fold");
+                  document.body.style.background = defaultBg;
+                  document.body.style.backgroundAttachment = "fixed";
+                  setIsColorModalOpen(false);
+                }}
+                className="w-full mt-1 py-2.5 bg-cyan text-black font-extrabold rounded-lg hover:bg-cyan/80 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+              >
+                🖼️ Appliquer ce Fond d'Écran sur Electron ("fold")
+              </button>
+            </div>
+
             <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
               <div className="text-sm font-bold text-gray-400">Mode actuel : <span className="text-cyan uppercase">{activeTheme}</span></div>
 
@@ -2926,6 +3136,14 @@ Format attendu:
               >
                 <span className="font-bold flex items-center gap-2">🎲 Mode Aléatoire (Dynamique)</span>
                 {activeTheme === "random" && <span className="text-cyan">✓</span>}
+              </button>
+
+              <button
+                onClick={() => { setActiveTheme("fold"); setIsColorModalOpen(false); }}
+                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${activeTheme === "fold" ? "bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+              >
+                <span className="font-bold flex items-center gap-2">⚡ Thème FOLD (Fixe Enregistré)</span>
+                {activeTheme === "fold" && <span className="text-cyan">✓</span>}
               </button>
 
               {savedThemes.map((theme, i) => (
