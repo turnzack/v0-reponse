@@ -48,6 +48,9 @@
   --titre-espacement: 0em;
   --sous-titre-couleur: #08b3c9;
   --sous-titre-poids: 500;
+  --grille-position: relative;
+  --grille-position-x: 0px;
+  --grille-position-y: 0px;
   --grille-display: flex;
   --grille-flex-wrap: nowrap;
   --grille-justify: center;
@@ -77,8 +80,72 @@
   --app-texte-marge-haut: -40px;
   --carte-carrousel-hauteur: 270px;
   --carte-carrousel-largeur: 323px;
+  --carte-carrousel-gap: 1rem;
+  --carte-carrousel-padding: 1.25rem;
+  --carte-carrousel-arrondi: 1rem;
+  --carte-carrousel-bordure: 1px solid rgba(99, 102, 241, 0.3);
+  --carte-carrousel-bg: rgba(30, 27, 75, 0.7);
+  --carte-carrousel-ombre: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  --carte-carrousel-titre-taille: 1.125rem;
+  --carte-carrousel-titre-couleur: #ffffff;
+  --carte-carrousel-texte-taille: 0.75rem;
+  --carte-carrousel-texte-couleur: #d1d5db;
+  --carte-carrousel-position: relative;
+  --carte-carrousel-position-x: 97px;
+  --carte-carrousel-position-y: 0px;
+  --prd-titre-section-taille-police: 15px;
+  --prd-titre-section-couleur: #08b3c9;
+  --prd-titre-section-position: relative;
+  --prd-titre-section-position-x: 0px;
+  --prd-titre-section-position-y: 0px;
+  --prd-titre-section-marge-bas: 12px;
+  --prd-carte-largeur: 320px;
+  --prd-carte-hauteur: 220px;
+  --prd-carte-padding: 1.25rem;
+  --prd-carte-arrondi: 1rem;
+  --prd-badge-taille-police: 10px;
+  --prd-badge-couleur: #08b3c9;
+  --prd-badge-bg: rgba(8, 179, 201, 0.2);
+  --prd-carte-titre-taille: 16px;
+  --prd-carte-titre-couleur: #ffffff;
+  --prd-titre-poids: 700;
+  --prd-titre-marge-haut: 0px;
+  --prd-titre-marge-bas: 8px;
+  --prd-carte-desc-taille: 12px;
+  --prd-carte-desc-couleur: #9ca3af;
+  --prd-desc-hauteur: 80px;
+  --prd-desc-marge-bas: 16px;
+  --prd-carte-bouton-taille-police: 12px;
+  --prd-carte-bouton-bg: rgba(8, 179, 201, 0.1);
+  --prd-carte-bouton-couleur: #08b3c9;
+  --prd-bouton-padding: 6px 12px;
+  --prd-bouton-arrondi: 12px;
+  --prd-bouton-position: relative;
+  --prd-bouton-position-x: 0px;
+  --prd-bouton-position-y: 0px;
+  --msg-accueil-position: relative;
+  --msg-accueil-position-x: 137px;
+  --msg-accueil-position-y: 7px;
+  --msg-accueil-taille-police: 15px;
+  --msg-accueil-couleur: #f3f4f6;
+  --msg-accueil-bg: rgba(30, 27, 75, 0.6);
+  --msg-accueil-padding: 1.25rem;
+  --msg-accueil-arrondi: 1.5rem;
+  --msg-accueil-largeur-max: 100%;
+  --fenetre-readme-position: fixed;
+  --fenetre-readme-position-x: 394px;
+  --fenetre-readme-position-y: 21px;
+  --fenetre-readme-largeur-max: 1500px;
+  --fenetre-readme-hauteur-max: 1029px;
+  --fenetre-readme-taille-police: 20px;
+  --config-modal-taille-police: 14px;
+  --config-modal-titre-taille: 18px;
   --chat-bulles-espacement: 1px;
+  --chat-bulle-taille-police: 15px;
+  --chat-bulle-padding: 1.25rem;
+  --chat-bulle-arrondi: 1.5rem;
   --chat-layout-gap: 107px;
+  --chat-layout-max-largeur: 1200px;
   --chat-separateur-marge-y: 9px;
   --chat-main-position: fixed;
   --chat-main-top: 50;
@@ -192,73 +259,6 @@
   --modal-onglet-bordure-actif: 1px solid rgba(8, 179, 201, 0.5);
   --modal-onglet-couleur-actif: #ffffff;
   --modal-onglet-couleur-inactif: #9ca3af;
-  --grille-position: relative;
-  --grille-position-x: 0px;
-  --grille-position-y: 0px;
-  --carte-carrousel-gap: 1rem;
-  --carte-carrousel-padding: 1.25rem;
-  --carte-carrousel-arrondi: 1rem;
-  --carte-carrousel-bordure: 1px solid rgba(99, 102, 241, 0.3);
-  --carte-carrousel-bg: rgba(30, 27, 75, 0.7);
-  --carte-carrousel-ombre: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  --carte-carrousel-titre-taille: 1.125rem;
-  --carte-carrousel-titre-couleur: #ffffff;
-  --carte-carrousel-texte-taille: 0.75rem;
-  --carte-carrousel-texte-couleur: #d1d5db;
-  --carte-carrousel-position: relative;
-  --carte-carrousel-position-x: 97px;
-  --carte-carrousel-position-y: 0px;
-  --prd-titre-section-taille-police: 15px;
-  --prd-titre-section-couleur: #08b3c9;
-  --prd-titre-section-position: relative;
-  --prd-titre-section-position-x: 0px;
-  --prd-titre-section-position-y: 0px;
-  --prd-titre-section-marge-bas: 12px;
-  --prd-carte-largeur: 320px;
-  --prd-carte-hauteur: 220px;
-  --prd-carte-padding: 1.25rem;
-  --prd-carte-arrondi: 1rem;
-  --prd-badge-taille-police: 10px;
-  --prd-badge-couleur: #08b3c9;
-  --prd-badge-bg: rgba(8, 179, 201, 0.2);
-  --prd-carte-titre-taille: 16px;
-  --prd-carte-titre-couleur: #ffffff;
-  --prd-titre-poids: 700;
-  --prd-titre-marge-haut: 0px;
-  --prd-titre-marge-bas: 8px;
-  --prd-carte-desc-taille: 12px;
-  --prd-carte-desc-couleur: #9ca3af;
-  --prd-desc-hauteur: 80px;
-  --prd-desc-marge-bas: 16px;
-  --prd-carte-bouton-taille-police: 12px;
-  --prd-carte-bouton-bg: rgba(8, 179, 201, 0.1);
-  --prd-carte-bouton-couleur: #08b3c9;
-  --prd-bouton-padding: 6px 12px;
-  --prd-bouton-arrondi: 12px;
-  --prd-bouton-position: relative;
-  --prd-bouton-position-x: 0px;
-  --prd-bouton-position-y: 0px;
-  --msg-accueil-position: relative;
-  --msg-accueil-position-x: 137px;
-  --msg-accueil-position-y: 7px;
-  --msg-accueil-taille-police: 15px;
-  --msg-accueil-couleur: #f3f4f6;
-  --msg-accueil-bg: rgba(30, 27, 75, 0.6);
-  --msg-accueil-padding: 1.25rem;
-  --msg-accueil-arrondi: 1.5rem;
-  --msg-accueil-largeur-max: 100%;
-  --fenetre-readme-position: fixed;
-  --fenetre-readme-position-x: 394px;
-  --fenetre-readme-position-y: 21px;
-  --fenetre-readme-largeur-max: 1500px;
-  --fenetre-readme-hauteur-max: 1029px;
-  --fenetre-readme-taille-police: 20px;
-  --config-modal-taille-police: 14px;
-  --config-modal-titre-taille: 18px;
-  --chat-bulle-taille-police: 15px;
-  --chat-bulle-padding: 1.25rem;
-  --chat-bulle-arrondi: 1.5rem;
-  --chat-layout-max-largeur: 1200px;
 
 }
 
@@ -326,6 +326,10 @@ body {
    margin-top: var(--grille-marge-haut) !important;
    margin-bottom: var(--grille-marge-bas) !important;
    gap: var(--grille-gap-x) var(--grille-gap-y) !important;
+   position: var(--grille-position, relative) !important;
+   left: var(--grille-position-x, 0px) !important;
+   top: var(--grille-position-y, 0px) !important;
+   transform: translate(var(--grille-position-x, 0px), var(--grille-position-y, 0px)) !important;
 }
 
 .design-app-icone {
@@ -376,15 +380,109 @@ body {
 
 .design-chat-layout {
    gap: var(--chat-layout-gap) !important;
+   max-width: var(--chat-layout-max-largeur, 1200px) !important;
 }
 
 .design-chat-bulles {
    gap: var(--chat-bulles-espacement) !important;
 }
 
+.design-chat-bulle {
+   font-size: var(--chat-bulle-taille-police, 15px) !important;
+   padding: var(--chat-bulle-padding, 1.25rem) !important;
+   border-radius: var(--chat-bulle-arrondi, 1.5rem) !important;
+}
+
+.design-msg-accueil {
+   font-size: var(--msg-accueil-taille-police, 15px) !important;
+   color: var(--msg-accueil-couleur, #f3f4f6) !important;
+   background: var(--msg-accueil-bg, rgba(30, 27, 75, 0.6)) !important;
+   padding: var(--msg-accueil-padding, 1.25rem) !important;
+   border-radius: var(--msg-accueil-arrondi, 1.5rem) !important;
+   max-width: var(--msg-accueil-largeur-max, 70%) !important;
+   position: var(--msg-accueil-position, relative) !important;
+   left: var(--msg-accueil-position-x, 0px) !important;
+   top: var(--msg-accueil-position-y, 0px) !important;
+   transform: translate(var(--msg-accueil-position-x, 0px), var(--msg-accueil-position-y, 0px)) !important;
+}
+
 .design-carte-carrousel {
    height: var(--carte-carrousel-hauteur) !important;
    width: var(--carte-carrousel-largeur) !important;
+   padding: var(--carte-carrousel-padding, 1.25rem) !important;
+   border-radius: var(--carte-carrousel-arrondi, 1rem) !important;
+   border: var(--carte-carrousel-bordure, 1px solid rgba(99, 102, 241, 0.3)) !important;
+   background: var(--carte-carrousel-bg, rgba(30, 27, 75, 0.7)) !important;
+   box-shadow: var(--carte-carrousel-ombre, 0 10px 25px -5px rgba(0, 0, 0, 0.5)) !important;
+   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) !important;
+}
+
+.design-carte-carrousel h3 {
+   font-size: var(--carte-carrousel-titre-taille, 1.125rem) !important;
+   color: var(--carte-carrousel-titre-couleur, #ffffff) !important;
+}
+
+.design-carte-carrousel p {
+   font-size: var(--carte-carrousel-texte-taille, 0.75rem) !important;
+   color: var(--carte-carrousel-texte-couleur, #9ca3af) !important;
+}
+
+.design-prd-carte {
+   width: var(--prd-carte-largeur, 320px) !important;
+   min-width: var(--prd-carte-largeur, 320px) !important;
+   height: var(--prd-carte-hauteur, 220px) !important;
+   padding: var(--prd-carte-padding, 1.25rem) !important;
+   border-radius: var(--prd-carte-arrondi, 1rem) !important;
+}
+
+.design-prd-badge {
+   font-size: var(--prd-badge-taille-police, 10px) !important;
+   color: var(--prd-badge-couleur, #08b3c9) !important;
+   background: var(--prd-badge-bg, rgba(8, 179, 201, 0.2)) !important;
+}
+
+.design-prd-titre {
+   font-size: var(--prd-carte-titre-taille, 16px) !important;
+   color: var(--prd-carte-titre-couleur, #ffffff) !important;
+   font-weight: var(--prd-titre-poids, 700) !important;
+   margin-top: var(--prd-titre-marge-haut, 0px) !important;
+   margin-bottom: var(--prd-titre-marge-bas, 8px) !important;
+}
+
+.design-prd-desc {
+   font-size: var(--prd-carte-desc-taille, 12px) !important;
+   color: var(--prd-carte-desc-couleur, #9ca3af) !important;
+   line-height: 1.4 !important;
+   max-height: var(--prd-desc-hauteur, 80px) !important;
+   margin-bottom: var(--prd-desc-marge-bas, 16px) !important;
+   overflow: hidden !important;
+}
+
+.design-prd-btn {
+   font-size: var(--prd-carte-bouton-taille-police, 12px) !important;
+   background: var(--prd-carte-bouton-bg, rgba(8, 179, 201, 0.1)) !important;
+   color: var(--prd-carte-bouton-couleur, #08b3c9) !important;
+   padding: var(--prd-bouton-padding, 6px 12px) !important;
+   border-radius: var(--prd-bouton-arrondi, 12px) !important;
+   position: var(--prd-bouton-position, relative) !important;
+   left: var(--prd-bouton-position-x, 0px) !important;
+   top: var(--prd-bouton-position-y, 0px) !important;
+   transform: translate(var(--prd-bouton-position-x, 0px), var(--prd-bouton-position-y, 0px)) !important;
+}
+
+.design-fenetre-readme {
+   position: var(--fenetre-readme-position, relative) !important;
+   left: var(--fenetre-readme-position-x, 0px) !important;
+   top: var(--fenetre-readme-position-y, 0px) !important;
+   transform: translate(var(--fenetre-readme-position-x, 0px), var(--fenetre-readme-position-y, 0px)) !important;
+   max-width: var(--fenetre-readme-largeur-max, 768px) !important;
+   width: 100% !important;
+}
+
+.design-readme-contenu {
+   max-height: var(--fenetre-readme-hauteur-max, 600px) !important;
+   overflow-y: auto !important;
+   font-size: var(--fenetre-readme-taille-police, 15px) !important;
 }
 
 .design-chat-separateur {
