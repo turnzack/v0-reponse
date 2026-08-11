@@ -2795,181 +2795,6 @@ Format attendu:
 
           <div className="design-chat-layout mx-auto w-full flex flex-col pb-[140px]">
 
-            {/* Mobile-style Home Screen Grid */}
-            <div className="design-grille w-full px-4 mx-auto hide-scrollbar">
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-settings') }}>
-                  ⚙️
-                </div>
-                <span className="design-app-texte drop-shadow-md">Réglages</span>
-              </button>
-
-              {/* NOUVEAU BOUTON : ASSISTANT IA DIRECT */}
-              <button
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
-                    const aiUrl = getTargetAiUrl(logicAi);
-
-                    const bridge = (window as any).AndroidBridge;
-                    if (bridge && bridge.openAIWithPrompt) {
-                      bridge.openAIWithPrompt(aiUrl, "Bonjour ! Je viens d'ouvrir l'Assistant IA depuis le menu principal de Tiger IA.");
-                    } else {
-                      window.open(aiUrl, "_blank");
-                    }
-                  }
-                }}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-ai') }}>
-                  🧠
-                </div>
-                <span className="design-app-texte drop-shadow-md">Assistant IA</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  handleSend("Mes projets");
-                  setInput("");
-                }}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-projects') }}>
-                  📁
-                </div>
-                <span className="design-app-texte drop-shadow-md">Projets</span>
-              </button>
-
-              {/* NOUVEAU BOUTON : PACKS PRD */}
-              <button
-                onClick={() => {
-                  setShowPacksCarousel(prev => !prev);
-                  setTimeout(() => {
-                    const el = document.getElementById("prd-packs-carousel-section");
-                    if (el) el.scrollIntoView({ behavior: "smooth" });
-                  }, 50);
-                }}
-                className="group flex flex-col items-center gap-3 relative"
-              >
-                {selectedPacks.length > 0 && (
-                  <div className="absolute -top-2 -right-2 bg-indigo-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white/20 z-10">
-                    {selectedPacks.length}
-                  </div>
-                )}
-                <div className="design-app-icone flex items-center justify-center shadow-2xl backdrop-blur-md" style={{ background: getIconStyle('icon-packs') }}>
-                  💎
-                </div>
-                <span className="design-app-texte drop-shadow-md">Packs PRD</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  handleSend("Actualités IA");
-                  setInput("");
-                }}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: getIconStyle('icon-news') }}>
-                  📰
-                </div>
-                <span className="design-app-texte drop-shadow-md">Actualités</span>
-              </button>
-              {/* NOUVEAU BOUTON : CONSOLE-V0 */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMouchardLogs(prev => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...prev]);
-                  setIsRightSidebarOpen(true);
-                }}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: "linear-gradient(135deg, #4b5563 0%, #1f2937 100%)" }}>
-                  🖥️
-                </div>
-                <span className="design-app-texte drop-shadow-md">Console-V0</span>
-              </button>
-
-              {/* NOUVEAU BOUTON : PATCHER UI */}
-              <button
-                type="button"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  try {
-                    setIsRightSidebarOpen(true);
-                    setTimeout(() => {
-                      const logContainer = document.getElementById('mouchard-terminal-logs');
-                      if (logContainer) {
-                        logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#e27396]">> 🚀 Lancement du Patch UI (Bypass React)...</div>` + logContainer.innerHTML;
-                      }
-                    }, 50);
-                    
-                    const res = await fetch("http://localhost:5005/api/design/intent", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        intent: "PATCH_UI",
-                        payload: {
-                          targetFile: "e:\\\\v0reponses\\\\v0-moteur-electron\\\\v0saveprojets\\\\Projet_blog_8831\\\\src\\\\pages\\\\Dashboard.tsx",
-                          templateId: "stitch_mock"
-                        }
-                      })
-                    });
-                    
-                    const logContainerAfter = document.getElementById('mouchard-terminal-logs');
-                    if (!res.ok) {
-                      const text = await res.text();
-                      if (logContainerAfter) logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ❌ Erreur HTTP ${res.status}: ${text}</div>` + logContainerAfter.innerHTML;
-                      return;
-                    }
-
-                    const data = await res.json();
-                    
-                    if (logContainerAfter) {
-                      if (data.patchPlan) {
-                        logContainerAfter.innerHTML = `
-                          <div class="mb-1 opacity-90 break-words text-[#00e676]">> 🎯 Patch appliqué avec succès par le LLM !</div>
-                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> 🧠 Code généré reçu de l'IA (Hermes).</div>
-                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> 🧠 IA Plan prêt pour Hermes !</div>
-                          <div class="mb-1 opacity-90 break-words text-[#f29f43]">> 🛡️ Backup créé avec succès (.bak).</div>
-                          <div class="mb-1 opacity-90 break-words text-[#52c1c9]">> ✅ Analyse AST terminée !</div>
-                        ` + logContainerAfter.innerHTML;
-                      } else {
-                        logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#f29f43]">> ⚠️ Réponse du Moteur : ${JSON.stringify(data)}</div>` + logContainerAfter.innerHTML;
-                      }
-                    }
-                  } catch (err: any) {
-                    const logContainer = document.getElementById('mouchard-terminal-logs');
-                    if (logContainer) {
-                      logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ❌ Fetch Error: ${err.name} - ${err.message}</div>` + logContainer.innerHTML;
-                    }
-                  }
-                }}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl" style={{ background: "linear-gradient(135deg, #10b981 0%, #047857 100%)" }}>
-                  🧬
-                </div>
-                <span className="design-app-texte drop-shadow-md">Patch UI</span>
-              </button>
-
-              {/* BOUTON SAUVEGARDE DE THEME 🎨 */}
-              <button
-                onClick={() => setIsColorModalOpen(true)}
-                className="group flex flex-col items-center gap-3"
-              >
-                <div className="design-app-icone flex items-center justify-center shadow-2xl bg-white/5 border-2 border-dashed border-white/20 hover:border-white/50">
-                  🎨
-                </div>
-                <span className="design-app-texte drop-shadow-md text-gray-400 group-hover:text-white">Save Color</span>
-              </button>
-            </div>
-
-            <div className="design-chat-separateur w-full h-px bg-white/10 my-4"></div>
-
             {/* CARROUSEL DES PACKS PRD SUR CLIC DE L'ICONE */}
             {showPacksCarousel && !activeProject && (
               <WidgetPrdPacks
@@ -3049,34 +2874,187 @@ Format attendu:
 
       </div> {/* Fermeture div flex-1 principal pour que le footer passe en bas */}
 
-      {/* Input Area + Connection Status Bar */}
-      <footer className="design-footer absolute bottom-0 left-0 w-full backdrop-blur-2xl z-50 flex flex-col">
-        {/* Connection Status Indicators */}
-        <div className="design-status-bar px-6 py-2 border-b border-white/5 flex gap-4 md:gap-8 overflow-x-auto hide-scrollbar font-bold uppercase">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="design-status-pastille w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
-            <span className="design-status-text text-green-400">Online</span>
+      {/* Input Area + Integrated Status & Actions Toolbar Footer */}
+      <footer className="design-footer absolute bottom-0 left-0 w-full backdrop-blur-2xl z-50 flex flex-col p-2 md:p-3 bg-black/80 border-t border-white/15 gap-2">
+        {/* Integrated Top Strip: Status Card (Left) + Action Icons Toolbar (Right) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-black/40 rounded-2xl border border-white/10 backdrop-blur-md">
+          {/* Status Card Indicators */}
+          <div className="design-status-bar flex items-center gap-3 md:gap-5 overflow-x-auto hide-scrollbar font-bold uppercase text-[11px] tracking-wider">
+            <div className="flex items-center gap-1.5 shrink-0 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
+              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
+              <span className="text-green-400">Online</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
+              <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
+              <span className="text-blue-400">Ext: Tiger</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
+              <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
+              <span className="text-purple-400">LLM: DeepSeek</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-cyan/10 px-2.5 py-1 rounded-full border border-cyan/20">
+              <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
+              <span className="text-cyan">Electron</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-gray-500/10 px-2.5 py-1 rounded-full border border-gray-500/20 opacity-60">
+              <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+              <span className="text-gray-400">Mobile (Capacitor)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="design-status-pastille w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-            <span className="design-status-text text-blue-400">Ext: Tiger</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="design-status-pastille w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
-            <span className="design-status-text text-purple-400">LLM: DeepSeek</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="design-status-pastille w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
-            <span className="design-status-text text-cyan">Electron</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 opacity-50">
-            <span className="design-status-pastille w-2 h-2 rounded-full bg-gray-500"></span>
-            <span className="design-status-text text-gray-400">Mobile (Capacitor)</span>
+
+          {/* Action Icons Toolbar (Moved to the Right of Chat Bar) */}
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+            {/* ⚙️ Réglages */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold transition-all hover:scale-105 shadow-md group"
+              title="Réglages"
+            >
+              <span className="text-base group-hover:rotate-45 transition-transform">⚙️</span>
+              <span className="text-[11px] font-bold">Réglages</span>
+            </button>
+
+            {/* 🧠 Assistant IA */}
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  const logicAi = localStorage.getItem("tiger_targetAi") || "deepseek";
+                  const aiUrl = getTargetAiUrl(logicAi);
+                  const bridge = (window as any).AndroidBridge;
+                  if (bridge && bridge.openAIWithPrompt) {
+                    bridge.openAIWithPrompt(aiUrl, "Bonjour ! Je viens d'ouvrir l'Assistant IA.");
+                  } else {
+                    window.open(aiUrl, "_blank");
+                  }
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Assistant IA"
+            >
+              <span className="text-base">🧠</span>
+              <span className="text-[11px] font-bold">Assistant IA</span>
+            </button>
+
+            {/* 📁 Projets */}
+            <button
+              onClick={() => {
+                handleSend("Mes projets");
+                setInput("");
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-900/40 hover:bg-amber-800/60 border border-amber-500/40 text-amber-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Projets"
+            >
+              <span className="text-base">📁</span>
+              <span className="text-[11px] font-bold">Projets</span>
+            </button>
+
+            {/* 💎 Packs PRD */}
+            <button
+              onClick={() => {
+                setShowPacksCarousel(prev => !prev);
+                setTimeout(() => {
+                  const el = document.getElementById("prd-packs-carousel-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }, 50);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-500/40 text-indigo-200 text-xs font-bold transition-all hover:scale-105 shadow-md relative"
+              title="Packs PRD"
+            >
+              {selectedPacks.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md">
+                  {selectedPacks.length}
+                </span>
+              )}
+              <span className="text-base">💎</span>
+              <span className="text-[11px] font-bold">Packs PRD</span>
+            </button>
+
+            {/* 📰 Actualités */}
+            <button
+              onClick={() => {
+                handleSend("Actualités IA");
+                setInput("");
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan/20 hover:bg-cyan/30 border border-cyan/40 text-cyan text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Actualités"
+            >
+              <span className="text-base">📰</span>
+              <span className="text-[11px] font-bold">Actualités</span>
+            </button>
+
+            {/* 🖥️ Console-V0 */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setMouchardLogs(prev => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...prev]);
+                setIsRightSidebarOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700/80 hover:bg-slate-600 border border-slate-500/40 text-slate-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Console-V0"
+            >
+              <span className="text-base">🖥️</span>
+              <span className="text-[11px] font-bold">Console-V0</span>
+            </button>
+
+            {/* 🧬 Patch UI */}
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.preventDefault();
+                try {
+                  setIsRightSidebarOpen(true);
+                  setTimeout(() => {
+                    const logContainer = document.getElementById('mouchard-terminal-logs');
+                    if (logContainer) {
+                      logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#e27396]">> 🚀 Lancement du Patch UI (Bypass React)...</div>` + logContainer.innerHTML;
+                    }
+                  }, 50);
+                  
+                  const res = await fetch("http://localhost:5005/api/design/intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      intent: "PATCH_UI",
+                      payload: {
+                        targetFile: "e:\\v0reponses\\v0-moteur-electron\\v0saveprojets\\Projet_blog_8831\\src\\pages\\Dashboard.tsx",
+                        templateId: "stitch_mock"
+                      }
+                    })
+                  });
+                  const data = await res.json();
+                  const logContainerAfter = document.getElementById('mouchard-terminal-logs');
+                  if (logContainerAfter) {
+                    logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#00e676]">> 🎯 Patch appliqué avec succès par le LLM !</div>` + logContainerAfter.innerHTML;
+                  }
+                } catch (err: any) {
+                  const logContainer = document.getElementById('mouchard-terminal-logs');
+                  if (logContainer) {
+                    logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ❌ Fetch Error: ${err.message}</div>` + logContainer.innerHTML;
+                  }
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Patch UI"
+            >
+              <span className="text-base">🧬</span>
+              <span className="text-[11px] font-bold">Patch UI</span>
+            </button>
+
+            {/* 🎨 Save Color */}
+            <button
+              onClick={() => setIsColorModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-900/40 hover:bg-pink-800/60 border border-pink-500/40 text-pink-300 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              title="Thèmes & Couleurs"
+            >
+              <span className="text-base">🎨</span>
+              <span className="text-[11px] font-bold">Thèmes</span>
+            </button>
           </div>
         </div>
 
         {/* Input Bar */}
-        <div className="px-4 pb-0 pt-2 md:px-6 md:pb-0 md:pt-3 relative w-full flex flex-col gap-2">
+        <div className="px-3 pb-1 pt-1 relative w-full flex flex-col gap-2">
 
           {/* LE TROMBONE (Fichiers attachés) */}
           {tromboneFiles.length > 0 && (
@@ -3146,7 +3124,6 @@ Format attendu:
                           if (!newProjectName.trim()) { alert("Veuillez entrer un nom de projet."); return; }
                           const genId = "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4);
 
-                          // Use a local state or just update a temporary variable if we don't want to add a top-level state just for this button
                           const btn = e.currentTarget;
                           btn.innerText = '⏳ Création...';
                           btn.disabled = true;
@@ -3154,9 +3131,7 @@ Format attendu:
                           try {
                             const API_BASE = 'http://localhost:5005';
 
-                            // 1. Création via /api/fs/write (sans timeout artificiel pour laisser le temps au fallback réseau Windows)
                             let success = false;
-
                             let res = await fetch(`${API_BASE}/api/fs/write`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
@@ -3165,27 +3140,20 @@ Format attendu:
                                 file: "README.md",
                                 content: `# ${newProjectName}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
                               })
-                            }).catch(err => {
-                              console.error("Erreur API locale:", err);
-                              return null;
-                            });
+                            }).catch(() => null);
 
                             if (res && res.ok) {
                               success = true;
-                              console.log("[CREATION] Dossier créé avec succès via /api/fs/write");
-                              // 2. Notification Asynchrone au Cerveau Python (Fire & Forget, pour ne pas bloquer l'UI)
                               fetch(`${API_BASE}/v1/mission/start`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack })
+                                body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack, target_ai: uiAi, packs: selectedPacks })
                               }).catch(() => null);
                             } else {
-                              console.warn("[CREATION] L'API locale a échoué. Tentative via le Python.");
-                              // Fallback sur l'ancienne méthode
                               let pyRes = await fetch(`${API_BASE}/v1/mission/start`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack })
+                                body: JSON.stringify({ name: genId, prompt: newProjectDesc.trim() || "Init", stack: newProjectStack, target_ai: uiAi, packs: selectedPacks })
                               }).catch(() => null);
                               if (pyRes && pyRes.ok) success = true;
                             }
@@ -3195,185 +3163,20 @@ Format attendu:
                               setActiveFile(null);
                               setFileContent("");
                               setActiveProject(genId);
-
-                              // --- Enregistrement dans la mémoire RAG HERMES ---
-                              const memStr = `[PROJET: ${genId}] QUOI: ${newProjectDesc.trim()} | OÙ: ${newProjectStack} | COMMENT (Patchs): ${selectedPacks.join(', ')}`;
-                              let oldMem = localStorage.getItem('hermes_memory') || "";
-                              if (!oldMem.includes(`[PROJET: ${genId}]`)) {
-                                localStorage.setItem('hermes_memory', oldMem + "\\n- " + memStr);
-
-                                // Avertir le chat Tiger
-                                setMessages(prev => [...prev, {
-                                  id: Date.now().toString() + "_hermes",
-                                  role: "assistant",
-                                  content: `[SYSTEM REPORT]: Configuration validée pour le projet ${genId}.\nDonnées sauvegardées dans la mémoire RAG :\n${memStr}`,
-                                  widget: "phases"
-                                }]);
-                              }
-                            } else {
-                              btn.innerText = '❌ ERREUR API';
-                              btn.style.background = '#ef4444';
-                              setTimeout(() => {
-                                btn.innerText = 'Valider';
-                                btn.style.background = '';
-                                btn.disabled = false;
-                              }, 3000);
                             }
-                          } catch (err) {
-                            console.error(err);
-                            alert("Erreur de connexion au Bridge local.");
-                            btn.innerText = 'Valider';
+                          } catch (err: any) {
+                            alert("Erreur lors de la création : " + err.message);
+                          } finally {
+                            btn.innerText = '✅ Validé';
                             btn.disabled = false;
                           }
                         }}
-                        disabled={!!activeProject || !newProjectName.trim()}
-                        className="px-4 py-2 bg-cyan/20 text-cyan hover:bg-cyan/40 border border-cyan/50 rounded-xl font-bold text-sm disabled:opacity-50 transition-all"
+                        className="px-3 py-2 bg-cyan text-black font-bold text-xs rounded-xl hover:bg-cyan/80 transition-colors whitespace-nowrap shadow-md"
                       >
-                        {activeProject ? '✅ Validé' : 'Valider'}
+                        ✅ Valider
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Stack Technique</label>
-                    <select value={newProjectStack} onChange={e => setNewProjectStack(e.target.value)} className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
-                      <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
-                      <option value="Next.js + Tailwind + TS">Next.js + Tailwind + TS</option>
-                      <option value="HTML + Vanilla CSS + JS">HTML + Vanilla CSS + JS</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Description / Vision</label>
-                  <textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} placeholder="Décrivez l'application ou copiez votre PRD..." className="w-full bg-slate-800/50 text-white border border-slate-700 rounded-xl px-4 py-2 outline-none focus:border-cyan h-16 resize-none text-sm"></textarea>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4">
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">Intelligence Cible</label>
-                    <select value={newProjectLogicAi} onChange={e => setNewProjectLogicAi(e.target.value)} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
-                      <option value="deepseek">🐋 DeepSeek</option>
-                      <option value="openai">🟢 OpenAI (ChatGPT)</option>
-                      <option value="kimi">🌙 Kimi</option>
-                      <option value="gemini">✨ Gemini</option>
-                      <option value="claude">🟣 Claude</option>
-                      <option value="qwen">🌐 Qwen (Alibaba)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 flex items-center gap-2">📍 Mode & Lot de Départ</label>
-                    <select value={selectedStartPhase} onChange={e => setSelectedStartPhase(Number(e.target.value))} className="bg-slate-800/50 text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-sm">
-                      <option value={0}>🚀 TOUT (100% Complet : Frontend + Backend)</option>
-                      <option value={100}>🎨 FRONTEND SEUL (Fondation + Pages HTML du ZIP)</option>
-                      <option value={200}>⚡ BACKEND & LOGIQUE SEUL (API, State, Stores & Câblage)</option>
-                      <option value={1}>🚀 Lot 1 : Phase 1 — Fondation</option>
-                      <option value={2}>📄 Lot 2 : Phase 2 — Page 1</option>
-                      <option value={3}>📄 Lot 3 : Phase 2 — Page 2</option>
-                      <option value={4}>📄 Lot 4 : Phase 2 — Page 3</option>
-                      <option value={5}>📄 Lot 5 : Phase 2 — Page 4</option>
-                      <option value={6}>🧩 Lot 6 : Phase 3 — Composants</option>
-                      <option value={7}>🔒 Lot 7 : Phase 3 — Refactoring</option>
-                      <option value={8}>⚡ Lot 8 : Phase 4 — Finalisation & Styles</option>
-                    </select>
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsAutoPilot(!isAutoPilot)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${isAutoPilot
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                          : "bg-amber-500/20 text-amber-300 border-amber-500/50"
-                        }`}
-                    >
-                      ⚙️ AUTO-PILOT : {isAutoPilot ? "ON 🟢" : "OFF 🟠"}
-                    </button>
-
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-cyan-300 font-semibold bg-slate-800/80 px-3 py-2 rounded-xl border border-cyan-500/30">
-                      <input
-                        type="checkbox"
-                        checked={reuseActiveTab}
-                        onChange={e => setReuseActiveTab(e.target.checked)}
-                        className="rounded border-slate-700 text-cyan focus:ring-cyan bg-slate-900"
-                      />
-                      <span>🔗 Injecter dans l'onglet déjà ouvert (pas de nouvel onglet)</span>
-                    </label>
-                  </div>
-
-                  <div className="mt-5">
-                    <button onClick={() => setShowPacksCarousel(true)} className="px-4 py-2 bg-indigo-900/40 border border-indigo-500/50 text-indigo-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-800 transition-colors">
-                      💎 Packs PRD ({selectedPacks.length})
-                    </button>
-                  </div>
-
-                  <div className="mt-5">
-                    <input
-                      type="file"
-                      id="trombone-creation-upload"
-                      className="hidden"
-                      multiple
-                      accept=".html,.md,.png,.jpg,.jpeg,.json,.txt,.zip"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
-                        if (e.target) e.target.value = '';
-                      }}
-                    />
-                    <button
-                      onClick={() => document.getElementById('trombone-creation-upload')?.click()}
-                      className="px-4 py-2 bg-pink-900/40 border border-pink-500/50 text-pink-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-pink-800 transition-colors"
-                    >
-                      📎 Joindre ZIP (Stitch)
-                    </button>
-                  </div>
-
-                  <div className="mt-5">
-                    <button
-                      onClick={() => setIsAutoPilotOn(!isAutoPilotOn)}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border ${isAutoPilotOn ? 'bg-green-900/40 border-green-500/50 text-green-400' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white'}`}
-                    >
-                      ⚙️ AUTO-PILOT : {isAutoPilotOn ? 'ON' : 'OFF'}
-                    </button>
-                  </div>
-
-                  <div className="flex-1"></div>
-
-                  <div className="mt-5 flex gap-2 flex-col">
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isLocalZipMode}
-                        onChange={(e) => setIsLocalZipMode(e.target.checked)}
-                        className="rounded border-gray-600 bg-gray-800 text-cyan focus:ring-cyan"
-                      />
-                      Le fichier .zip est déjà déposé dans le dossier du projet
-                    </label>
-                    <button
-                      onClick={() => {
-                        if (tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip'))) {
-                          handleStartFullPipeline();
-                        } else if (isLocalZipMode) {
-                          handleStartLocalZipPipeline();
-                        } else {
-                          handleStartNewV0Project();
-                        }
-                      }}
-                      className="px-6 py-2.5 bg-cyan hover:bg-cyan/80 text-black font-bold rounded-xl shadow-[0_0_15px_rgba(8,179,201,0.4)] transition-all flex items-center justify-center gap-2 w-max"
-                    >
-                      {tromboneFiles.some(f => f.path.endsWith('.html') || f.path.endsWith('.zip')) ? "Envoyer ZIP 🚀" : isLocalZipMode ? "Lancer Pipeline ZIP 🚀" : "Envoyer UI 🎨"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Structure Preview */}
-                <div className="mt-2 bg-black/60 border border-white/5 rounded-xl p-3 text-[10px] text-slate-400 font-mono overflow-x-auto">
-                  {newProjectStack.includes("Next.js") ? (
-                    `📁 /app\n  📄 layout.tsx\n  📄 page.tsx\n📁 /components\n  📄 ui.tsx\n📄 tailwind.config.ts\n📄 package.json`
-                  ) : newProjectStack.includes("Vite") ? (
-                    `📁 /src\n  📁 /components\n  📄 App.tsx\n  📄 main.tsx\n📄 vite.config.ts\n📄 package.json`
-                  ) : (
-                    `📁 /\n  📄 index.html\n  📄 style.css\n  📄 script.js`
-                  )}
                 </div>
               </div>
             </div>
@@ -3426,6 +3229,7 @@ Format attendu:
           )}
         </div>
       </footer>
+
 
       {/* MODAL COLOR SAVER 🎨 */}
       {isColorModalOpen && (
