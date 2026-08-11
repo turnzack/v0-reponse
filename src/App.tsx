@@ -2002,20 +2002,10 @@ Description : ${newProjectDesc}.`;
 
     setTromboneFiles(appendedToTrombone);
 
-    // Transmettre la notification au bridge Stitch pour la création frontend
+    // Notification de dépôt de fichiers
     const targetProj = activeProject || newProjectName || "Projet_Stitch";
     const uploadedNames = fileArray.map(f => f.name).join(', ');
-    fetch("http://localhost:5005/bridge/prompt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        target_ai: "stitch",
-        prompt: `[FICHIERS/ZIP TRANSMIS: ${uploadedNames}]\n\nDirectives et fichiers joints pour l'interface UI/UX. Génère l'application complète.`,
-        auto_submit: true,
-        project_id: targetProj,
-        phase_num: 1
-      })
-    }).catch(err => console.log("Bridge offline pour Stitch:", err));
+    console.log(`[TROMBONE] Fichiers déposés pour ${targetProj}: ${uploadedNames}`);
 
     // KIROV5 MULTI-BATCH: Si plus de 3 fichiers HTML (ZIP ou Dossier complet)
     const totalHtmlFiles = htmlFiles.length; // htmlFiles contains all HTML files (already extracted or dropped)
@@ -2553,14 +2543,14 @@ Format attendu:
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative z-10 w-full">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative z-10 w-full">
 
         {/* === NOUVEAU : ZONE IDE INTEGREE === */}
         {activeProject && (
-          <div className="flex flex-1 overflow-hidden h-full animate-fadeIn">
+          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden h-full animate-fadeIn">
 
             {/* 1. Left Action Bar */}
-            <div className="design-ide-toolbar w-16 bg-black/80 border-r border-white/10 flex flex-col items-center py-4 gap-6 z-20 shadow-xl">
+            <div className="design-ide-toolbar w-full h-16 lg:w-16 lg:h-full bg-black/80 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-row lg:flex-col items-center justify-around lg:justify-start lg:py-4 px-2 lg:px-0 gap-2 lg:gap-6 z-20 shadow-xl overflow-x-auto lg:overflow-x-visible">
               <button title="Fermer le projet" onClick={() => { setActiveProject(null); setActiveFile(null); }} className="design-ide-btn-action w-10 h-10 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all mb-4">
                 ✕
               </button>
@@ -2578,6 +2568,30 @@ Format attendu:
               <button title="Amélioration" onClick={() => handleIDEAction("improve")} className="design-ide-btn-action w-10 h-10 rounded-xl bg-white/5 hover:bg-yellow-500/20 text-xl border border-white/10 hover:border-yellow-500 flex items-center justify-center transition-all group relative">
                 ✨
                 <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-yellow-400 pointer-events-none transition-opacity">Amélioration</span>
+              </button>
+
+              <button
+                title="Corriger Arborescence (Fix Extensions)"
+                onClick={() => {
+                  if (!activeProject) return;
+                  fetch("http://localhost:5005/api/fix-extensions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: activeProject })
+                  })
+                  .then(res => res.json())
+                  .then(data => {
+                    if (data.success) alert(data.message);
+                    else alert("Erreur: " + data.error);
+                  })
+                  .catch(e => alert("Erreur réseau: " + e.message));
+                }}
+                className="design-ide-btn-action w-10 h-10 rounded-xl bg-white/5 hover:bg-orange-500/20 text-xl border border-white/10 hover:border-orange-500 flex items-center justify-center transition-all group relative"
+              >
+                🛠️
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-orange-400 pointer-events-none transition-opacity font-bold">
+                  Fix Arborescence (.txt ➡️ .tsx)
+                </span>
               </button>
 
               <button
@@ -2893,7 +2907,7 @@ Format attendu:
 
         {/* Chat Area (Responsive) */}
         <main
-          className={`design-chat-main ${activeProject ? (isIdeFullscreen ? 'hidden w-0' : 'w-96 min-w-[24rem]') : 'flex-1'} border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col transition-all duration-500 ease-in-out`}
+          className={`design-chat-main ${activeProject ? (isIdeFullscreen ? 'hidden w-0' : 'w-full h-[50vh] lg:h-full lg:w-96 lg:min-w-[24rem]') : 'flex-1'} border-t lg:border-t-0 lg:border-l border-white/20 bg-black/60 shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-y-auto p-4 md:p-8 z-10 hide-scrollbar flex flex-col transition-all duration-500 ease-in-out`}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={(e) => {
@@ -3393,11 +3407,8 @@ Format attendu:
                       onChange={e => setSelectedStartPhase(Number(e.target.value))}
                       className="bg-[#11161d] text-white font-bold text-xs border border-cyan/40 rounded-xl px-2.5 py-1.5 outline-none focus:border-cyan cursor-pointer"
                     >
-                      <option value={0}>🚀 TOUT (100% Complet : Frontend + Backend)</option>
-                      <option value={1}>📌 Phase 1 : Cadrage & PRD (BIBLE_PRD)</option>
-                      <option value={2}>💻 Phase 2 : Structure & React Components</option>
-                      <option value={3}>🩺 Phase 3 : Suture & Connexions API</option>
-                      <option value={4}>📦 Phase 4 : Build & Intégration Final</option>
+                      <option value={1}>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
+                      <option value={2}>💻 Phase 2 : Le Backend (Assistant IA)</option>
                     </select>
                   </div>
 
@@ -3561,24 +3572,49 @@ Format attendu:
 
                     try {
                       const API_BASE = 'http://localhost:5005';
+                      const isNativeMobile = typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform();
 
-                      // 1. Définir le projet actif & créer le dossier sur le disque dur
-                      await fetch(`${API_BASE}/v1/projects/set-active`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name: genId })
-                      }).catch(() => null);
+                      if (isNativeMobile) {
+                        // 📱 MODE SOUVERAIN MOBILE (Capacitor Native)
+                        try {
+                          const { KirovSovereignEngine } = (window as any).Capacitor.Plugins;
+                          if (KirovSovereignEngine) {
+                            await KirovSovereignEngine.setActiveProject({ name: genId });
+                          }
+                        } catch(e) { console.warn("Plugin mobile introuvable", e); }
+                      } else {
+                        // 💻 MODE PC (Electron/Node)
+                        // 1. Définir le projet actif & créer le dossier sur le disque dur
+                        await fetch(`${API_BASE}/v1/projects/set-active`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ name: genId })
+                        }).catch(() => null);
+                      }
 
-                      // 2. Écrire le fichier README initial
-                      await fetch(`${API_BASE}/api/fs/write`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          project: genId,
-                          file: "README.md",
-                          content: `# ${newProjectName || genId}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
-                        })
-                      }).catch(() => null);
+                      if (isNativeMobile) {
+                        try {
+                          const { KirovSovereignEngine } = (window as any).Capacitor.Plugins;
+                          if (KirovSovereignEngine) {
+                            await KirovSovereignEngine.writeFile({
+                              project: genId,
+                              file: "README.md",
+                              content: `# ${newProjectName || genId}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
+                            });
+                          }
+                        } catch(e) {}
+                      } else {
+                        // 2. Écrire le fichier README initial
+                        await fetch(`${API_BASE}/api/fs/write`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            project: genId,
+                            file: "README.md",
+                            content: `# ${newProjectName || genId}\n\nInitialisé par Tiger IA V0.\nStack : ${newProjectStack}\nDescription : ${newProjectDesc}`
+                          })
+                        }).catch(() => null);
+                      }
 
                       const packsDetailsText = (selectedPacks && selectedPacks.length > 0)
                         ? `\n\n[PACKS PRD ARCHITECTURE SELECTIONNES (${selectedPacks.length})]\n` + selectedPacks.map(id => {
@@ -3589,19 +3625,71 @@ Format attendu:
 
                       const megaPrompt = (newProjectDesc.trim() || newProjectInstructions.trim() || `Initialisation du projet ${newProjectName || genId}`) + packsDetailsText;
 
+                      // Déterminer l'IA cible en fonction de la phase
+                      let finalTargetAi = newProjectLogicAi;
+                      if (selectedStartPhase === 1) {
+                        finalTargetAi = targetUiAi;
+                      }
+
                       // 3. Lancer la mission Kirov
-                      await fetch(`${API_BASE}/v1/mission/start`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: genId, prompt: megaPrompt, stack: newProjectStack, target_ai: newProjectLogicAi, packs: selectedPacks, phase: selectedStartPhase })
-                      }).catch(() => null);
+                      if (isNativeMobile) {
+                        try {
+                          const { KirovSovereignEngine } = (window as any).Capacitor.Plugins;
+                          if (KirovSovereignEngine) {
+                            await KirovSovereignEngine.startMission({
+                              target_project: genId,
+                              user_prompt: megaPrompt,
+                              target_ai: finalTargetAi,
+                              packs: selectedPacks,
+                              phase: selectedStartPhase,
+                              auto_submit: isAutoPilotOn
+                            });
+                          }
+                        } catch (e) {
+                          alert("Le moteur souverain mobile n'est pas encore implémenté ou le plugin est manquant.");
+                        }
+                      } else {
+                        if (selectedStartPhase === 2) {
+                          await fetch(`${API_BASE}/api/bridge/trombone`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              target_project: genId, 
+                              user_prompt: megaPrompt, 
+                              target_ai: finalTargetAi, 
+                              packs: selectedPacks, 
+                              zip_mode: true, 
+                              start_phase: 200, 
+                              force_restart: true,
+                              auto_submit: isAutoPilotOn 
+                            })
+                          }).catch(() => null);
+                          
+                          if (!reuseActiveTab) {
+                            await fetch(`${API_BASE}/v1/mission/start`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ name: genId, prompt: "OPEN_TAB_ONLY", target_ai: finalTargetAi, reuse_tab: false })
+                            }).catch(() => null);
+                          }
+                        } else {
+                          await fetch(`${API_BASE}/v1/mission/start`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: genId, prompt: megaPrompt, stack: newProjectStack, target_ai: finalTargetAi, packs: selectedPacks, phase: selectedStartPhase, reuse_tab: reuseActiveTab, auto_submit: isAutoPilotOn })
+                          }).catch(() => null);
+                        }
+                      }
 
                       setPreviewUrl(null);
                       setActiveFile(null);
                       setFileContent("");
-                      setActiveProject(genId);
                       setIsCreationMode(false);
-                      handleSend(megaPrompt);
+                      setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: "user",
+                        content: `🚀 Mission "${newProjectName || genId}" initialisée pour ${newProjectLogicAi.toUpperCase()} avec ${selectedPacks.length} pack(s) PRD. Injection du Méga-Prompt en cours...`
+                      }]);
                     } catch (err: any) {
                       alert("Erreur lors de la création : " + err.message);
                     } finally {
