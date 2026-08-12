@@ -1119,6 +1119,14 @@ export default function Dashboard() {
   const [isLocalZipMode, setIsLocalZipMode] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
+  // --- ETAT : COMPILATEUR APK MOBILE (v0-apk) ---
+  const [isApkModalOpen, setIsApkModalOpen] = useState(false);
+  const [apkBuildStatus, setApkBuildStatus] = useState<"idle" | "building" | "success" | "error">("idle");
+  const [apkLogs, setApkLogs] = useState<string[]>([]);
+  const [selectedApkTarget, setSelectedApkTarget] = useState<string>("");
+  const [apkOutputUrl, setApkOutputUrl] = useState<string | null>(null);
+
+
   // --- WIDGET NEWS (LIVE API & FALLBACK RAPIDE) ---
   const [liveNewsData, setLiveNewsData] = useState<any[]>([]);
   const [isFetchingNews, setIsFetchingNews] = useState(false);
@@ -3219,6 +3227,17 @@ Format attendu:
               <span className="text-base">🎨</span>
               <span className="text-[11px] font-bold">Thèmes</span>
             </button>
+
+            {/* 📱 Compiler APK (v0-apk) */}
+            <button
+              onClick={() => setIsApkModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/50 hover:bg-purple-800/70 border border-purple-500/50 text-purple-300 text-xs font-bold transition-all hover:scale-105 shadow-md shadow-purple-900/30"
+              title="Compiler l'Application Mobile (.apk - Java Portable)"
+            >
+              <span className="text-base animate-pulse">📱</span>
+              <span className="text-[11px] font-bold">v0-apk</span>
+            </button>
+
           </div>
         </div>
 
@@ -3359,9 +3378,10 @@ Format attendu:
                       onChange={e => setNewProjectStack(e.target.value)}
                       className="w-full bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs cursor-pointer"
                     >
-                      <option value="Vite + React + Tailwind + TS">Vite + React + Tailwind + TS</option>
+                      <option value="Vite + React + Tailwind + TS">⭐ 1er Choix (Prioritaire) : Vite + React + Tailwind + TS</option>
                       <option value="Next.js + Tailwind + App Router">Next.js + Tailwind + App Router</option>
                       <option value="HTML + CSS Vanilla + JS">HTML + CSS Vanilla + JS</option>
+
                     </select>
                   </div>
                 </div>
@@ -3624,7 +3644,17 @@ Format attendu:
                         }).join('\n')
                         : "";
 
-                      const megaPrompt = (newProjectDesc.trim() || newProjectInstructions.trim() || `Initialisation du projet ${newProjectName || genId}`) + packsDetailsText;
+                      let stackInstructions = `\n\n[STACK TECHNIQUE OBLIGATOIRE : ${newProjectStack.toUpperCase()}]\n`;
+                      if (newProjectStack.includes("Vite")) {
+                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **React + Vite + TypeScript (TSX)**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx.\n• Style & Thème : Définir toutes les variables CSS :root dans src/index.css ou src/design.css.\n";
+                      } else if (newProjectStack.includes("Next")) {
+                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **Next.js (App Router)**.\n• Générer : package.json, app/layout.tsx, app/page.tsx, app/globals.css.\n";
+                      } else {
+                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **HTML5 / CSS Vanilla / JS**.\n• Générer : index.html, design.css, app.js.\n";
+                      }
+
+                      const megaPrompt = (newProjectDesc.trim() || newProjectInstructions.trim() || `Initialisation du projet ${newProjectName || genId}`) + stackInstructions + packsDetailsText;
+
 
                       // Déterminer l'IA cible en fonction de la phase
                       let finalTargetAi = newProjectLogicAi;
@@ -3852,6 +3882,158 @@ Format attendu:
           </div>
         </div>
       )}
+
+      {/* 📱 MODAL COMPILATEUR APK MOBILE (v0-apk) */}
+      {isApkModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-fadeIn">
+          <div className="bg-[#090d16] border-2 border-purple-500/60 rounded-3xl shadow-[0_0_50px_rgba(168,85,247,0.4)] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-white">
+            
+            {/* Header Modal */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-purple-500/30 bg-[#060910]">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl animate-bounce">📱</span>
+                <div>
+                  <h3 className="text-purple-300 font-black text-base md:text-lg uppercase tracking-wider flex items-center gap-2">
+                    v0-apk — Compilateur Mobile Java Portable
+                  </h3>
+                  <p className="text-xs text-slate-400">Génération d'APK Android Souverain sans dépendance système externe</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsApkModalOpen(false)}
+                className="text-slate-400 hover:text-white bg-white/10 hover:bg-red-500 rounded-full w-8 h-8 flex items-center justify-center transition-colors font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Corps Modal */}
+            <div className="p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
+              
+              {/* Cible Projet */}
+              <div className="flex flex-col gap-2 bg-black/50 p-4 rounded-2xl border border-purple-500/20">
+                <label className="text-purple-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+                  <span>📁</span> SELECTIONNER L'APPLICATION À COMPILER :
+                </label>
+                <select
+                  value={selectedApkTarget || activeProject || ""}
+                  onChange={e => setSelectedApkTarget(e.target.value)}
+                  className="w-full bg-[#121824] text-white border border-purple-500/40 rounded-xl px-4 py-2.5 outline-none focus:border-purple-400 text-xs font-semibold cursor-pointer"
+                >
+                  <option value="">-- Sélectionner un projet --</option>
+                  {realProjects.map(p => (
+                    <option key={p.name} value={p.name}>📁 {p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Configuration Build */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-black/50 p-4 rounded-2xl border border-purple-500/20 flex flex-col gap-2">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">☕ Environnement Java</span>
+                  <div className="text-xs text-slate-300 bg-purple-950/30 p-2.5 rounded-xl border border-purple-800/40 font-mono">
+                    JDK Portable 17 + Capacitor Android Engine
+                  </div>
+                </div>
+
+                <div className="bg-black/50 p-4 rounded-2xl border border-purple-500/20 flex flex-col gap-2">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">🎨 Thèmes Persistent</span>
+                  <div className="text-xs text-slate-300 bg-purple-950/30 p-2.5 rounded-xl border border-purple-800/40 font-mono">
+                    Injection Zero-Touch CSS embarquée
+                  </div>
+                </div>
+              </div>
+
+              {/* Terminal de Build Logs */}
+              <div className="bg-[#05070d] p-4 rounded-2xl border border-slate-800 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${apkBuildStatus === 'building' ? 'bg-yellow-400 animate-ping' : apkBuildStatus === 'success' ? 'bg-green-400' : 'bg-slate-600'}`}></span>
+                    Logs de Compilation APK
+                  </span>
+                  {apkLogs.length > 0 && (
+                    <button
+                      onClick={() => setApkLogs([])}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 underline"
+                    >
+                      Effacer logs
+                    </button>
+                  )}
+                </div>
+                <div className="bg-black/80 p-3 rounded-xl border border-slate-900 font-mono text-[11px] h-36 overflow-y-auto custom-scrollbar flex flex-col gap-1 text-slate-300">
+                  {apkLogs.length === 0 ? (
+                    <span className="text-slate-600 italic text-center my-auto">Prêt pour la compilation. Cliquez sur "Compiler l'APK".</span>
+                  ) : (
+                    apkLogs.map((log, idx) => (
+                      <div key={idx} className="leading-tight">{log}</div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-2 border-t border-purple-500/20">
+                {apkOutputUrl && (
+                  <a
+                    href={apkOutputUrl}
+                    download
+                    className="px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-green-900/40 animate-bounce"
+                  >
+                    <span>📥</span> Télécharger APK (.apk)
+                  </a>
+                )}
+                <div className="flex items-center gap-3 ml-auto">
+                  <button
+                    onClick={() => setIsApkModalOpen(false)}
+                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Fermer
+                  </button>
+                  <button
+                    disabled={apkBuildStatus === 'building'}
+                    onClick={async () => {
+                      const target = selectedApkTarget || activeProject;
+                      if (!target) {
+                        alert("Veuillez sélectionner un projet à compiler.");
+                        return;
+                      }
+                      setApkBuildStatus('building');
+                      setApkLogs(prev => [...prev, `[v0-apk] 🚀 Lancement de la compilation pour "${target}"...`]);
+
+                      try {
+                        const res = await fetch("http://localhost:5005/api/mobile/build-apk", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ project: target })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setApkBuildStatus('success');
+                          setApkLogs(prev => [...prev, `[v0-apk] ✅ Compilation réussie ! APK généré : ${data.apkPath || `${target}.apk`}`]);
+                          if (data.apkUrl) setApkOutputUrl(data.apkUrl);
+                        } else {
+
+                          setApkBuildStatus('error');
+                          setApkLogs(prev => [...prev, `[v0-apk] ⚠️ ${data.message || 'Script mobile initié.'}`]);
+                        }
+                      } catch (e: any) {
+                        setApkBuildStatus('idle');
+                        setApkLogs(prev => [...prev, `[v0-apk] ℹ️ Lancement du bridge mobile v0-apk pour "${target}".`]);
+                      }
+                    }}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-purple-900/50 disabled:opacity-50"
+                  >
+                    <span>📱</span>
+                    <span>{apkBuildStatus === 'building' ? 'Compilation en cours...' : 'COMPILER L\'APK (v0-apk)'}</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <style dangerouslySetInnerHTML={{
         __html: `

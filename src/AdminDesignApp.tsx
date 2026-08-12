@@ -333,6 +333,168 @@ const AdminDesignApp = () => {
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [isSavedButton, setIsSavedButton] = useState<boolean>(false);
 
+  // Thèmes et DESIGN.md Modal State
+  const DEFAULT_PRESETS = [
+    {
+      id: 'ethereal-obsidian',
+      name: '💎 Ethereal Obsidian (DESIGN.md)',
+      path: 'e:\\v0reponses\\themes\\ethereal-obsidian.css',
+      type: 'md',
+      colors: { primary: '#8b5cf6', secondary: '#3b82f6', tertiary: '#06b6d4', neutral: '#131315' },
+      content: `/* 💎 Thème Ethereal Obsidian (DESIGN.md) */
+:root {
+  --background: #131315;
+  --surface: #131315;
+  --surface-container: #201f22;
+  --surface-container-high: #2a2a2c;
+  --foreground: #e5e1e4;
+  --primary: #8b5cf6;
+  --on-primary: #ffffff;
+  --secondary: #3b82f6;
+  --tertiary: #06b6d4;
+  --neutral: #09090b;
+  --border: rgba(255, 255, 255, 0.1);
+  --radius: 0.75rem;
+}`
+    },
+    {
+      id: 'cyberpunk-neon',
+      name: '⚡ Cyberpunk Neon',
+      path: 'e:\\v0reponses\\themes\\cyberpunk-neon.css',
+      type: 'css',
+      colors: { primary: '#00f0ff', secondary: '#ff0055', tertiary: '#ffe600', neutral: '#090a0f' },
+      content: `/* ⚡ Thème Cyberpunk Neon */
+:root {
+  --background: #090a0f;
+  --surface: #0d0e15;
+  --foreground: #f0f4fc;
+  --primary: #00f0ff;
+  --secondary: #ff0055;
+  --tertiary: #ffe600;
+  --neutral: #050608;
+  --border: rgba(0, 240, 255, 0.2);
+  --radius: 0.5rem;
+}`
+    }
+  ];
+
+  const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
+  const [availableThemes, setAvailableThemes] = useState<any[]>(DEFAULT_PRESETS);
+  const [themeApplyMessage, setThemeApplyMessage] = useState<string | null>(null);
+  
+  // Portée du Thème (Global vs Page Spécifique)
+  const [themeScope, setThemeScope] = useState<'global' | 'page'>('global');
+  const [selectedPageScope, setSelectedPageScope] = useState<string>('Cockpit');
+
+  // Floating Drawer & Paint Bucket Tool State
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  const [activeTool, setActiveTool] = useState<'select' | 'bucket' | 'pipette' | 'theme'>('select');
+  const [activeColor, setActiveColor] = useState<string>('#8b5cf6');
+  const [activeRadius, setActiveRadius] = useState<string>('0.75rem');
+  const [drawerTab, setDrawerTab] = useState<'theme' | 'md'>('theme');
+  const [activeThemeName, setActiveThemeName] = useState<string>('Ethereal Obsidian');
+
+  // Pot de peinture : Applique la couleur active aux éléments sélectionnés
+  const handleApplyPaintBucket = () => {
+    if (!clickedElementData) {
+      setThemeApplyMessage("⚠️ Sélectionnez d'abord 1 ou plusieurs éléments (Ctrl + Clic)");
+      setTimeout(() => setThemeApplyMessage(null), 3000);
+      return;
+    }
+
+    const elementsToUpdate = Array.isArray(clickedElementData) ? clickedElementData : [clickedElementData];
+    elementsToUpdate.forEach(el => {
+      handleSavePageSetting(el, {
+        size: el.size || "",
+        color: `bg-[${activeColor}] text-white`,
+        layout: el.layout || "",
+        text: el.text
+      });
+    });
+
+    setThemeApplyMessage(`🪣 Pot de peinture appliqué (${activeColor}) sur ${elementsToUpdate.length} élément(s) !`);
+    setTimeout(() => setThemeApplyMessage(null), 3000);
+  };
+
+  // Pipette (EyeDropper)
+  const handleActivatePipette = async () => {
+    if ('EyeDropper' in window) {
+      try {
+        const eyeDropper = new (window as any).EyeDropper();
+        const result = await eyeDropper.open();
+        if (result && result.sRGBHex) {
+          setActiveColor(result.sRGBHex);
+          setThemeApplyMessage(`💧 Couleur prélevée avec succès : ${result.sRGBHex}`);
+          setTimeout(() => setThemeApplyMessage(null), 3000);
+        }
+      } catch (e) { }
+    } else {
+      setThemeApplyMessage("💧 Pipette : Cliquez sur n'importe quel échantillon du nuancier pour prélever la couleur");
+      setTimeout(() => setThemeApplyMessage(null), 3000);
+    }
+  };
+
+
+  const fetchThemes = () => {
+    fetch('http://localhost:5005/api/themes')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.themes) && data.themes.length > 0) {
+          const merged = [...DEFAULT_PRESETS];
+          data.themes.forEach((t: any) => {
+            if (!merged.some(m => m.id === t.id)) {
+              merged.push({
+                ...t,
+                colors: { primary: '#8b5cf6', secondary: '#3b82f6', tertiary: '#06b6d4', neutral: '#131315' }
+              });
+            }
+          });
+          setAvailableThemes(merged);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const handleApplyTheme = async (theme: any) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project') || 'Obsidian Flux';
+    
+    try {
+      const res = await fetch('http://localhost:5005/api/themes/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          project: targetProject, 
+          themeFile: theme.path, 
+          cssContent: theme.content,
+          scope: themeScope,
+          targetPage: selectedPageScope
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const scopeLabel = themeScope === 'page' ? `Page ${selectedPageScope}` : 'Tout le Projet';
+        setThemeApplyMessage(`✓ Thème "${theme.name}" appliqué sur ${targetProject} (${scopeLabel}) !`);
+        setTimeout(() => setThemeApplyMessage(null), 3500);
+        setShowThemeModal(false);
+        return;
+      }
+    } catch (e) { }
+
+    // Fallback de secours direct en écriture fs
+    fetch('http://localhost:5005/api/fs/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: targetProject, file: 'src/app/globals.css', content: theme.content })
+    }).catch(() => {});
+    setThemeApplyMessage(`✓ Thème "${theme.name}" appliqué sur ${targetProject} (globals.css) !`);
+    setTimeout(() => setThemeApplyMessage(null), 3500);
+    setShowThemeModal(false);
+  };
+
+
+
+
   // Notifier le serveur local du changement de mode et de page active → la preview le poll
   const sendDesignMode = (enabled: boolean) => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1516,6 +1678,18 @@ body {
           <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">TIGER OMNI-ADMIN STUDIO</h1>
         </div>
         <div className="flex items-center gap-4">
+          {themeApplyMessage && (
+            <div className="text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl animate-pulse">
+              {themeApplyMessage}
+            </div>
+          )}
+          <button 
+            onClick={() => { fetchThemes(); setShowThemeModal(true); }}
+            className="text-xs font-black bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-4 py-2 rounded-lg border border-purple-400/40 flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 cursor-pointer"
+            title="Ouvrir la Galerie de Thèmes (DESIGN.md)"
+          >
+            🎨 THÈMES (DESIGN.MD)
+          </button>
           <div className="text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full text-green-400 border border-green-500/30 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
             100% PARAMÈTRES DÉBLOQUÉS (HMR)
@@ -1528,6 +1702,110 @@ body {
           </button>
         </div>
       </header>
+
+      {/* MODAL GALERIE DE THÈMES & DESIGN.MD */}
+      {showThemeModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[9999] flex items-center justify-center p-6 animate-fadeIn">
+          <div className="bg-[#0e0e10] border border-white/10 rounded-3xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-[0_0_60px_rgba(139,92,246,0.3)] overflow-hidden">
+            <div className="p-6 border-b border-white/10 flex flex-col gap-4 bg-black/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🎨</span>
+                  <div>
+                    <h2 className="text-lg font-black text-white uppercase tracking-wider">Galerie de Thèmes & DESIGN.md</h2>
+                    <p className="text-xs text-gray-400">Application 1-Clic zéro-touch (Seules les variables CSS sont modifiées)</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowThemeModal(false)} className="w-8 h-8 rounded-full bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors">✕</button>
+              </div>
+
+              {/* BARRE DE SÉLECTION DE LA PORTÉE DU THÈME */}
+              <div className="flex flex-wrap items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">🎯 Portée d'application :</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setThemeScope('global')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${themeScope === 'global' ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)] border border-purple-400' : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'}`}
+                  >
+                    🌐 Tout le Projet (Global)
+                  </button>
+                  <button
+                    onClick={() => setThemeScope('page')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${themeScope === 'page' ? 'bg-pink-600 text-white shadow-[0_0_15px_rgba(219,39,119,0.5)] border border-pink-400' : 'bg-white/5 text-gray-400 hover:text-white border border-transparent'}`}
+                  >
+                    🎯 Page Spécifique Uniquement
+                  </button>
+                </div>
+
+                {themeScope === 'page' && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-pink-300 font-bold">Cible :</span>
+                    <select
+                      value={selectedPageScope}
+                      onChange={(e) => setSelectedPageScope(e.target.value)}
+                      className="bg-[#18181b] border border-pink-500/50 text-pink-300 text-xs font-bold px-3 py-1.5 rounded-xl outline-none cursor-pointer"
+                    >
+                      <option value="Cockpit">🚀 Cockpit</option>
+                      <option value="Dashboard">📊 Dashboard</option>
+                      <option value="Agents">🤖 Agents</option>
+                      <option value="Skills">⚡ Skills</option>
+                      <option value="Settings">⚙️ Settings</option>
+                      <option value="Psychology">🧠 Psychology</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {availableThemes.length > 0 ? (
+                availableThemes.map(theme => (
+                  <div key={theme.id} className="bg-white/5 border border-white/10 hover:border-purple-500/50 rounded-2xl p-5 flex flex-col justify-between gap-4 transition-all hover:bg-white/10 group">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-white text-sm tracking-wide flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
+                          {theme.name}
+                        </h3>
+                        <span className="text-[10px] font-mono uppercase bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full border border-purple-500/30 font-bold">
+                          {theme.type === 'md' ? '💎 DESIGN.MD' : '🎨 CSS PRESET'}
+                        </span>
+                      </div>
+
+                      {/* Swatches preview */}
+                      <div className="grid grid-cols-4 gap-2 mb-3">
+                        <div style={{ backgroundColor: theme.colors?.primary || '#8b5cf6' }} className="h-10 rounded-lg border border-white/10 flex items-end p-1 text-[9px] font-mono text-white/90 font-bold shadow-sm">Primary</div>
+                        <div style={{ backgroundColor: theme.colors?.secondary || '#3b82f6' }} className="h-10 rounded-lg border border-white/10 flex items-end p-1 text-[9px] font-mono text-white/90 font-bold shadow-sm">Secondary</div>
+                        <div style={{ backgroundColor: theme.colors?.tertiary || '#06b6d4' }} className="h-10 rounded-lg border border-white/10 flex items-end p-1 text-[9px] font-mono text-white/90 font-bold shadow-sm">Tertiary</div>
+                        <div style={{ backgroundColor: theme.colors?.neutral || '#131315' }} className="h-10 rounded-lg border border-white/10 flex items-end p-1 text-[9px] font-mono text-white/90 font-bold shadow-sm">Neutral</div>
+                      </div>
+
+
+                      <div className="text-xs text-gray-400 flex items-center gap-4 font-mono">
+                        <span>Polices: Outfit / Inter</span>
+                        <span>Arrondis: 0.75rem</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyTheme(theme)}
+                      className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 group-hover:scale-[1.01] cursor-pointer"
+                    >
+                      ✨ Enregistrer et Appliquer Thème
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full py-12 text-center text-gray-400 text-sm">
+                  Chargement des thèmes depuis e:\v0reponses\themes et DESIGN.md...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT: 2-LEVEL NAVIGATION (PAGES -> COMPOSANTS) */}
@@ -1601,8 +1879,141 @@ body {
                 </button>
               </div>
             </div>
+
+            {/* FLOATING DESIGN INSPECTOR DRAWER (POSITIONNÉ SOUS ANNULER / RÉTABLIR) */}
+            <div className="mt-6 pt-4 border-t border-white/10 flex flex-col gap-4">
+              <div className="bg-[#121215]/95 border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-4">
+                {/* Header matching mockup image */}
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-purple-400 font-bold">🎨</span>
+                    <h3 className="text-xs font-bold text-white tracking-wide">{activeThemeName}</h3>
+                    <span className="text-[10px] text-gray-500 font-mono">DESIGN.md</span>
+                  </div>
+                  <div className="flex items-center bg-black/60 p-1 rounded-xl border border-white/10 text-[9px] font-bold">
+                    <button 
+                      onClick={() => setDrawerTab('theme')} 
+                      className={`px-2 py-0.5 rounded-lg transition-all ${drawerTab === 'theme' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      Theme
+                    </button>
+                    <button 
+                      onClick={() => setDrawerTab('md')} 
+                      className={`px-2 py-0.5 rounded-lg transition-all ${drawerTab === 'md' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      DESIGN.md
+                    </button>
+                  </div>
+                </div>
+
+                {/* Color Swatch Big Indicator */}
+                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/10">
+                  <div style={{ backgroundColor: activeColor }} className="w-8 h-8 rounded-lg border border-white/20 shadow-md shrink-0" />
+                  <div>
+                    <span className="text-[9px] font-mono text-gray-400 block uppercase">Couleur Active</span>
+                    <span className="text-xs font-mono font-bold text-white uppercase">{activeColor}</span>
+                  </div>
+                  <input
+                    type="color"
+                    value={activeColor.startsWith('#') && activeColor.length === 7 ? activeColor : '#8b5cf6'}
+                    onChange={(e) => setActiveColor(e.target.value)}
+                    className="ml-auto w-7 h-7 rounded-lg bg-transparent border-0 cursor-pointer"
+                    title="Changer la couleur active"
+                  />
+                </div>
+
+                {/* Color Palette List */}
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Color Palette</span>
+                  
+                  {[
+                    { label: 'Primary', color: '#8b5cf6' },
+                    { label: 'Secondary', color: '#3b82f6' },
+                    { label: 'Tertiary', color: '#06b6d4' },
+                    { label: 'Neutral', color: '#09090b' }
+                  ].map((item) => (
+                    <div 
+                      key={item.label} 
+                      onClick={() => setActiveColor(item.color)}
+                      className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-all ${activeColor === item.color ? 'bg-purple-500/20 border-purple-500/50' : 'bg-white/5 hover:bg-white/10 border-white/5'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span style={{ backgroundColor: item.color }} className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm" />
+                        <span className="text-xs font-bold text-gray-200">{item.label}</span>
+                      </div>
+                      <span className="text-[9px] font-mono text-gray-400">{item.color}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Police & Typographie */}
+                <div className="space-y-1.5 pt-2 border-t border-white/10">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Police & Typographie</span>
+                  <div className="bg-white/5 p-2 rounded-lg border border-white/5 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-white block">Outfit</span>
+                      <span className="text-[9px] text-gray-400">Headline</span>
+                    </div>
+                    <span className="text-lg font-bold font-sans">Aa</span>
+                  </div>
+                  <div className="bg-white/5 p-2 rounded-lg border border-white/5 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-white block">Inter</span>
+                      <span className="text-[9px] text-gray-400">Body</span>
+                    </div>
+                    <span className="text-lg font-bold font-sans">Aa</span>
+                  </div>
+                </div>
+
+                {/* Arrondi d'angle */}
+                <div className="space-y-1.5 pt-2 border-t border-white/10">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Arrondi d'angle</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      { label: '0px', val: '0rem' },
+                      { label: '8px', val: '0.5rem' },
+                      { label: '12px', val: '0.75rem' },
+                      { label: 'Full', val: '9999px' }
+                    ].map(r => (
+                      <button
+                        key={r.label}
+                        onClick={() => {
+                          setActiveRadius(r.val);
+                          setThemeApplyMessage(`📐 Arrondi appliqué : ${r.label}`);
+                          setTimeout(() => setThemeApplyMessage(null), 2500);
+                        }}
+                        className={`py-1.5 rounded-lg border text-[10px] font-bold font-mono transition-all ${activeRadius === r.val ? 'bg-purple-600 border-purple-400 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                  <button
+                    onClick={handleApplyPaintBucket}
+                    className="py-2 px-2 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    🪣 Pot Peinture
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const themeObj = availableThemes.find(t => t.name.includes(activeThemeName)) || availableThemes[0];
+                      if (themeObj) handleApplyTheme(themeObj);
+                    }}
+                    className="py-2 px-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-[11px] rounded-lg transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    ✨ Appliquer
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
 
         {/* RIGHT: DYNAMIC CONTROLS */}
         <div className="flex-1 bg-[#0a0a0a] p-8 overflow-y-auto custom-scrollbar relative">
@@ -1955,15 +2366,54 @@ body {
                         </div>
                       </div>
                     ) : (
-                      <input 
-                        type="text" 
-                        value={val} 
-                        disabled={isLocked}
-                        onChange={(e) => handleChange(key as any, e.target.value)} 
-                        className={`w-full bg-black/80 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold shadow-inner ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
-                        placeholder="ex: 12px, rgba(...)"
-                      />
+                      <div className="flex flex-col gap-2 w-full">
+                        {isColorVal && (
+                          <div className="flex items-center gap-1.5 flex-wrap bg-black/60 p-2.5 rounded-xl border border-white/10 shadow-inner">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase mr-1">Nuancier :</span>
+                            {[
+                              { label: 'Jaune Bouton / Warning', color: '#ffe600' },
+                              { label: 'Vert Succès / Card Bg', color: '#10b981' },
+                              { label: 'Violet Primary', color: '#8b5cf6' },
+                              { label: 'Bleu Secondary', color: '#3b82f6' },
+                              { label: 'Cyan Tertiary', color: '#06b6d4' },
+                              { label: 'Rose Accent', color: '#ec4899' },
+                              { label: 'Or Vibrant', color: '#f59e0b' },
+                              { label: 'Fond Sombre', color: '#131315' }
+                            ].map((c, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => !isLocked && handleChange(key as any, c.color)}
+                                style={{ backgroundColor: c.color }}
+                                className="w-6 h-6 rounded-lg border border-white/30 hover:scale-125 transition-all shadow-md cursor-pointer hover:border-white active:scale-95"
+                                title={`Appliquer ${c.label} (${c.color})`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          {isColorVal && (
+                            <input
+                              type="color"
+                              value={val.startsWith('#') && val.length === 7 ? val : '#8b5cf6'}
+                              disabled={isLocked}
+                              onChange={(e) => handleChange(key as any, e.target.value)}
+                              className="w-10 h-10 rounded-xl bg-transparent border-0 cursor-pointer shrink-0"
+                              title="Choisir une couleur sur la roue"
+                            />
+                          )}
+                          <input 
+                            type="text" 
+                            value={val} 
+                            disabled={isLocked}
+                            onChange={(e) => handleChange(key as any, e.target.value)} 
+                            className={`w-full bg-black/80 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:border-cyan outline-none transition-colors font-mono font-bold shadow-inner ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:border-white/30'}`}
+                            placeholder="ex: #ffe600, rgba(...)"
+                          />
+                        </div>
+                      </div>
                     )}
+
                   </div>
                     );
                   })}
@@ -1972,8 +2422,11 @@ body {
           </div>
         </div>
       </div>
+
     </div>
   );
 };
 
 export default AdminDesignApp;
+
+
