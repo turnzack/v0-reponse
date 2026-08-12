@@ -37,7 +37,7 @@ const getRandomGradient = (alpha = 1) => {
   return `linear-gradient(${angle}deg, rgba(${c1[0]},${c1[1]},${c1[2]},${alpha}) 0%, rgba(${c2[0]},${c2[1]},${c2[2]},${alpha}) 100%)`;
 };
 
-export const getTargetAiUrl = (id: string, isUi: boolean = false): string => {
+const getTargetAiUrl = (id: string, isUi: boolean = false): string => {
   if (id === "custom") return typeof window !== 'undefined' ? (localStorage.getItem("tiger_customAiUrl") || "https://chat.deepseek.com/") : "https://chat.deepseek.com/";
   if (id === "stitch") return "https://stitch.withgoogle.com/";
   if (id === "v0") return "https://v0.dev/";
@@ -2600,7 +2600,8 @@ Format attendu:
                   const nextState = !isDesignMode;
                   setIsDesignMode(nextState);
                   if (nextState && !previewUrl) {
-                    setPreviewUrl("http://localhost:5173");
+                    const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
+                    setPreviewUrl(isNextJs ? "http://localhost:3000" : "http://localhost:5173");
                   }
                 }}
                 className={`design-ide-btn-action w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isDesignMode ? 'bg-pink-500 text-white border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 hover:bg-pink-500/20 text-pink-500 border-white/10 hover:border-pink-500'}`}
@@ -2802,14 +2803,14 @@ Format attendu:
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
                           <span className="text-xs font-mono font-bold text-green-400">
-                            LIVE PREVIEW (LOCALHOST:5173-5174)
+                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : "LOCALHOST:5173-5174"})
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={previewUrl || "http://localhost:5173"}
+                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5173")}
                             onChange={(e) => setPreviewInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') setPreviewUrl(previewInput);
@@ -2836,7 +2837,7 @@ Format attendu:
                       {/* IFRAME APPLICATION ACTIVE */}
                       <div className="flex-1 relative overflow-hidden" style={{ background: 'var(--preview-bg)' }}>
                         <iframe
-                          src={previewUrl || "http://localhost:5173"}
+                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5173")}
                           className="w-full h-full border-none"
                           title="Application Preview Live"
                         />
@@ -3636,14 +3637,14 @@ Format attendu:
                         try {
                           const { KirovSovereignEngine } = (window as any).Capacitor.Plugins;
                           if (KirovSovereignEngine) {
-                            await KirovSovereignEngine.startMission({
-                              target_project: genId,
-                              user_prompt: megaPrompt,
-                              target_ai: finalTargetAi,
-                              packs: selectedPacks,
-                              phase: selectedStartPhase,
-                              auto_submit: isAutoPilotOn
-                            });
+                            // 1. Ouvrir l'onglet IA via la WebView In-App Native
+                            const aiUrl = getTargetAiUrl(finalTargetAi);
+                            await KirovSovereignEngine.openAiTab({ url: aiUrl });
+                            
+                            // 2. Injecter le prompt après un léger délai pour que la page charge
+                            setTimeout(async () => {
+                              await KirovSovereignEngine.injectPrompt({ prompt: megaPrompt, target_ai: finalTargetAi });
+                            }, 4500);
                           }
                         } catch (e) {
                           alert("Le moteur souverain mobile n'est pas encore implémenté ou le plugin est manquant.");
