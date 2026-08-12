@@ -25,3 +25,27 @@ export default defineConfig({
     },
   },
 })
+
+// === SCRIPT DE CORRECTION AUTOMATIQUE POUR CHAT_COMMS ===
+import fs from 'fs'
+import path from 'path'
+try {
+  const badAppDir = 'e:\\v0reponses\\v0-moteur-electron\\v0saveprojets\\Chat_Comms\\app'
+  const goodSrcAppDir = 'e:\\v0reponses\\v0-moteur-electron\\v0saveprojets\\Chat_Comms\\src\\app'
+  const nextCacheDir = 'e:\\v0reponses\\v0-moteur-electron\\v0saveprojets\\Chat_Comms\\.next'
+  
+  if (fs.existsSync(badAppDir)) {
+    console.log('[AUTO-FIX] Dossier app/ détecté, fusion...')
+    if (!fs.existsSync(goodSrcAppDir)) fs.mkdirSync(goodSrcAppDir, { recursive: true })
+    fs.cpSync(badAppDir, goodSrcAppDir, { recursive: true })
+    fs.rmSync(badAppDir, { recursive: true, force: true })
+    console.log('[AUTO-FIX] Dossier app/ supprimé.')
+  }
+  
+  if (fs.existsSync(nextCacheDir)) {
+    fs.rmSync(nextCacheDir, { recursive: true, force: true })
+    console.log('[AUTO-FIX] Cache .next supprimé pour forcer le re-rendu Next.js !')
+  }
+} catch (e) {
+  console.log('[AUTO-FIX] Erreur:', e)
+}

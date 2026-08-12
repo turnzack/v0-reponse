@@ -37,7 +37,9 @@ const designStructure = {
       'carteCarrouselTitreTaille',
       'carteCarrouselTitreCouleur',
       'carteCarrouselTexteTaille',
-      'carteCarrouselTexteCouleur'
+      'carteCarrouselTexteCouleur',
+      'carteCarrouselTitreTailleSurvol',
+      'carteCarrouselTexteTailleSurvol'
     ],
     "Packs PRD Carrousel": [
       'prdTitreSectionTaillePolice',
@@ -46,22 +48,9 @@ const designStructure = {
       'prdTitreSectionPositionX',
       'prdTitreSectionPositionY',
       'prdTitreSectionMargeBas',
-      'prdCarteLargeur',
-      'prdCarteHauteur',
-      'prdCartePadding',
-      'prdCarteArrondi',
       'prdBadgeTaillePolice',
       'prdBadgeCouleur',
       'prdBadgeBg',
-      'prdCarteTitreTaille',
-      'prdCarteTitreCouleur',
-      'prdTitrePoids',
-      'prdTitreMargeHaut',
-      'prdTitreMargeBas',
-      'prdCarteDescTaille',
-      'prdCarteDescCouleur',
-      'prdDescHauteur',
-      'prdDescMargeBas',
       'prdCarteBoutonTaillePolice',
       'prdCarteBoutonBg',
       'prdCarteBoutonCouleur',
@@ -1445,58 +1434,34 @@ body {
 }
 
 .design-carte-carrousel:hover {
+   z-index: 50 !important;
    transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--carte-carrousel-scale-survol)) !important;
 }
 
-.design-carte-carrousel h3 {
+.design-carte-carrousel .design-carte-titre {
    font-size: var(--carte-carrousel-titre-taille, 1.125rem) !important;
    color: var(--carte-carrousel-titre-couleur, #ffffff) !important;
    transition: all 0.3s ease;
 }
 
-.design-carte-carrousel:hover h3 {
-   font-size: var(--carte-carrousel-titre-taille-survol, var(--carte-carrousel-titre-taille, 1.125rem)) !important;
+.design-carte-carrousel:hover .design-carte-titre {
+   font-size: calc(var(--carte-carrousel-titre-taille-survol, var(--carte-carrousel-titre-taille, 1.125rem)) / var(--carte-carrousel-scale-survol, 1)) !important;
 }
 
-.design-carte-carrousel p, .design-carte-carrousel div:last-child:not(button) {
+.design-carte-carrousel .design-carte-desc {
    font-size: var(--carte-carrousel-texte-taille, 0.75rem) !important;
    color: var(--carte-carrousel-texte-couleur, #9ca3af) !important;
    transition: all 0.3s ease;
 }
 
-.design-carte-carrousel:hover p, .design-carte-carrousel:hover div:last-child:not(button) {
-   font-size: var(--carte-carrousel-texte-taille-survol, var(--carte-carrousel-texte-taille, 0.75rem)) !important;
-}
-
-.design-prd-carte {
-   width: var(--prd-carte-largeur, 320px) !important;
-   min-width: var(--prd-carte-largeur, 320px) !important;
-   height: var(--prd-carte-hauteur, 220px) !important;
-   padding: var(--prd-carte-padding, 1.25rem) !important;
-   border-radius: var(--prd-carte-arrondi, 1rem) !important;
+.design-carte-carrousel:hover .design-carte-desc {
+   font-size: calc(var(--carte-carrousel-texte-taille-survol, var(--carte-carrousel-texte-taille, 0.75rem)) / var(--carte-carrousel-scale-survol, 1)) !important;
 }
 
 .design-prd-badge {
    font-size: var(--prd-badge-taille-police, 10px) !important;
    color: var(--prd-badge-couleur, #08b3c9) !important;
    background: var(--prd-badge-bg, rgba(8, 179, 201, 0.2)) !important;
-}
-
-.design-prd-titre {
-   font-size: var(--prd-carte-titre-taille, 16px) !important;
-   color: var(--prd-carte-titre-couleur, #ffffff) !important;
-   font-weight: var(--prd-titre-poids, 700) !important;
-   margin-top: var(--prd-titre-marge-haut, 0px) !important;
-   margin-bottom: var(--prd-titre-marge-bas, 8px) !important;
-}
-
-.design-prd-desc {
-   font-size: var(--prd-carte-desc-taille, 12px) !important;
-   color: var(--prd-carte-desc-couleur, #9ca3af) !important;
-   line-height: 1.4 !important;
-   max-height: var(--prd-desc-hauteur, 80px) !important;
-   margin-bottom: var(--prd-desc-marge-bas, 16px) !important;
-   overflow: hidden !important;
 }
 
 .design-prd-btn {
@@ -2399,18 +2364,6 @@ body {
                             {effectiveSlider[2] || 'px'}
                           </span>
                         </div>
-                        {key === 'carteCarrouselScaleSurvol' && (
-                          <div className="flex flex-col gap-3 pt-4 border-t border-white/10 mt-2">
-                             <div className="flex justify-between items-center">
-                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Titre <span className="text-cyan">Survol</span></label>
-                               <input type="text" value={(design as any)['carteCarrouselTitreTailleSurvol'] || '1.125rem'} onChange={(e) => handleChange('carteCarrouselTitreTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
-                             </div>
-                             <div className="flex justify-between items-center">
-                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Texte <span className="text-cyan">Survol</span></label>
-                               <input type="text" value={(design as any)['carteCarrouselTexteTailleSurvol'] || '0.75rem'} onChange={(e) => handleChange('carteCarrouselTexteTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
-                             </div>
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2 w-full">
@@ -2458,6 +2411,18 @@ body {
                             placeholder="ex: #ffe600, rgba(...)"
                           />
                         </div>
+                        {key === 'carteCarrouselScaleSurvol' && (
+                          <div className="flex flex-col gap-3 pt-4 border-t border-white/10 mt-2">
+                             <div className="flex justify-between items-center">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Titre <span className="text-cyan">Survol</span></label>
+                               <input type="text" value={(design as any)['carteCarrouselTitreTailleSurvol'] || '1.125rem'} onChange={(e) => handleChange('carteCarrouselTitreTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
+                             </div>
+                             <div className="flex justify-between items-center">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Texte <span className="text-cyan">Survol</span></label>
+                               <input type="text" value={(design as any)['carteCarrouselTexteTailleSurvol'] || '0.75rem'} onChange={(e) => handleChange('carteCarrouselTexteTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
+                             </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -819,11 +819,11 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   return (
     <div
       ref={scrollRef}
-      className="design-carte-carrousel-conteneur w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
+      className="design-carte-carrousel-conteneur w-full max-w-full flex overflow-x-auto gap-4 py-24 px-28 -my-20 hide-scrollbar scroll-smooth relative"
       style={{ scrollBehavior: 'smooth' }}
     >
       {items.map((item, idx) => (
-        <div key={idx} className="shrink-0 transition-transform duration-300 hover:scale-[1.02]">
+        <div key={idx} className="shrink-0 relative z-0 hover:z-50">
           {item}
         </div>
       ))}
@@ -927,8 +927,16 @@ const WidgetPrdPacks = ({
         const Icon = pack.icon || Box;
         const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
         const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
-        const cleanSummary = readmeText.replace(/^#+.*$/gm, '').trim();
-        const shortDesc = cleanSummary ? (cleanSummary.substring(0, 110) + "...") : "Spécifications techniques du contrat PRD.";
+        let cleanSummary = readmeText
+          .replace(/^#+.*$/gm, '') // Enlève les titres
+          .replace(/^>.*$/gm, '')  // Enlève les citations
+          .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Remplace les liens par leur texte
+          .replace(/[*_~`]/g, '')  // Enlève le markdown basique
+          .trim();
+        
+        const paragraphs = cleanSummary.split('\n').map(p => p.trim()).filter(p => p.length > 20);
+        const firstParagraph = paragraphs.length > 0 ? paragraphs[0] : "Spécifications techniques du contrat PRD.";
+        const shortDesc = firstParagraph.length > 180 ? (firstParagraph.substring(0, 180) + "...") : firstParagraph;
 
         return (
           <div
@@ -957,8 +965,8 @@ const WidgetPrdPacks = ({
               )}
             </div>
 
-            <h3 className="design-prd-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
-            <p className="design-prd-desc flex-1 opacity-85">{shortDesc}</p>
+            <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
+            <p className="design-carte-desc flex-1 opacity-85 leading-relaxed">{shortDesc}</p>
 
             <button
               onClick={() => handleSetSelectedPrdDetail({ packId, packName, readmeText })}
@@ -1013,43 +1021,49 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
   }
 
   return <Carousel items={[
-    ...liveProjects.map((p, i) => (
-      <div
-        key={i}
-        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col relative overflow-hidden group cursor-pointer`}
-        style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
-        onClick={() => setActiveProject(p.name)}
-      >
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
-        <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
-        <div className="z-10 relative pointer-events-none">
-          <div className="text-white/70 text-xs font-bold uppercase tracking-widest drop-shadow-md">PROJET</div>
-          <h3 className="text-xl font-black text-white break-all drop-shadow-lg leading-tight">{p.name}</h3>
-        </div>
-        <div className="z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none">{p.desc}</div>
+    ...liveProjects.map((p, i) => {
+      const handleOpenProject = async () => {
+        setActiveProject(p.name);
+        try {
+          window.dispatchEvent(new CustomEvent('open-mouchard'));
+          fetch("http://localhost:5005/api/bridge/launch-project", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: p.name })
+          }).catch(err => console.error("Erreur de lancement :", err));
+        } catch (err: any) {
+          console.error("Erreur de lancement :", err);
+        }
+      };
 
-        <button
-          onClick={async (e) => {
-            e.stopPropagation();
-            try {
-              window.dispatchEvent(new CustomEvent('open-mouchard'));
-              const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ project_id: p.name })
-              });
-              const data = await res.json();
-            } catch (err: any) {
-              alert("Erreur de lancement : " + err.message);
-            }
-          }}
-          className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
-          title="Installer les dépendances et Lancer le projet"
+      return (
+        <div
+          key={i}
+          className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col items-center text-center relative overflow-hidden group cursor-pointer`}
+          style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
+          onClick={handleOpenProject}
         >
-          🚀 Installer & Lancer
-        </button>
-      </div>
-    ))]} />
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
+          <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
+          <div className="z-10 relative pointer-events-none w-full">
+            <div className="text-white/70 text-xs font-bold uppercase tracking-widest drop-shadow-md">PROJET</div>
+            <h3 className="design-carte-titre text-xl font-black text-white break-all drop-shadow-lg leading-tight w-full">{p.name}</h3>
+          </div>
+          <div className="design-carte-desc z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none w-full">{p.desc}</div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenProject();
+            }}
+            className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors mt-2"
+            title="Ouvrir le projet, vérifier les dépendances et lancer l'aperçu"
+          >
+            🚀 Ouvrir & Designer
+          </button>
+        </div>
+      );
+    })]} />
 };
 
 export default function Dashboard() {
@@ -2392,15 +2406,15 @@ Format attendu:
     }
 
     return <Carousel items={liveNewsData.map(n => (
-      <div key={n.id} className="design-carte-carrousel rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-' + n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
-        <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3">{n.tag}</span>
-        <h3 className="text-lg font-bold text-white mb-2 leading-tight">{n.title}</h3>
-        <p className="text-gray-400 text-sm flex-1">{n.desc}</p>
+      <div key={n.id} className="design-carte-carrousel relative rounded-2xl p-5 border border-white/10 backdrop-blur-md flex flex-col hover:border-cyan/50 transition-colors shadow-lg" style={{ background: isClient ? getCachedGradient('news-' + n.id, 0.7) : 'rgba(0,0,0,0.7)' }}>
+        <span className="self-start px-2 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-3 pr-4">{n.tag}</span>
+        <h3 className="design-carte-titre text-lg font-bold text-white mb-2 leading-tight mt-1">{n.title}</h3>
+        <p className="design-carte-desc text-gray-400 text-sm flex-1">{n.desc}</p>
         <button
           onClick={() => setSelectedArticle(n)}
-          className="text-cyan text-sm font-semibold hover:underline self-end cursor-pointer"
+          className="absolute top-4 right-4 text-cyan text-xs font-bold hover:underline cursor-pointer px-3 py-1.5 bg-cyan/10 hover:bg-cyan/20 rounded-xl border border-cyan/30 transition-all flex items-center gap-1"
         >
-          Lire l&apos;article →
+          Lire l&apos;article <span className="text-[10px]">↗</span>
         </button>
       </div>
     ))} />
@@ -2621,6 +2635,25 @@ Format attendu:
                 🛠️
                 <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-orange-400 pointer-events-none transition-opacity font-bold">
                   Fix Arborescence (.txt ➡️ .tsx)
+                </span>
+              </button>
+
+              <button
+                title="Générateur PRD V0-Guest"
+                onClick={() => {
+                  setActiveProject("v0-guest");
+                  setPreviewUrl("http://localhost:3007");
+                  fetch("http://localhost:5005/api/bridge/launch-project", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: "v0-guest" })
+                  }).catch(e => console.error("Erreur lancement v0-guest:", e));
+                }}
+                className="design-ide-btn-action w-10 h-10 rounded-xl bg-gradient-to-br from-cyan/20 to-purple-500/20 text-cyan hover:from-cyan hover:to-purple-500 hover:text-black text-xl border border-cyan/40 flex items-center justify-center transition-all group relative shadow-[0_0_12px_rgba(0,240,255,0.3)]"
+              >
+                🎁
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-cyan font-bold pointer-events-none transition-opacity">
+                  V0-Guest PRD Generator
                 </span>
               </button>
 
@@ -2991,10 +3024,10 @@ Format attendu:
 
                       {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
                       {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
-                      {isLastWidgetOverall && msg.widget === "news" && <WidgetNews />}
-                      {isLastWidgetOverall && msg.widget === "youtube" && <WidgetYouTube />}
-                      {isLastWidgetOverall && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} />}
-                      {isLastWidgetOverall && msg.widget === "phases" && <WidgetPhases />}
+                      {isLastWidgetOverall && msg.widget === "news" && WidgetNews()}
+                      {isLastWidgetOverall && msg.widget === "youtube" && WidgetYouTube()}
+                      {isLastWidgetOverall && msg.widget === "settings" && WidgetSettings({ isClient, getCachedGradient, mouchardLogs, activePhase, availableProjects, setAvailableProjects, selectedLaunchProject, setSelectedLaunchProject, isMobileNative })}
+                      {isLastWidgetOverall && msg.widget === "phases" && WidgetPhases()}
                     </div>
                   );
                 })}
@@ -3042,7 +3075,7 @@ Format attendu:
           }
 
           return (
-          <aside className={`w-80 border-l flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] bg-black transition-all duration-500 ${tBorder}`}>
+          <aside className={`w-80 border-l flex flex-col z-50 fixed right-0 top-0 h-screen bg-black transition-all duration-500 shadow-2xl ${tBorder}`}>
             <div className={`p-4 border-b border-white/10 flex justify-between items-center transition-colors duration-500 ${tBg}`}>
               <h3 className={`${tColor} font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-colors`}>
                 <span className={`w-2 h-2 rounded-full ${tDot}`}></span>
@@ -3176,7 +3209,24 @@ Format attendu:
               <span className="design-app-texte z-10 drop-shadow-md">Packs PRD</span>
             </button>
 
-            {/* 📰 Actualités */}
+            {/* 🎁 V0-Guest */}
+            <button
+              onClick={() => {
+                setActiveProject("v0-guest");
+                setPreviewUrl("http://localhost:3007");
+                fetch("http://localhost:5005/api/bridge/launch-project", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ project_id: "v0-guest" })
+                }).catch(e => console.error("Erreur lancement v0-guest:", e));
+              }}
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #00c6ff, #0072ff)' }}
+              title="Générateur PRD Hermes (V0-Guest)"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🎁</span>
+              <span className="design-app-texte z-10 drop-shadow-md">V0-Guest</span>
+            </button>
             <button
               onClick={() => {
                 handleSend("Actualités IA");
