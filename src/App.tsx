@@ -819,7 +819,7 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   return (
     <div
       ref={scrollRef}
-      className="w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
+      className="design-carte-carrousel-conteneur w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth"
       style={{ scrollBehavior: 'smooth' }}
     >
       {items.map((item, idx) => (
@@ -1016,17 +1016,17 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
     ...liveProjects.map((p, i) => (
       <div
         key={i}
-        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between relative overflow-hidden group cursor-pointer`}
+        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col relative overflow-hidden group cursor-pointer`}
         style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
         onClick={() => setActiveProject(p.name)}
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
         <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
         <div className="z-10 relative pointer-events-none">
-          <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1 drop-shadow-md">PROJET</div>
-          <h3 className="text-xl font-black text-white mb-2 break-all drop-shadow-lg leading-tight">{p.name}</h3>
+          <div className="text-white/70 text-xs font-bold uppercase tracking-widest drop-shadow-md">PROJET</div>
+          <h3 className="text-xl font-black text-white break-all drop-shadow-lg leading-tight">{p.name}</h3>
         </div>
-        <div className="z-10 relative text-sm text-white/90 font-medium mb-3 drop-shadow-md pointer-events-none">{p.desc}</div>
+        <div className="z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none">{p.desc}</div>
 
         <button
           onClick={async (e) => {

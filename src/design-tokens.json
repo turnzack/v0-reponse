@@ -92,6 +92,16 @@
   "carteCarrouselPosition": "relative",
   "carteCarrouselPositionX": "0px",
   "carteCarrouselPositionY": "0px",
+  "carteCarrouselConteneurHauteur": "100%",
+  "carteCarrouselConteneurLargeur": "100%",
+  "carteCarrouselConteneurGap": "1rem",
+  "carteCarrouselConteneurPosition": "relative",
+  "carteCarrouselConteneurPositionX": "0px",
+  "carteCarrouselConteneurPositionY": "0px",
+  "carteCarrouselScaleSurvol": "2.05",
+  "carteCarrouselTitreTailleSurvol": "1.125rem",
+  "carteCarrouselTexteTailleSurvol": "0.75rem",
+  "carteCarrouselTransition": "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   "prdTitreSectionTaillePolice": "16px",
   "prdTitreSectionCouleur": "#08b3c9",
   "prdTitreSectionPosition": "relative",
@@ -257,5 +267,10 @@
   "modalOngletBgActif": "rgba(8, 179, 201, 0.2)",
   "modalOngletBordureActif": "1px solid rgba(8, 179, 201, 0.5)",
   "modalOngletCouleurActif": "#ffffff",
-  "modalOngletCouleurInactif": "#9ca3af"
+  "modalOngletCouleurInactif": "#9ca3af",
+  "carteCarrouselConteneurHauteur": "auto",
+  "carteCarrouselConteneurLargeur": "100%",
+  "carteCarrouselConteneurPosition": "relative",
+  "carteCarrouselConteneurPositionX": "0px",
+  "carteCarrouselConteneurPositionY": "0px"
 }

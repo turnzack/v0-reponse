@@ -21,10 +21,19 @@ const designStructure = {
       'carteCarrouselPositionX',
       'carteCarrouselPositionY',
       'carteCarrouselPadding',
+      'carteCarrouselGap',
       'carteCarrouselArrondi',
       'carteCarrouselBordure',
       'carteCarrouselBg',
       'carteCarrouselOmbre',
+      'carteCarrouselScaleSurvol',
+      'carteCarrouselTransition',
+      'carteCarrouselConteneurHauteur',
+      'carteCarrouselConteneurLargeur',
+      'carteCarrouselConteneurGap',
+      'carteCarrouselConteneurPosition',
+      'carteCarrouselConteneurPositionX',
+      'carteCarrouselConteneurPositionY',
       'carteCarrouselTitreTaille',
       'carteCarrouselTitreCouleur',
       'carteCarrouselTexteTaille',
@@ -1412,25 +1421,51 @@ body {
    transform: translate(var(--msg-accueil-position-x, 0px), var(--msg-accueil-position-y, 0px)) !important;
 }
 
+.design-carte-carrousel-conteneur {
+   height: var(--carte-carrousel-conteneur-hauteur) !important;
+   width: var(--carte-carrousel-conteneur-largeur) !important;
+   gap: var(--carte-carrousel-conteneur-gap, 1rem) !important;
+   position: var(--carte-carrousel-conteneur-position) !important;
+   left: var(--carte-carrousel-conteneur-position-x, 0px) !important;
+   top: var(--carte-carrousel-conteneur-position-y, 0px) !important;
+   transform: translate(var(--carte-carrousel-conteneur-position-x, 0px), var(--carte-carrousel-conteneur-position-y, 0px)) !important;
+}
+
 .design-carte-carrousel {
    height: var(--carte-carrousel-hauteur) !important;
    width: var(--carte-carrousel-largeur) !important;
+   gap: var(--carte-carrousel-gap, 1rem) !important;
    padding: var(--carte-carrousel-padding, 1.25rem) !important;
    border-radius: var(--carte-carrousel-arrondi, 1rem) !important;
    border: var(--carte-carrousel-bordure, 1px solid rgba(99, 102, 241, 0.3)) !important;
    background: var(--carte-carrousel-bg, rgba(30, 27, 75, 0.7)) !important;
    box-shadow: var(--carte-carrousel-ombre, 0 10px 25px -5px rgba(0, 0, 0, 0.5)) !important;
    transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) !important;
+   transition: var(--carte-carrousel-transition) !important;
+}
+
+.design-carte-carrousel:hover {
+   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--carte-carrousel-scale-survol)) !important;
 }
 
 .design-carte-carrousel h3 {
    font-size: var(--carte-carrousel-titre-taille, 1.125rem) !important;
    color: var(--carte-carrousel-titre-couleur, #ffffff) !important;
+   transition: all 0.3s ease;
 }
 
-.design-carte-carrousel p {
+.design-carte-carrousel:hover h3 {
+   font-size: var(--carte-carrousel-titre-taille-survol, var(--carte-carrousel-titre-taille, 1.125rem)) !important;
+}
+
+.design-carte-carrousel p, .design-carte-carrousel div:last-child:not(button) {
    font-size: var(--carte-carrousel-texte-taille, 0.75rem) !important;
    color: var(--carte-carrousel-texte-couleur, #9ca3af) !important;
+   transition: all 0.3s ease;
+}
+
+.design-carte-carrousel:hover p, .design-carte-carrousel:hover div:last-child:not(button) {
+   font-size: var(--carte-carrousel-texte-taille-survol, var(--carte-carrousel-texte-taille, 0.75rem)) !important;
 }
 
 .design-prd-carte {
@@ -2364,6 +2399,18 @@ body {
                             {effectiveSlider[2] || 'px'}
                           </span>
                         </div>
+                        {key === 'carteCarrouselScaleSurvol' && (
+                          <div className="flex flex-col gap-3 pt-4 border-t border-white/10 mt-2">
+                             <div className="flex justify-between items-center">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Titre <span className="text-cyan">Survol</span></label>
+                               <input type="text" value={(design as any)['carteCarrouselTitreTailleSurvol'] || '1.125rem'} onChange={(e) => handleChange('carteCarrouselTitreTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
+                             </div>
+                             <div className="flex justify-between items-center">
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">📏 Texte <span className="text-cyan">Survol</span></label>
+                               <input type="text" value={(design as any)['carteCarrouselTexteTailleSurvol'] || '0.75rem'} onChange={(e) => handleChange('carteCarrouselTexteTailleSurvol', e.target.value)} disabled={isLocked} className="w-24 bg-black/80 border border-white/10 rounded-lg p-1.5 text-xs text-right text-white focus:border-cyan outline-none font-mono" />
+                             </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2 w-full">
