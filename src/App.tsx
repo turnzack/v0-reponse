@@ -1016,7 +1016,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
     ...liveProjects.map((p, i) => (
       <div
         key={i}
-        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between hover:scale-105 transition-transform relative overflow-hidden group cursor-pointer`}
+        className={`design-carte-carrousel rounded-2xl p-5 border border-white/20 shadow-xl flex flex-col justify-between relative overflow-hidden group cursor-pointer`}
         style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
         onClick={() => setActiveProject(p.name)}
       >
@@ -1062,13 +1062,7 @@ export default function Dashboard() {
     return gradientCache.current[key];
   };
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "init",
-      role: "assistant",
-      content: "Système v0-reponses initialisé. L'interface unique est active. Que souhaitez-vous faire ?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2536,9 +2530,37 @@ Format attendu:
 
 
 
+      {/* Top Status Bar (Centered) */}
+      {!isIdeFullscreen && (
+        <div className="w-full flex justify-center items-center pt-2 z-20 relative pointer-events-none">
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar text-[10px] font-bold bg-[#05080c]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 shadow-lg pointer-events-auto">
+            <div className="flex items-center gap-1.5 shrink-0 bg-green-900/40 px-2.5 py-1 rounded-full border border-green-500/30">
+              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
+              <span className="text-green-400">Online</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-orange-900/40 px-2.5 py-1 rounded-full border border-orange-500/30">
+              <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_#f97316] animate-bounce"></span>
+              <span className="text-orange-400">Ext: Tiger</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-purple-900/40 px-2.5 py-1 rounded-full border border-purple-500/30">
+              <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
+              <span className="text-purple-400">LLM: DeepSeek</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-cyan/10 px-2.5 py-1 rounded-full border border-cyan/20">
+              <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
+              <span className="text-cyan">Electron</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 bg-gray-500/10 px-2.5 py-1 rounded-full border border-gray-500/20 opacity-60">
+              <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+              <span className="text-gray-400">Mobile (Capacitor)</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       {!isIdeFullscreen && (
-        <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg">
+        <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg -mt-2">
           <div className="flex items-center gap-3">
             <div className="design-logo flex items-center justify-center">
               <span>🐯</span>
@@ -2983,14 +3005,81 @@ Format attendu:
         </main>
 
         {/* Right Sidebar (Mouchard d'Installation) */}
-        {isRightSidebarOpen && (
-          <aside className="w-80 border-l border-white/20 flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] shadow-[-10px_0_30px_rgba(0,0,0,0.5)] bg-black">
-            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#050505]">
-              <h3 className="text-cyan font-black text-sm uppercase tracking-widest flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan animate-pulse"></span>
-                Terminal
+        {isRightSidebarOpen && (() => {
+          // --- ANALYSE DYNAMIQUE DU STATUT DU TERMINAL ---
+          const recentLogsStr = mouchardLogs.slice(-10).join(" ").toLowerCase();
+          const firstLogsStr = mouchardLogs.slice(0, 10).join(" ").toLowerCase();
+          const allRecentStr = recentLogsStr + " " + firstLogsStr;
+
+          let tColor = "text-green-400";
+          let tDot = "bg-green-400 shadow-[0_0_8px_#4ade80]";
+          let tBorder = "border-green-500/30 shadow-[-10px_0_30px_rgba(34,197,94,0.1)]";
+          let tBg = "bg-green-950/20";
+          let tTitle = "Terminal (Prêt)";
+
+          if (allRecentStr.includes("erreur") || allRecentStr.includes("failed") || allRecentStr.includes("⚠️") || allRecentStr.includes("exception") || allRecentStr.includes("impossible") || allRecentStr.includes("[err")) {
+            tColor = "text-red-500";
+            tDot = "bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]";
+            tBorder = "border-red-500/50 shadow-[-10px_0_30px_rgba(239,68,68,0.2)]";
+            tBg = "bg-red-950/30";
+            tTitle = "Terminal (Erreur)";
+          } else if (
+            allRecentStr.includes("en cours") || 
+            allRecentStr.includes("execution") || 
+            allRecentStr.includes("install") || 
+            allRecentStr.includes("lancement") || 
+            allRecentStr.includes("analyse") || 
+            allRecentStr.includes("suture") ||
+            allRecentStr.includes("patch")
+          ) {
+            if (!allRecentStr.includes("terminé") && !allRecentStr.includes("détecté") && !allRecentStr.includes("nettoyée") && !allRecentStr.includes("✅")) {
+              tColor = "text-purple-400";
+              tDot = "bg-purple-400 animate-ping shadow-[0_0_12px_#c084fc]";
+              tBorder = "border-purple-500/50 shadow-[-10px_0_30px_rgba(168,85,247,0.2)]";
+              tBg = "bg-purple-950/30";
+              tTitle = "Terminal (Travail...)";
+            }
+          }
+
+          return (
+          <aside className={`w-80 border-l flex flex-col z-40 absolute right-0 top-[72px] bottom-[48px] bg-black transition-all duration-500 ${tBorder}`}>
+            <div className={`p-4 border-b border-white/10 flex justify-between items-center transition-colors duration-500 ${tBg}`}>
+              <h3 className={`${tColor} font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-colors`}>
+                <span className={`w-2 h-2 rounded-full ${tDot}`}></span>
+                {tTitle}
               </h3>
-              <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={async () => {
+                    // Nettoyage immédiat du frontend
+                    setMouchardLogs(["> Console nettoyée... Arrêt des processus en cours..."]);
+                    try {
+                      const res = await fetch("http://localhost:5005/api/bridge/stop-launch", { method: "POST" });
+                      if (!res.ok) {
+                        setMouchardLogs([
+                          "> ⚠️ ERREUR : La commande n'existe pas !",
+                          "> ⚠️ VOUS DEVEZ REDÉMARRER LA CONSOLE NOIRE !",
+                          "> Fermez la fenêtre COMMAND_MENU_TIGER.bat et relancez-la."
+                        ]);
+                        return;
+                      }
+                      const data = await res.json();
+                      setMouchardLogs(["> ✅ " + (data.message || "Console nettoyée et processus arrêtés.")]);
+                    } catch (e: any) {
+                      setMouchardLogs([
+                        "> ⚠️ ERREUR DE CONNEXION AU MOTEUR !",
+                        "> Le moteur est peut-être éteint ou nécessite un redémarrage.",
+                        "> Détail: " + e.message
+                      ]);
+                    }
+                  }}
+                  className="py-1 px-2 rounded text-white font-bold text-[10px] bg-red-500/20 border border-red-500/50 hover:bg-red-500 hover:text-white transition-colors shadow-md"
+                  title="Arrêter l'installation ou le serveur et nettoyer la console"
+                >
+                  ⏹️ Stop/Clear
+                </button>
+                <button onClick={() => setIsRightSidebarOpen(false)} className="text-gray-500 hover:text-white transition-colors ml-2 font-bold text-lg">✕</button>
+              </div>
             </div>
             <div className="flex-1 p-4 font-mono text-xs overflow-y-auto flex flex-col-reverse hide-scrollbar bg-black">
               <div id="mouchard-terminal-logs">
@@ -3010,48 +3099,26 @@ Format attendu:
               </div>
             </div>
           </aside>
-        )}
+          );
+        })()}
 
       </div> {/* Fermeture div flex-1 principal pour que le footer passe en bas */}
 
       {/* Input Area + Integrated Status & Actions Toolbar Footer */}
       <footer className="design-footer absolute bottom-0 left-0 w-full backdrop-blur-2xl z-50 flex flex-col p-2 md:p-3 bg-black/80 border-t border-white/15 gap-2">
-        {/* Integrated Top Strip: Status Card (Left) + Action Icons Toolbar (Right) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-black/40 rounded-2xl border border-white/10 backdrop-blur-md">
-          {/* Status Card Indicators */}
-          <div className="design-status-bar flex items-center gap-3 md:gap-5 overflow-x-auto hide-scrollbar font-bold uppercase text-[11px] tracking-wider">
-            <div className="flex items-center gap-1.5 shrink-0 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
-              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
-              <span className="text-green-400">Online</span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20">
-              <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]"></span>
-              <span className="text-blue-400">Ext: Tiger</span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
-              <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7]"></span>
-              <span className="text-purple-400">LLM: DeepSeek</span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 bg-cyan/10 px-2.5 py-1 rounded-full border border-cyan/20">
-              <span className="w-2 h-2 rounded-full bg-cyan shadow-[0_0_8px_#08b3c9] animate-pulse"></span>
-              <span className="text-cyan">Electron</span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 bg-gray-500/10 px-2.5 py-1 rounded-full border border-gray-500/20 opacity-60">
-              <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-              <span className="text-gray-400">Mobile (Capacitor)</span>
-            </div>
-          </div>
-
+        {/* Integrated Top Strip: Action Icons Toolbar */}
+        <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-2 bg-black/40 rounded-2xl border border-white/10 backdrop-blur-md">
           {/* Action Icons Toolbar (Moved to the Right of Chat Bar) */}
-          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 px-1">
+            
             {/* ⚙️ Réglages */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold transition-all hover:scale-105 shadow-md group"
+              className="design-app-icone design-icone-reglages flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Réglages"
             >
-              <span className="text-base group-hover:rotate-45 transition-transform">⚙️</span>
-              <span className="text-[11px] font-bold">Réglages</span>
+              <span className="z-10 drop-shadow-md group-hover:rotate-45 transition-transform">⚙️</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Réglages</span>
             </button>
 
             {/* 🧠 Assistant IA */}
@@ -3068,11 +3135,11 @@ Format attendu:
                   }
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone design-icone-assistant flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Assistant IA"
             >
-              <span className="text-base">🧠</span>
-              <span className="text-[11px] font-bold">Assistant IA</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🧠</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Assistant IA</span>
             </button>
 
             {/* 📁 Projets */}
@@ -3081,11 +3148,11 @@ Format attendu:
                 handleSend("Mes projets");
                 setInput("");
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-900/40 hover:bg-amber-800/60 border border-amber-500/40 text-amber-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone design-icone-projets flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Projets"
             >
-              <span className="text-base">📁</span>
-              <span className="text-[11px] font-bold">Projets</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">📁</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Projets</span>
             </button>
 
             {/* 💎 Packs PRD */}
@@ -3097,16 +3164,16 @@ Format attendu:
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }, 50);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-500/40 text-indigo-200 text-xs font-bold transition-all hover:scale-105 shadow-md relative"
+              className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Packs PRD"
             >
               {selectedPacks.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md">
+                <span className="absolute -top-0 -right-0 bg-indigo-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md z-20">
                   {selectedPacks.length}
                 </span>
               )}
-              <span className="text-base">💎</span>
-              <span className="text-[11px] font-bold">Packs PRD</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">💎</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Packs PRD</span>
             </button>
 
             {/* 📰 Actualités */}
@@ -3115,11 +3182,11 @@ Format attendu:
                 handleSend("Actualités IA");
                 setInput("");
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan/20 hover:bg-cyan/30 border border-cyan/40 text-cyan text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone design-icone-actualites flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Actualités"
             >
-              <span className="text-base">📰</span>
-              <span className="text-[11px] font-bold">Actualités</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">📰</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Actualités</span>
             </button>
 
             {/* 🖥️ Console-V0 */}
@@ -3130,11 +3197,12 @@ Format attendu:
                 setMouchardLogs(prev => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...prev]);
                 setIsRightSidebarOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700/80 hover:bg-slate-600 border border-slate-500/40 text-slate-200 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #475163, #1f2530)' }}
               title="Console-V0"
             >
-              <span className="text-base">🖥️</span>
-              <span className="text-[11px] font-bold">Console-V0</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🖥️</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Console-V0</span>
             </button>
 
             {/* 🧬 Patch UI */}
@@ -3184,14 +3252,15 @@ Format attendu:
                   handleIDEAction("suture", `Exception Patch UI: ${err.message}`);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #1b6345, #08291a)' }}
               title="Patch UI"
             >
-              <span className="text-base">🧬</span>
-              <span className="text-[11px] font-bold">Patch UI</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🧬</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Patch UI</span>
             </button>
 
-            {/* 🧹 Flush Bridge Queue */}
+            {/* 🧹 Flush Queue */}
             <button
               type="button"
               onClick={async () => {
@@ -3211,31 +3280,34 @@ Format attendu:
                   alert("Moteur hors ligne : impossible de vider la queue.");
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-900/40 hover:bg-yellow-800/60 border border-yellow-500/40 text-yellow-300 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #a17c23, #4f3b0c)' }}
               title="Vider la file Bridge (déblocage injection)"
             >
-              <span className="text-base">🧹</span>
-              <span className="text-[11px] font-bold">Flush Queue</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🧹</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Flush Queue</span>
             </button>
 
-            {/* 🎨 Save Color */}
+            {/* 🎨 Thèmes */}
             <button
               onClick={() => setIsColorModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-900/40 hover:bg-pink-800/60 border border-pink-500/40 text-pink-300 text-xs font-bold transition-all hover:scale-105 shadow-md"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #993a61, #4d152c)' }}
               title="Thèmes & Couleurs"
             >
-              <span className="text-base">🎨</span>
-              <span className="text-[11px] font-bold">Thèmes</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🎨</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Thèmes</span>
             </button>
 
-            {/* 📱 Compiler APK (v0-apk) */}
+            {/* 📱 v0-apk */}
             <button
               onClick={() => setIsApkModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/50 hover:bg-purple-800/70 border border-purple-500/50 text-purple-300 text-xs font-bold transition-all hover:scale-105 shadow-md shadow-purple-900/30"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              style={{ backgroundImage: 'linear-gradient(135deg, #5b227a, #230930)' }}
               title="Compiler l'Application Mobile (.apk - Java Portable)"
             >
-              <span className="text-base animate-pulse">📱</span>
-              <span className="text-[11px] font-bold">v0-apk</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform animate-pulse">📱</span>
+              <span className="design-app-texte z-10 drop-shadow-md">v0-apk</span>
             </button>
 
           </div>
@@ -3757,7 +3829,7 @@ Format attendu:
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Demandez à Tiger IA, ou glissez un fichier HTML/ZIP..."
+                placeholder="Système v0-reponses initialisé. L'interface unique est active. Que souhaitez-vous faire ?"
                 className="design-chat-input w-full pl-6 pr-14 transition-all shadow-inner focus:outline-none focus:ring-1 focus:ring-cyan"
               />
               <button
@@ -3998,7 +4070,21 @@ Format attendu:
                         return;
                       }
                       setApkBuildStatus('building');
-                      setApkLogs(prev => [...prev, `[v0-apk] 🚀 Lancement de la compilation pour "${target}"...`]);
+                      setApkLogs([`[v0-apk] 🚀 Démarrage du pipeline pour "${target}"...`]);
+
+                      // Injection directe dans le Terminal Console-V0
+                      const appendTerminalLog = (msg: string) => {
+                        const term = document.getElementById('mouchard-terminal-logs');
+                        if (term) {
+                          const line = document.createElement('div');
+                          line.className = 'font-mono text-[11px] text-purple-300 py-0.5 border-b border-purple-900/20 flex items-start gap-2';
+                          line.innerHTML = `<span class="text-purple-500 font-bold">🖥️ [Console-V0]</span> <span>${msg}</span>`;
+                          term.appendChild(line);
+                          term.scrollTop = term.scrollHeight;
+                        }
+                      };
+
+                      appendTerminalLog(`[v0-apk] 🚀 Lancement de la compilation APK pour "${target}"...`);
 
                       try {
                         const res = await fetch("http://localhost:5005/api/mobile/build-apk", {
@@ -4007,18 +4093,43 @@ Format attendu:
                           body: JSON.stringify({ project: target })
                         });
                         const data = await res.json();
+                        
                         if (data.success) {
-                          setApkBuildStatus('success');
-                          setApkLogs(prev => [...prev, `[v0-apk] ✅ Compilation réussie ! APK généré : ${data.apkPath || `${target}.apk`}`]);
-                          if (data.apkUrl) setApkOutputUrl(data.apkUrl);
+                          // Lancement de la boucle d'écoute en temps réel (Polling Console-V0 + Modal)
+                          let lastCount = 0;
+                          const pollInterval = setInterval(async () => {
+                            try {
+                              const lRes = await fetch("http://localhost:5005/api/mobile/build-logs");
+                              const lData = await lRes.json();
+                              if (lData.logs && lData.logs.length > lastCount) {
+                                const newLogs = lData.logs.slice(lastCount);
+                                lastCount = lData.logs.length;
+                                setApkLogs(lData.logs);
+                                newLogs.forEach((l: string) => appendTerminalLog(l));
+                              }
+                              
+                              if (!lData.building) {
+                                clearInterval(pollInterval);
+                                if (lData.result && lData.result.success) {
+                                  setApkBuildStatus('success');
+                                  if (lData.result.apkUrl) setApkOutputUrl(lData.result.apkUrl);
+                                } else {
+                                  setApkBuildStatus('error');
+                                }
+                              }
+                            } catch (err) {
+                              // Poursuivre le polling
+                            }
+                          }, 500);
                         } else {
-
                           setApkBuildStatus('error');
-                          setApkLogs(prev => [...prev, `[v0-apk] ⚠️ ${data.message || 'Script mobile initié.'}`]);
+                          setApkLogs(prev => [...prev, `[v0-apk] ⚠️ ${data.message || 'Échec du lancement'}`]);
+                          appendTerminalLog(`[v0-apk ⚠️] ${data.message}`);
                         }
                       } catch (e: any) {
                         setApkBuildStatus('idle');
-                        setApkLogs(prev => [...prev, `[v0-apk] ℹ️ Lancement du bridge mobile v0-apk pour "${target}".`]);
+                        setApkLogs(prev => [...prev, `[v0-apk] ℹ️ Erreur réseau lors de la connexion au backend.`]);
+                        appendTerminalLog(`[v0-apk ℹ️] Erreur réseau backend.`);
                       }
                     }}
                     className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-purple-900/50 disabled:opacity-50"
