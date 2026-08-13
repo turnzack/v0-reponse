@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -210,7 +211,7 @@ const WidgetSettings = ({
               <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">Configuration LLM & Bridge</h2>
 
               <div>
-                <label className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-[10px]">Mode d'exécution</label>
+                <span className="text-gray-300 font-bold mb-2 block uppercase tracking-wider text-[10px]">Mode d'exécution</span>
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { id: "web", icon: "💬", title: "Chat Web" },
@@ -230,7 +231,7 @@ const WidgetSettings = ({
 
               {(execMode === "web" || execMode === "hybrid") && (
                 <div className="space-y-3">
-                  <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Flotte d'Assistants (Multi-Acteurs)</label>
+                  <span className="text-gray-300 font-bold uppercase tracking-wider text-[10px] block mb-2">Flotte d'Assistants (Multi-Acteurs)</span>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Acteur Logique */}
@@ -297,19 +298,20 @@ const WidgetSettings = ({
               {(targetAi === "custom" || targetUiAi === "custom") && (
                 <div className="flex gap-3 bg-white/5 border border-white/20 p-3 rounded-xl mt-2 animate-fadeIn">
                   <div className="flex-1">
-                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
-                    <input type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
+                    <label htmlFor="custom-ai-name" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Nom IA Custom</label>
+                    <input id="custom-ai-name" type="text" value={customAiName} onChange={(e) => setCustomAiName(e.target.value)} placeholder="Mon Agent" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50" />
                   </div>
                   <div className="flex-[2]">
-                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
-                    <input type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
+                    <label htmlFor="custom-ai-url" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Complète</label>
+                    <input id="custom-ai-url" type="text" value={customAiUrl} onChange={(e) => setCustomAiUrl(e.target.value)} placeholder="https://..." className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-white/50 font-mono" />
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
+                <label htmlFor="api-provider" className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Fournisseur API</label>
                 <select
+                  id="api-provider"
                   value={apiProvider}
                   onChange={(e) => setApiProvider(e.target.value)}
                   className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-xl px-4 py-3 outline-none focus:border-pink text-sm"
@@ -321,7 +323,7 @@ const WidgetSettings = ({
               </div>
 
               <div className="space-y-2">
-                <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px] flex items-center gap-2">
+                <label htmlFor="api-key" className="text-gray-300 font-bold uppercase tracking-wider text-[10px] flex items-center gap-2">
                   Clé API
                   {apiKeyStatus === "ok" && <span className="text-green-400 text-[10px] font-bold bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/30">✅ Persistante sur disque</span>}
                   {apiKeyStatus === "sending" && <span className="text-yellow-400 text-[10px] animate-pulse">⏳ Envoi...</span>}
@@ -329,6 +331,7 @@ const WidgetSettings = ({
                 </label>
                 <div className="flex gap-2 relative">
                   <input
+                    id="api-key"
                     type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-..."
                     className={`flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border rounded-xl px-4 py-3 outline-none text-sm font-mono transition-colors ${apiKeyStatus === "ok" ? "border-green-500/50 focus:border-green-400" :
@@ -349,7 +352,7 @@ const WidgetSettings = ({
               </div>
 
               <div className="space-y-2 p-4 bg-gradient-to-br from-black/30 to-black/50 border border-white/5 rounded-xl">
-                <label className="text-gray-300 font-bold uppercase tracking-wider text-[10px]">Modèle détecté</label>
+                <span className="text-gray-300 font-bold uppercase tracking-wider text-[10px] block">Modèle détecté</span>
                 <div className="text-gray-500 text-sm mb-2">Enregistrer la clé pour détecter</div>
                 <div className="flex items-center gap-4">
                   <button className="px-4 py-2 bg-pink/20 text-pink border border-pink/50 hover:bg-pink/30 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-2">
@@ -382,16 +385,16 @@ const WidgetSettings = ({
                     </h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
-                        <input type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                        <label htmlFor="bridge-url" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Bridge local</label>
+                        <input id="bridge-url" type="text" value={bridgeUrl} onChange={(e) => setBridgeUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
                       <div>
-                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
-                        <input type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                        <label htmlFor="vercel-url" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Vercel</label>
+                        <input id="vercel-url" type="text" value={vercelUrl} onChange={(e) => setVercelUrl(e.target.value)} className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
                       <div>
-                        <label className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Preview par défaut</label>
-                        <input type="text" value={defaultPreviewUrl} onChange={(e) => setDefaultPreviewUrl(e.target.value)} placeholder="http://127.0.0.1:3000" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
+                        <label htmlFor="default-preview" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">URL Preview par défaut</label>
+                        <input id="default-preview" type="text" value={defaultPreviewUrl} onChange={(e) => setDefaultPreviewUrl(e.target.value)} placeholder="http://127.0.0.1:3000" className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1" />
                       </div>
                     </div>
                     <div className="flex gap-3 mt-4">
@@ -1450,6 +1453,7 @@ export default function Dashboard() {
   const [isAutoPilot, setIsAutoPilot] = useState<boolean>(true);
   const [reuseActiveTab, setReuseActiveTab] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [selectedTargetProject, setSelectedTargetProject] = useState<string | null>(null);
   const [fsTree, setFsTree] = useState<any>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -2073,13 +2077,14 @@ Description : ${newProjectDesc}.`;
       }]);
 
       try {
+        // @ts-ignore
         const JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
         for (const zf of zipFiles) {
           originalZipFile = zf; // Sauvegarder le ZIP original
           const zip = new JSZip();
           const zipData = await zip.loadAsync(zf);
 
-          for (const [filename, zipEntry] of Object.entries(zipData.files)) {
+          for (const [filename, zipEntry] of Object.entries(zipData.files) as [string, any][]) {
             // Ignorer les dossiers et fichiers cachés
             if (!zipEntry.dir && !filename.includes('__MACOSX') && !filename.split('/').pop()?.startsWith('.')) {
               const blob = await zipEntry.async("blob");
@@ -2199,6 +2204,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
         });
       } else {
         // Zippage dynamique des fichiers déposés (pour multi-batch sans ZIP)
+        // @ts-ignore
         const JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default;
         const zip = new JSZip();
         for (const f of fileArray) {
@@ -2215,7 +2221,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
           zip_mode: true,
           target_ai: logicAi,
           target_project: designProjectId,
-          user_prompt: newProjectName.trim() ? `${newProjectName} - ${newProjectDesc}` : `Application multi-pages issue de ${originalZipFile.name}`
+          user_prompt: newProjectName.trim() ? `${newProjectName} - ${newProjectDesc}` : `Application multi-pages issue de ${originalZipFile?.name || "fichiers_locaux"}`
         })
       }).then(async res => {
         const data = await res.json();
@@ -3557,21 +3563,18 @@ Format attendu:
 
               {/* ZONE 1: CIBLER LE PROJET */}
               <div className="flex flex-col gap-2 bg-black/60 p-3.5 rounded-2xl border border-white/10">
-                <label className="text-cyan font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
+                <label htmlFor="project-target" className="text-cyan font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
                   <span>📁</span> CIBLER LE PROJET :
                 </label>
                 <select
-                  value={activeProject || ""}
+                  id="project-target"
+                  value={selectedTargetProject || ""}
                   onChange={e => {
                     const val = e.target.value;
-                    setActiveProject(val || null);
+                    setSelectedTargetProject(val || null);
                     if (val) {
                       setNewProjectName(val.replace('Projet_', '').split('_')[0]);
-                      fetch("http://localhost:5005/api/bridge/launch-project", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ project_id: val })
-                      }).catch(err => console.error("Erreur de lancement :", err));
+                      // We NO LONGER launch the project automatically here in the background!
                     } else {
                       setNewProjectName("");
                     }
@@ -3585,10 +3588,11 @@ Format attendu:
 
               {/* ZONE 2: INSTRUCTIONS SPÉCIFIQUES */}
               <div className="flex flex-col gap-2 bg-black/60 p-3.5 rounded-2xl border border-white/10">
-                <label className="text-cyan font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
+                <label htmlFor="project-instructions" className="text-cyan font-bold uppercase text-[10px] tracking-widest flex items-center gap-1.5">
                   <span>📝</span> INSTRUCTIONS SPÉCIFIQUES :
                 </label>
                 <textarea
+                  id="project-instructions"
                   value={newProjectInstructions}
                   onChange={e => setNewProjectInstructions(e.target.value)}
                   placeholder="Instructions pour le Patch ou la modification..."
@@ -3604,13 +3608,14 @@ Format attendu:
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Nom du Projet</label>
+                    <label htmlFor="project-name" className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Nom du Projet</label>
                     <div className="flex gap-2">
                       <input
+                        id="project-name"
                         type="text"
                         value={newProjectName}
                         onChange={e => setNewProjectName(e.target.value)}
-                        disabled={!!activeProject}
+                        disabled={!!selectedTargetProject}
                         placeholder="Ex: MonSuperProjet"
                         className="flex-1 bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs disabled:opacity-50"
                       />
@@ -3650,8 +3655,9 @@ Format attendu:
                   </div>
 
                   <div>
-                    <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Stack Technique</label>
+                    <label htmlFor="project-stack" className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Stack Technique</label>
                     <select
+                      id="project-stack"
                       value={newProjectStack}
                       onChange={e => setNewProjectStack(e.target.value)}
                       className="w-full bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs cursor-pointer"
@@ -3665,8 +3671,9 @@ Format attendu:
                 </div>
 
                 <div>
-                  <label className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Description / Vision</label>
+                  <label htmlFor="project-desc" className="text-cyan font-bold uppercase text-[10px] tracking-widest mb-1 block">Description / Vision</label>
                   <textarea
+                    id="project-desc"
                     value={newProjectDesc}
                     onChange={e => setNewProjectDesc(e.target.value)}
                     placeholder="Décrivez l'application ou copiez votre PRD..."
@@ -3861,9 +3868,9 @@ Format attendu:
                 <button
                   type="button"
                   onClick={async (e) => {
-                    if (!newProjectName.trim() && !activeProject) { alert("Veuillez entrer un nom de projet ou en choisir un."); return; }
+                    if (!newProjectName.trim() && !selectedTargetProject) { alert("Veuillez entrer un nom de projet ou en choisir un."); return; }
                     const cleanName = newProjectName.trim() ? newProjectName.trim().replace(/[^a-zA-Z0-9_-]/g, '_') : "";
-                    const genId = activeProject || cleanName || ("Projet_" + Date.now().toString().slice(-4));
+                    const genId = selectedTargetProject || cleanName || ("Projet_" + Date.now().toString().slice(-4));
 
                     const btn = e.currentTarget;
                     btn.innerText = '⏳ Initialisation...';
@@ -3937,7 +3944,7 @@ Format attendu:
                       // Déterminer l'IA cible en fonction de la phase
                       let finalTargetAi = newProjectLogicAi;
                       if (selectedStartPhase === 1) {
-                        finalTargetAi = targetUiAi;
+                        finalTargetAi = localStorage.getItem("tiger_targetUiAi") || "stitch";
                       }
 
                       // 3. Lancer la mission Kirov
@@ -4190,10 +4197,11 @@ Format attendu:
               
               {/* Cible Projet */}
               <div className="flex flex-col gap-2 bg-black/50 p-4 rounded-2xl border border-purple-500/20">
-                <label className="text-purple-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+                <label htmlFor="apk-target" className="text-purple-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
                   <span>📁</span> SELECTIONNER L'APPLICATION À COMPILER :
                 </label>
                 <select
+                  id="apk-target"
                   value={selectedApkTarget || activeProject || ""}
                   onChange={e => setSelectedApkTarget(e.target.value)}
                   className="w-full bg-[#121824] text-white border border-purple-500/40 rounded-xl px-4 py-2.5 outline-none focus:border-purple-400 text-xs font-semibold cursor-pointer"
