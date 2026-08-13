@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Diamond, X, CheckCircle2 } from 'lucide-react';
+import { Diamond, X, CheckCircle2, Box, Zap } from 'lucide-react';
 import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
@@ -908,6 +908,29 @@ const WidgetPrdPacks = ({
     );
   }
 
+  // Fetch Guest Packs
+  const [guestPacks, setGuestPacks] = useState<any[]>([]);
+  const [showGuestPacks, setShowGuestPacks] = useState(false);
+
+  const fetchGuestPacks = async () => {
+    try {
+      const res = await fetch("http://localhost:5005/api/bridge/list-guest-packs");
+      if (res.ok) {
+        const payload = await res.json();
+        const data = payload.data || payload;
+        if (data.success && data.packs) {
+          setGuestPacks(data.packs);
+        }
+      }
+    } catch (e) {
+      console.error("Erreur lecture guest packs", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchGuestPacks();
+  }, []);
+
   // 2. Vue Carrousel de TOUS les Packs PRD sur la Page d'Accueil
   return (
     <div id="prd-packs-carousel-section" className="w-full my-4">
@@ -921,62 +944,180 @@ const WidgetPrdPacks = ({
           </span>
         )}
       </div>
-      <Carousel items={AVAILABLE_PACKS.map((pack: any) => {
-        const packId = pack.id;
-        const packName = pack.name;
-        const Icon = pack.icon || Box;
-        const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
-        const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
-        let cleanSummary = readmeText
-          .replace(/^#+.*$/gm, '') // Enlève les titres
-          .replace(/^>.*$/gm, '')  // Enlève les citations
-          .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Remplace les liens par leur texte
-          .replace(/[*_~`]/g, '')  // Enlève le markdown basique
-          .trim();
-        
-        const paragraphs = cleanSummary.split('\n').map(p => p.trim()).filter(p => p.length > 20);
-        const firstParagraph = paragraphs.length > 0 ? paragraphs[0] : "Spécifications techniques du contrat PRD.";
-        const shortDesc = firstParagraph.length > 180 ? (firstParagraph.substring(0, 180) + "...") : firstParagraph;
 
-        return (
-          <div
-            key={packId}
-            className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-cyan shadow-[0_0_25px_rgba(8,179,201,0.4)]' : 'border-white/10 hover:border-cyan/50'}`}
-            style={{ background: isClient ? getCachedGradient('prd-card-' + packId, 0.7) : 'rgba(0,0,0,0.7)' }}
+      <div className="flex gap-4 items-stretch relative">
+        {/* CARTE JOKER (FIXE À GAUCHE) */}
+        <div className="w-[280px] flex-shrink-0 z-20 py-24 -my-20">
+          <div 
+            onClick={() => setShowGuestPacks(!showGuestPacks)}
+            className={`h-full rounded-2xl p-6 border flex flex-col justify-between transition-all cursor-pointer shadow-2xl relative overflow-hidden group ${
+              showGuestPacks 
+                ? 'border-purple-400 bg-purple-950/40 shadow-[0_0_30px_rgba(168,85,247,0.3)]' 
+                : 'border-white/10 bg-black/60 hover:border-purple-500/50 hover:bg-purple-950/20'
+            }`}
           >
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-2">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-cyan text-black shadow-md' : (pack.color || 'bg-cyan/20 text-cyan')}`}>
-                  <Icon size={20} />
-                </div>
-                <span className="px-2 py-0.5 bg-cyan/20 text-cyan text-[10px] font-bold rounded-md uppercase tracking-wider">💎 PRD</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <span className="text-2xl">🐋</span>
               </div>
-              {togglePack && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    togglePack(packId);
-                  }}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-cyan text-black shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}
-                  title={isSelected ? "Désélectionner ce pack" : "Sélectionner ce pack pour l'IA"}
-                >
-                  {isSelected ? '✓' : '+'}
-                </button>
-              )}
+              <h3 className="text-xl font-black text-white mb-2 leading-tight">V0-GUEST</h3>
+              <div className="text-purple-400 font-bold text-sm uppercase tracking-widest mb-3">Hermes PRD Pack Engine</div>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Accédez à vos propres packs sur-mesure générés localement par reverse engineering avec l'Agent Hermes.
+              </p>
             </div>
+            <div className="relative z-10 mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
+                {guestPacks.length} PACKS DISPONIBLES
+              </span>
+              <span className={`text-xl transition-transform ${showGuestPacks ? 'rotate-90 text-purple-400' : 'text-zinc-500 group-hover:text-purple-400'}`}>➔</span>
+            </div>
+          </div>
+        </div>
 
-            <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
-            <p className="design-carte-desc flex-1 opacity-85 leading-relaxed">{shortDesc}</p>
+        {/* CARROUSEL PRINCIPAL V.0.1.0 */}
+        <div className="flex-1 overflow-hidden">
+          <Carousel items={AVAILABLE_PACKS.map((pack: any) => {
+            const packId = pack.id;
+            const packName = pack.name;
+            const Icon = pack.icon || Box;
+            const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
+            const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
+            let cleanSummary = readmeText
+              .replace(/^#+.*$/gm, '')
+              .replace(/^>.*$/gm, '')
+              .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+              .replace(/[*_~`]/g, '')
+              .trim();
+            
+            const paragraphs = cleanSummary.split('\n').map(p => p.trim()).filter(p => p.length > 20);
+            const firstParagraph = paragraphs.length > 0 ? paragraphs[0] : "Spécifications techniques du contrat PRD.";
+            const shortDesc = firstParagraph.length > 180 ? (firstParagraph.substring(0, 180) + "...") : firstParagraph;
 
-            <button
-              onClick={() => handleSetSelectedPrdDetail({ packId, packName, readmeText })}
-              className="design-prd-btn text-cyan text-xs font-bold hover:underline self-end cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan/30 transition-all"
-            >
-              <span>📖</span> Lire le README →
+            return (
+              <div
+                key={packId}
+                className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-cyan shadow-[0_0_25px_rgba(8,179,201,0.4)]' : 'border-white/10 hover:border-cyan/50'}`}
+                style={{ background: isClient ? getCachedGradient('prd-card-' + packId, 0.7) : 'rgba(0,0,0,0.7)' }}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-cyan text-black shadow-md' : (pack.color || 'bg-cyan/20 text-cyan')}`}>
+                      <Icon size={20} />
+                    </div>
+                    <span className="px-2 py-0.5 bg-cyan/20 text-cyan text-[10px] font-bold rounded-md uppercase tracking-wider">💎 PRD</span>
+                  </div>
+                  {togglePack && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePack(packId);
+                      }}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-cyan text-black shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}
+                      title={isSelected ? "Désélectionner ce pack" : "Sélectionner ce pack pour l'IA"}
+                    >
+                      {isSelected ? '✓' : '+'}
+                    </button>
+                  )}
+                </div>
+
+                <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
+                <p className="design-carte-desc flex-1 opacity-85 leading-relaxed">{shortDesc}</p>
+
+                <button
+                  onClick={() => handleSetSelectedPrdDetail({ packId, packName, readmeText })}
+                  className="design-prd-btn text-cyan text-xs font-bold hover:underline self-end cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan/30 transition-all"
+                >
+                  <span>📖</span> Lire le README →
+                </button>
+              </div>
+            );
+          })} />
+        </div>
+      </div>
+
+      {/* CARROUSEL DES PACKS GUEST (AFFICHE SI JOKER SELECTIONNE) */}
+      {showGuestPacks && (
+        <div className="mt-8 pt-6 border-t border-purple-500/20 animate-fadeIn">
+          <div className="flex items-center justify-between mb-3 px-2">
+            <h4 className="design-prd-titre-section font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
+              <span>🐋</span> MES PACKS GUEST GÉNÉRÉS PAR HERMES ({guestPacks.length})
+            </h4>
+            <button onClick={fetchGuestPacks} className="text-[10px] text-purple-300 border border-purple-500/30 px-3 py-1 rounded-full hover:bg-purple-900/30 transition-colors">
+              Actualiser
             </button>
           </div>
-        );
-      })} />
+          
+          {guestPacks.length === 0 ? (
+            <div className="p-8 text-center border border-purple-500/20 rounded-2xl bg-purple-950/10">
+              <p className="text-purple-300 text-sm">Aucun pack Guest n'a encore été généré.</p>
+              <p className="text-xs text-zinc-500 mt-2">Utilisez l'interface V0-GUEST pour scanner un projet local et créer un pack.</p>
+            </div>
+          ) : (
+            <Carousel items={guestPacks.map((pack: any) => {
+              const packId = pack.id;
+              const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
+              
+              return (
+                <div
+                  key={packId}
+                  className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-purple-400 shadow-[0_0_25px_rgba(168,85,247,0.4)] bg-purple-950/60' : 'border-purple-500/20 hover:border-purple-400/60 bg-black/50'}`}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-purple-500 text-white shadow-md' : 'bg-purple-500/20 text-purple-400 border border-purple-500/40'}`}>
+                        <Zap size={18} />
+                      </div>
+                      <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded-md uppercase tracking-wider border border-purple-500/30">🐋 GUEST</span>
+                    </div>
+                    {togglePack && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePack(packId);
+                        }}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-purple-500 text-white shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-purple-500/40 hover:text-white'}`}
+                      >
+                        {isSelected ? '✓' : '+'}
+                      </button>
+                    )}
+                  </div>
+
+                  <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight truncate">{pack.name}</h3>
+                  <p className="design-carte-desc flex-1 opacity-85 leading-relaxed text-zinc-300 text-xs line-clamp-4">
+                    {pack.description}
+                  </p>
+                  
+                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-purple-400/80">{pack.modulesCount} MODULES</span>
+                    <button
+                      onClick={async () => {
+                        // Charger le README dynamique depuis le bridge
+                        try {
+                          const res = await fetch(`http://localhost:5005/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
+                          if (res.ok) {
+                            const data = await res.json();
+                            const content = data.data?.content || data.content;
+                            if (content) {
+                              handleSetSelectedPrdDetail({ packId, packName: pack.name, readmeText: content });
+                            }
+                          }
+                        } catch (e) {
+                          console.error('Erreur chargement README', e);
+                        }
+                      }}
+                      className="design-prd-btn text-purple-300 text-[11px] font-bold hover:text-white cursor-pointer transition-all bg-purple-900/40 px-3 py-1.5 rounded-lg border border-purple-500/40 hover:bg-purple-500/40"
+                    >
+                      Détails →
+                    </button>
+                  </div>
+                </div>
+              );
+            })} />
+          )}
+        </div>
+      )}
     </div>
   );
 };
