@@ -1334,11 +1334,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     lastPreviewUrlRef.current = null;
-    setPreviewUrl(null);
-    if (activeProject) {
+    if (activeProject === 'v0-guest' || activeProject === 'V0-Guest') {
       setIsIdeFullscreen(true);
+      setPreviewUrl("http://localhost:3007");
+      lastPreviewUrlRef.current = "http://localhost:3007";
+    } else if (activeProject) {
+      setIsIdeFullscreen(true);
+      setPreviewUrl(null);
     } else {
       setIsIdeFullscreen(false);
+      setPreviewUrl(null);
     }
   }, [activeProject]);
 
@@ -2742,6 +2747,11 @@ Format attendu:
                       setActiveProject(selected);
                       setActiveFile(null);
                       setFileContent("");
+                      fetch("http://localhost:5005/api/bridge/launch-project", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ project_id: selected })
+                      }).catch(err => console.error("Erreur de lancement :", err));
                     }
                   }}
                   className="w-full bg-[#161616] text-cyan font-bold text-xs border border-cyan/40 rounded-xl px-2.5 py-2 outline-none focus:border-cyan focus:ring-1 focus:ring-cyan shadow-[0_0_10px_rgba(8,179,201,0.2)] cursor-pointer truncate"
@@ -3416,6 +3426,11 @@ Format attendu:
                     setActiveProject(val || null);
                     if (val) {
                       setNewProjectName(val.replace('Projet_', '').split('_')[0]);
+                      fetch("http://localhost:5005/api/bridge/launch-project", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ project_id: val })
+                      }).catch(err => console.error("Erreur de lancement :", err));
                     } else {
                       setNewProjectName("");
                     }
