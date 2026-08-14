@@ -50,7 +50,7 @@ const rawPacks = [
   "prd_mobile_pack", "prd_mobile_social", "prd_saas_billing_pro", "prd_saas_pack", "prd_specs_pack", 
   "prd_web_landing_pack", "productivity_pack", "produit_pack", "prompt_skills_pack", "saas_pack", 
   "specialise_pack", "sqlite_inspector", "stealth_bridge_v11_2", "texte_pack", "universal_scraper", 
-  "video_pack", "web_blog_pack", "widget_pack"
+  "video_pack", "web_blog_pack", "widget_pack", "guest_nebula_calc"
 ];
 
 export const ALL_PRD_PACKS = rawPacks.map(id => ({
