@@ -1,6 +1,6 @@
 /* Tiger IA Design - Admin Studio FULL */
 :root {
-  --app-largeur-max: 114vw;
+  --app-largeur-max: -500vw;
   --app-hauteur-max: 132vh;
   --header-position: fixed;
   --header-top: -107px;
@@ -49,11 +49,11 @@
   --sous-titre-couleur: #08b3c9;
   --sous-titre-poids: 500;
   --grille-position: relative;
-  --grille-position-x: 0px;
+  --grille-position-x: 104px;
   --grille-position-y: 0px;
   --grille-display: flex;
   --grille-flex-wrap: nowrap;
-  --grille-justify: center;
+  --grille-justify: flex-start;
   --grille-overflow-x: hidden;
   --grille-max-largeur: 1500px;
   --grille-marge-haut: 3rem;
@@ -78,31 +78,37 @@
   --app-texte-couleur: #ffffff;
   --app-texte-poids: 600;
   --app-texte-marge-haut: -12px;
-  --carte-carrousel-hauteur: 389px;
-  --carte-carrousel-largeur: 393px;
+  --carte-carrousel-hauteur: 374px;
+  --carte-carrousel-largeur: 366px;
   --carte-carrousel-gap: 1rem;
-  --carte-carrousel-padding: 1.25rem;
+  --carte-carrousel-padding: 1.25px;
   --carte-carrousel-arrondi: 1rem;
   --carte-carrousel-bordure: 1px solid rgba(99, 102, 241, 0.3);
   --carte-carrousel-bg: rgba(30, 27, 75, 0.7);
   --carte-carrousel-ombre: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  --carte-carrousel-titre-taille: 1rem;
+  --carte-carrousel-titre-taille: 0rem;
   --carte-carrousel-titre-couleur: #ffffff;
-  --carte-carrousel-texte-taille: -0rem;
+  --carte-carrousel-texte-taille: rem;
   --carte-carrousel-texte-couleur: #d1d5db;
   --carte-carrousel-position: relative;
-  --carte-carrousel-position-x: 0px;
-  --carte-carrousel-position-y: 0px;
-  --carte-carrousel-conteneur-hauteur: auto;
+  --carte-carrousel-position-x: 104px;
+  --carte-carrousel-position-y: 69px;
+  --carte-carrousel-conteneur-hauteur: 1023px;
   --carte-carrousel-conteneur-largeur: 100%;
   --carte-carrousel-conteneur-gap: 1rem;
   --carte-carrousel-conteneur-position: relative;
   --carte-carrousel-conteneur-position-x: 0px;
-  --carte-carrousel-conteneur-position-y: 0px;
-  --carte-carrousel-scale-survol: 1.55;
+  --carte-carrousel-conteneur-position-y: 237px;
+  --carte-carrousel-scale-survol: 1.10;
   --carte-carrousel-titre-taille-survol: 0;
   --carte-carrousel-texte-taille-survol: 0;
   --carte-carrousel-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --carte-guest-position: relative;
+  --carte-guest-position-x: 0px;
+  --carte-guest-position-y: 0px;
+  --carte-guest-largeur: 280px;
+  --carte-guest-marge-droite: 0px;
+  --carte-guest-z-index: 20;
   --prd-titre-section-taille-police: 16px;
   --prd-titre-section-couleur: #08b3c9;
   --prd-titre-section-position: relative;
@@ -134,31 +140,42 @@
   --prd-bouton-position-x: 0px;
   --prd-bouton-position-y: 0px;
   --msg-accueil-position: relative;
-  --msg-accueil-position-x: 137px;
-  --msg-accueil-position-y: 7px;
+  --msg-accueil-position-x: 0px;
+  --msg-accueil-position-y: 0px;
   --msg-accueil-taille-police: 15px;
   --msg-accueil-couleur: #f3f4f6;
   --msg-accueil-bg: rgba(30, 27, 75, 0.6);
   --msg-accueil-padding: 1.25rem;
   --msg-accueil-arrondi: 1.5rem;
   --msg-accueil-largeur-max: 100%;
-  --fenetre-readme-position: fixed;
-  --fenetre-readme-position-x: 205px;
-  --fenetre-readme-position-y: 21px;
+  --fenetre-readme-position: relative;
+  --fenetre-readme-position-x: 0px;
+  --fenetre-readme-position-y: 0px;
   --fenetre-readme-largeur-max: 1500px;
   --fenetre-readme-hauteur-max: 1029px;
   --fenetre-readme-taille-police: 20px;
   --config-modal-taille-police: 14px;
   --config-modal-titre-taille: 18px;
   --chat-bulles-espacement: 1px;
+  --chat-bulles-position: relative;
+  --chat-bulles-position-x: 0px;
+  --chat-bulles-position-y: 0px;
+  --chat-bulle-position: relative;
+  --chat-bulle-position-x: 0px;
+  --chat-bulle-position-y: 0px;
   --chat-bulle-taille-police: 15px;
   --chat-bulle-padding: 1.25rem;
   --chat-bulle-arrondi: 1.5rem;
-  --chat-layout-gap: 107px;
-  --chat-layout-max-largeur: 1200px;
+  --chat-layout-gap: 1rem;
+  --chat-layout-max-largeur: -500px;
+  --chat-layout-largeur: 100%;
+  --chat-layout-hauteur: 407px;
+  --chat-layout-position: relative;
+  --chat-layout-position-x: 0px;
+  --chat-layout-position-y: 0px;
   --chat-separateur-marge-y: 9px;
-  --chat-main-position: fixed;
-  --chat-main-top: 50;
+  --chat-main-position: relative;
+  --chat-main-top: 0px;
   --chat-main-bottom: 0;
   --chat-main-right: 0;
   --chat-main-width: 100%;
@@ -427,7 +444,8 @@ body {
 }
 
 .design-carte-carrousel {
-   height: var(--carte-carrousel-hauteur) !important;
+   height: var(--carte-carrousel-hauteur, auto) !important;
+   min-height: 230px !important;
    width: var(--carte-carrousel-largeur) !important;
    gap: var(--carte-carrousel-gap, 1rem) !important;
    padding: var(--carte-carrousel-padding, 1.25rem) !important;
@@ -441,7 +459,8 @@ body {
 
 .design-carte-carrousel:hover {
    z-index: 50 !important;
-   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--carte-carrousel-scale-survol)) !important;
+   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--app-icone-scale-survol, 1.25)) !important;
+   box-shadow: var(--app-icone-ombre-survol, 0 0 30px rgba(255, 255, 255, 0.3)) !important;
 }
 
 .design-carte-carrousel .design-carte-titre {
@@ -462,6 +481,16 @@ body {
 
 .design-carte-carrousel:hover .design-carte-desc {
    font-size: calc(var(--carte-carrousel-texte-taille-survol, var(--carte-carrousel-texte-taille, 0.75rem)) / var(--carte-carrousel-scale-survol, 1)) !important;
+}
+
+.design-carte-v0-guest {
+   position: var(--carte-guest-position, relative) !important;
+   left: var(--carte-guest-position-x, 0px) !important;
+   top: var(--carte-guest-position-y, 0px) !important;
+   transform: translate(var(--carte-guest-position-x, 0px), var(--carte-guest-position-y, 0px)) !important;
+   width: var(--carte-guest-largeur, 280px) !important;
+   margin-right: var(--carte-guest-marge-droite, 0px) !important;
+   z-index: var(--carte-guest-z-index, 20) !important;
 }
 
 .design-prd-badge {
@@ -487,8 +516,10 @@ body {
    left: var(--fenetre-readme-position-x, 0px) !important;
    top: var(--fenetre-readme-position-y, 0px) !important;
    transform: translate(var(--fenetre-readme-position-x, 0px), var(--fenetre-readme-position-y, 0px)) !important;
-   max-width: var(--fenetre-readme-largeur-max, 768px) !important;
+   max-width: var(--fenetre-readme-largeur-max, 1200px) !important;
    width: 100% !important;
+   margin: 1rem auto !important;
+   z-index: 50 !important;
 }
 
 .design-readme-contenu {

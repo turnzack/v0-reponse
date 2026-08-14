@@ -14,6 +14,20 @@ const designStructure = {
     "Titre & Sous-Titre": ['titrePoids', 'titreCouleur', 'titreEspacement', 'sousTitreCouleur', 'sousTitrePoids'],
     "Icônes Applications": ['iconeReglagesBg', 'iconeAssistantBg', 'iconeProjetsBg', 'iconePacksBg', 'iconeActualitesBg', 'appIconeLargeur', 'appIconeHauteur', 'appIconeArrondi', 'appIconeBordure', 'appIconeOmbre', 'appIconeOmbreSurvol', 'appIconeScaleSurvol', 'appIconeEmojiTaille', 'appIconeTransition', 'appTexteTaille', 'appTexteCouleur', 'appTextePoids', 'appTexteMargeHaut'],
     "Grille d'Applications": ['grillePosition', 'grillePositionX', 'grillePositionY', 'grilleDisplay', 'grilleFlexWrap', 'grilleJustify', 'grilleOverflowX', 'grilleMaxLargeur', 'chatLayoutMaxLargeur', 'grilleMargeHaut', 'grilleMargeBas', 'grilleGapX', 'grilleGapY'],
+    "📦 Conteneur Carrousel Principal": [
+      'chatLayoutLargeur',
+      'chatLayoutHauteur',
+      'chatLayoutMaxLargeur',
+      'chatLayoutPosition',
+      'chatLayoutPositionX',
+      'chatLayoutPositionY',
+      'carteCarrouselConteneurHauteur',
+      'carteCarrouselConteneurLargeur',
+      'carteCarrouselConteneurGap',
+      'carteCarrouselConteneurPosition',
+      'carteCarrouselConteneurPositionX',
+      'carteCarrouselConteneurPositionY'
+    ],
     "Cartes & Carrousel": [
       'carteCarrouselHauteur',
       'carteCarrouselLargeur',
@@ -28,12 +42,6 @@ const designStructure = {
       'carteCarrouselOmbre',
       'carteCarrouselScaleSurvol',
       'carteCarrouselTransition',
-      'carteCarrouselConteneurHauteur',
-      'carteCarrouselConteneurLargeur',
-      'carteCarrouselConteneurGap',
-      'carteCarrouselConteneurPosition',
-      'carteCarrouselConteneurPositionX',
-      'carteCarrouselConteneurPositionY',
       'carteCarrouselTitreTaille',
       'carteCarrouselTitreCouleur',
       'carteCarrouselTexteTaille',
@@ -42,6 +50,12 @@ const designStructure = {
       'carteCarrouselTexteTailleSurvol'
     ],
     "Packs PRD Carrousel": [
+      'carteGuestPosition',
+      'carteGuestPositionX',
+      'carteGuestPositionY',
+      'carteGuestLargeur',
+      'carteGuestMargeDroite',
+      'carteGuestZIndex',
       'prdTitreSectionTaillePolice',
       'prdTitreSectionCouleur',
       'prdTitreSectionPosition',
@@ -75,7 +89,7 @@ const designStructure = {
   },
   "💬 Chat & Footer": {
     "Conteneur Principal": ['chatMainPosition', 'chatMainTop', 'chatMainBottom', 'chatMainRight', 'chatMainWidth', 'chatConteneurBg', 'chatConteneurFlou', 'chatConteneurBordureHaut', 'chatConteneurPaddingHaut', 'chatConteneurPaddingBas', 'chatConteneurPaddingX'],
-    "Mise en Page": ['chatLayoutGap', 'chatLayoutMaxLargeur', 'chatBullesEspacement', 'chatBulleTaillePolice', 'chatBullePadding', 'chatBulleArrondi', 'chatSeparateurMargeY'],
+    "Mise en Page": ['chatLayoutGap', 'chatLayoutMaxLargeur', 'chatLayoutLargeur', 'chatLayoutHauteur', 'chatLayoutPosition', 'chatLayoutPositionX', 'chatLayoutPositionY', 'chatBullesEspacement', 'chatBullesPosition', 'chatBullesPositionX', 'chatBullesPositionY', 'chatBullePosition', 'chatBullePositionX', 'chatBullePositionY', 'chatBulleTaillePolice', 'chatBullePadding', 'chatBulleArrondi', 'chatSeparateurMargeY'],
     "Message d'Accueil (Système)": [
       'msgAccueilPosition',
       'msgAccueilPositionX',
@@ -1421,7 +1435,8 @@ body {
 }
 
 .design-carte-carrousel {
-   height: var(--carte-carrousel-hauteur) !important;
+   height: var(--carte-carrousel-hauteur, auto) !important;
+   min-height: 230px !important;
    width: var(--carte-carrousel-largeur) !important;
    gap: var(--carte-carrousel-gap, 1rem) !important;
    padding: var(--carte-carrousel-padding, 1.25rem) !important;
@@ -1435,7 +1450,8 @@ body {
 
 .design-carte-carrousel:hover {
    z-index: 50 !important;
-   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--carte-carrousel-scale-survol)) !important;
+   transform: translate(var(--carte-carrousel-position-x, 0px), var(--carte-carrousel-position-y, 0px)) scale(var(--app-icone-scale-survol, 1.25)) !important;
+   box-shadow: var(--app-icone-ombre-survol, 0 0 30px rgba(255, 255, 255, 0.3)) !important;
 }
 
 .design-carte-carrousel .design-carte-titre {
@@ -1456,6 +1472,16 @@ body {
 
 .design-carte-carrousel:hover .design-carte-desc {
    font-size: calc(var(--carte-carrousel-texte-taille-survol, var(--carte-carrousel-texte-taille, 0.75rem)) / var(--carte-carrousel-scale-survol, 1)) !important;
+}
+
+.design-carte-v0-guest {
+   position: var(--carte-guest-position, relative) !important;
+   left: var(--carte-guest-position-x, 0px) !important;
+   top: var(--carte-guest-position-y, 0px) !important;
+   transform: translate(var(--carte-guest-position-x, 0px), var(--carte-guest-position-y, 0px)) !important;
+   width: var(--carte-guest-largeur, 280px) !important;
+   margin-right: var(--carte-guest-marge-droite, 0px) !important;
+   z-index: var(--carte-guest-z-index, 20) !important;
 }
 
 .design-prd-badge {
@@ -1481,8 +1507,10 @@ body {
    left: var(--fenetre-readme-position-x, 0px) !important;
    top: var(--fenetre-readme-position-y, 0px) !important;
    transform: translate(var(--fenetre-readme-position-x, 0px), var(--fenetre-readme-position-y, 0px)) !important;
-   max-width: var(--fenetre-readme-largeur-max, 768px) !important;
+   max-width: var(--fenetre-readme-largeur-max, 1200px) !important;
    width: 100% !important;
+   margin: 1rem auto !important;
+   z-index: 50 !important;
 }
 
 .design-readme-contenu {
@@ -2193,6 +2221,19 @@ body {
                   if (k === 'iconeProjetsBg') return '🎨 Fond Icône 📁 Projets';
                   if (k === 'iconePacksBg') return '🎨 Fond Icône 💎 Packs PRD';
                   if (k === 'iconeActualitesBg') return '🎨 Fond Icône 📰 Actualités';
+                  if (k === 'chatLayoutGap') return '📐 Conteneur Principal Gap';
+                  if (k === 'chatLayoutMaxLargeur') return '↔️ Conteneur Principal Max Largeur';
+                  if (k === 'chatLayoutLargeur') return '↔️ Conteneur Principal Largeur';
+                  if (k === 'chatLayoutHauteur') return '↕️ Conteneur Principal Hauteur';
+                  if (k === 'chatLayoutPosition') return '📌 Conteneur Principal Position';
+                  if (k === 'chatLayoutPositionX') return '📌 Conteneur Principal Position X';
+                  if (k === 'chatLayoutPositionY') return '📌 Conteneur Principal Position Y';
+                  if (k === 'carteCarrouselConteneurHauteur') return '↕️ Conteneur Carrousel Hauteur';
+                  if (k === 'carteCarrouselConteneurLargeur') return '↔️ Conteneur Carrousel Largeur';
+                  if (k === 'carteCarrouselConteneurGap') return '📐 Conteneur Carrousel Espacement';
+                  if (k === 'carteCarrouselConteneurPosition') return '📌 Conteneur Carrousel Position';
+                  if (k === 'carteCarrouselConteneurPositionX') return '📌 Conteneur Carrousel Position X';
+                  if (k === 'carteCarrouselConteneurPositionY') return '📌 Conteneur Carrousel Position Y';
 
                   const words = k.replace(/([A-Z])/g, ' $1').toLowerCase().split(' ');
                   let emoji = '⚙️';
@@ -2222,7 +2263,7 @@ body {
                 const isColorVal = isColor(val);
                 const keyLow = key.toLowerCase();
                 const isPosXY = keyLow.includes('positionx') || keyLow.includes('positiony') || keyLow.includes('posx') || keyLow.includes('posy');
-                const isPosition = !isPosXY && (keyLow.endsWith('position') || keyLow.includes('positiontype') || keyLow === 'headerposition' || keyLow === 'footerposition' || keyLow === 'chatmainposition' || keyLow === 'sidebardroiteposition' || keyLow === 'newv0position' || keyLow === 'tromboneposition');
+                const isPosition = !isPosXY && (keyLow.endsWith('position') || keyLow.includes('positiontype') || keyLow === 'headerposition' || keyLow === 'footerposition' || keyLow === 'chatmainposition' || keyLow === 'sidebardroiteposition' || keyLow === 'newv0position' || keyLow === 'tromboneposition' || keyLow === 'chatlayoutposition' || keyLow === 'cartecarrouselconteneurposition');
                 const isDisplay = keyLow.includes('display');
                 const isFlexWrap = keyLow.includes('flexwrap');
                 const isJustify = keyLow.includes('justify');
@@ -2230,7 +2271,8 @@ body {
                 const isLocked = !!lockedSettings[key];
 
                 const sliderMatch = typeof val === 'string' ? val.match(/^(-?\d+\.?\d*)(px|vw|vh|%|rem|em)$/) : null;
-                const effectiveSlider = sliderMatch || (isPosXY ? [val, (val.match(/^(-?\d+\.?\d*)/)?.[1] || "0"), "px"] : null);
+                const isDimension = keyLow.includes('hauteur') || keyLow.includes('largeur') || keyLow.includes('gap') || keyLow.includes('padding') || keyLow.includes('margin');
+                const effectiveSlider = sliderMatch || (isPosXY ? [val, (val.match(/^(-?\d+\.?\d*)/)?.[1] || "0"), "px"] : (isDimension ? [val, "600", "px"] : null));
 
                 return (
                   <div key={key} className={`bg-white/5 p-6 rounded-2xl border transition-all shadow-lg flex flex-col justify-between group ${isLocked ? 'border-red-500/30 opacity-75' : 'border-white/10 hover:border-cyan/50 hover:bg-white/10 hover:-translate-y-1'}`}>

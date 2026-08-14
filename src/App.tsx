@@ -88,6 +88,7 @@ const WidgetSettings = ({
   const [apiKeyStatus, setApiKeyStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
   const [overridePrompt, setOverridePrompt] = useState("");
   const [savedMsg, setSavedMsg] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
   const [isExtConnected, setIsExtConnected] = useState(true);
 
   useEffect(() => {
@@ -160,22 +161,78 @@ const WidgetSettings = ({
     setTimeout(() => setSavedMsg(false), 3000);
   };
 
+  const triggerNativeZipPicker = async () => {
+    const btn = document.getElementById("btn-joindre-zip");
+    if (btn) {
+      btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
+      (btn as HTMLButtonElement).disabled = true;
+    }
+
+    try {
+      const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
+
+      const res = await fetch("http://localhost:5005/api/fs/pick-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project: designProjectId
+        })
+      });
+
+      const data = await res.json();
+      if (data.canceled) {
+        // User cancelled the dialog, just do nothing silently
+      } else if (data.success) {
+        alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\nLe fichier est prêt dans votre projet !");
+      } else {
+        alert("❌ Erreur lors de l'extraction: " + data.error || data.message);
+      }
+    } catch (err) {
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
+    } finally {
+      if (btn) {
+        btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
+        (btn as HTMLButtonElement).disabled = false;
+      }
+    }
+  };
+
 
   const tabs = [
     { id: "home", label: "TIGER IA", icon: "🐯" },
     { id: "electron", label: "Electron", icon: "💻" },
     { id: "vercel", label: "Vercel", icon: "▲" },
     { id: "deepseek", label: "DeepSeek", icon: "🐋" },
-    { id: "pipeline", label: "Pipeline", icon: "🎯" },
     { id: "override", label: "Override", icon: "💉" },
     { id: "connexion", label: "Connexion", icon: "⚙️" },
   ];
+
+  const [bridgeQueueData, setBridgeQueueData] = useState<{current: any, queue: any[]}>({current: null, queue: []});
+
+  useEffect(() => {
+    let interval: any;
+    if (activeTab === "deploiement" || activeTab === "creation") {
+      const fetchQueue = () => {
+        fetch("http://localhost:5005/api/bridge/queue")
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              setBridgeQueueData({ current: data.current || {}, queue: data.queue || [] });
+            }
+          })
+          .catch(() => {});
+      };
+      fetchQueue();
+      interval = setInterval(fetchQueue, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   return (
     <div className={`design-config-modal w-full h-screen bg-gradient-to-br from-[#845e7c]/95 to-[#6c3050]/95 backdrop-blur-2xl border-none shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col md:flex-row pointer-events-auto`}>
 
       {/* Sidebar */}
-      {!isEmbedded && (
+      {!isEmbedded && activeTab !== "creation" && (
         <div className="w-full md:w-64 bg-gradient-to-b from-black/40 to-black/60 border-r border-white/10 flex flex-col">
           <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <h3 className="text-lg font-black text-white tracking-wider flex items-center gap-2">
@@ -408,100 +465,331 @@ const WidgetSettings = ({
             </div>
           )}
 
-          {activeTab === "pipeline" && (
-            <div className="space-y-4 animate-fadeIn h-full flex flex-col">
-              <h2 className="text-xl font-black text-white border-b border-white/10 pb-4">MISSION ACTIVE</h2>
-
-              <div className="flex gap-2">
-                <div className="flex-1 bg-gradient-to-br from-cyan/30 to-cyan/10 border border-cyan/50 p-2 rounded-lg cursor-pointer hover:from-cyan/40 hover:to-cyan/20 transition-colors">
-                  <div className="text-white font-bold text-xs flex items-center gap-2">⚙️ Standard G5</div>
-                  <div className="text-[10px] text-cyan mt-1 leading-tight">Génération de A à Z (Architecture, Design, Logique).</div>
-                </div>
-                <div className="flex-1 bg-gradient-to-br from-pink/30 to-pink/10 border border-pink/50 p-2 rounded-lg cursor-pointer hover:from-pink/40 hover:to-pink/20 transition-colors">
-                  <div className="text-white font-bold text-xs flex items-center gap-2">🎨 Design-First</div>
-                  <div className="text-[10px] text-pink mt-1 leading-tight">Stitch UI d'abord → L'IA câble la logique ensuite.</div>
-                </div>
+          {activeTab === "creation" && (
+            <div className="space-y-6 animate-fadeIn h-full flex flex-col overflow-y-auto pr-2 hide-scrollbar">
+              <div className="flex flex-col border-b border-white/5 pb-4">
+                <h2 className="text-2xl font-black text-white flex items-center gap-2 tracking-wide uppercase">
+                  <span>⚙️</span> CONFIGURATION DU PROJET
+                </h2>
+                <p className="text-[10px] text-gray-400 mt-1">Générez et paramétrez votre projet de A à Z.</p>
               </div>
 
-              <div className="text-yellow-400 text-sm font-bold mt-2">— IDE Autonome (Kirov5) —</div>
-
-              <div className="mt-2 mb-3 flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch("http://localhost:5005/api/projects");
-                        const data = await res.json();
-                        if (data.projects) {
-                          setAvailableProjects(data.projects);
-                          if (data.projects.length > 0 && !selectedLaunchProject) {
-                            setSelectedLaunchProject(data.projects[0]);
-                          }
+              {/* 3 PANELS LAYOUT */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+                
+                {/* PANEL 1 (GAUCHE) : INFO PROJET */}
+                <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5">
+                  <h3 className="text-white font-bold text-xs mb-2 flex items-center gap-2">
+                    <span className="text-yellow-500">📁</span> Création & Ciblage
+                  </h3>
+                  
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">CIBLER UN PROJET EXISTANT</label>
+                    <select
+                      value={selectedLaunchProject}
+                      onChange={(e) => setSelectedLaunchProject(e.target.value)}
+                      onClick={async () => {
+                        if (availableProjects.length === 0) {
+                          try {
+                            const res = await fetch("http://localhost:5005/api/projects");
+                            const data = await res.json();
+                            if (data.projects) setAvailableProjects(data.projects);
+                          } catch (e) {}
                         }
-                      } catch (e) {
-                        alert("Impossible de charger les projets. Le Bridge est-il allumé ?");
-                      }
-                    }}
-                    className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold text-white transition-colors"
-                  >
-                    🔄
-                  </button>
-                  <select
-                    value={selectedLaunchProject}
-                    onChange={(e) => setSelectedLaunchProject(e.target.value)}
-                    className="flex-1 bg-black/50 text-white border border-cyan/30 rounded-lg px-2 py-1 outline-none focus:border-cyan text-xs"
-                  >
-                    <option value="">-- Sélectionnez un projet --</option>
-                    {availableProjects.map((p: string) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                      }}
+                      className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-cyan text-xs"
+                    >
+                      <option value="">-- SÉLECTIONNER UN PROJET --</option>
+                      {availableProjects.map((p: string) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">NOM DU NOUVEAU PROJET</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        placeholder="Ex: MonSuperProjet" 
+                        className="flex-1 bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
+                      />
+                      <button 
+                        onClick={async () => {
+                          if (!newProjectName) { alert("Entrez un nom de projet"); return; }
+                          
+                          try {
+                            const res = await fetch("http://localhost:5005/api/projects/set-active", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ name: newProjectName.trim() })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              alert(`✅ Projet "${newProjectName}" créé avec succès !\nChemin : ${data.projectDir}`);
+                              // Refresh projects list if needed
+                              if (setAvailableProjects) {
+                                const pRes = await fetch("http://localhost:5005/api/projects").then(r => r.json()).catch(() => ({}));
+                                if (pRes.projects) setAvailableProjects(pRes.projects);
+                              }
+                            } else {
+                              alert("❌ Erreur: " + data.message);
+                            }
+                          } catch (e) {
+                            alert("❌ Erreur de connexion avec Kirov5.");
+                          }
+                        }}
+                        className="bg-[#0f2a2a] hover:bg-[#153f3f] text-cyan border border-cyan/30 px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                      >
+                        Valider
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">STACK TECHNIQUE</label>
+                    <select className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan">
+                      <option>⭐ 1er Choix (Prioritaire) : Vite + React + Tailwind + TS</option>
+                      <option>Next.js 16 + Tailwind</option>
+                    </select>
+                  </div>
+
+                  <div className="flex-1 flex flex-col">
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2 flex items-center gap-1">
+                      <span className="text-white">📄</span> INSTRUCTIONS / VISION
+                    </label>
+                    <textarea 
+                      placeholder="Décrivez l'application ou copiez votre PRD..."
+                      className="w-full flex-1 min-h-[120px] bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan resize-none"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button className="flex-1 py-2 rounded-lg text-white font-bold text-xs" style={{ backgroundImage: 'linear-gradient(to right, #10a37f, #0d8a6a)', borderColor: '#10a37f' }}>
-                    📦 Auto-Capture
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!selectedLaunchProject) return alert("Veuillez sélectionner un projet d'abord !");
-                      try {
-                        const res = await fetch("http://localhost:5005/api/bridge/launch-project", {
+                {/* PANEL 2 (CENTRE) : PARAMÈTRES & CIBLES */}
+                <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5">
+                  <h3 className="text-white font-bold text-xs mb-2 flex items-center gap-2">
+                    <span className="text-yellow-500">⚡</span> Paramètres & IA
+                  </h3>
+                  
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">INTELLIGENCE CIBLE</label>
+                    <select 
+                      className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
+                      onChange={(e) => {
+                        window.KIROV_TARGET_AI = e.target.value;
+                      }}
+                    >
+                      <option value="deepseek">🩵 DeepSeek (Extension Web)</option>
+                      <option value="hermes">🤖 Hermes Agent (API DeepSeek)</option>
+                      <option value="chatgpt">🟢 ChatGPT</option>
+                      <option value="claude">🟣 Claude</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">💉 MODE & LOT DE DÉPART</label>
+                    <select className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan">
+                      <option>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
+                      <option>⚙️ Phase 2 : Logique G5</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-3 mt-4 bg-[#111] p-4 rounded-lg border border-white/5">
+                    <label className="flex items-center gap-3 text-[11px] font-bold text-gray-300 cursor-pointer">
+                      <input type="checkbox" className="accent-cyan w-4 h-4" />
+                      🤖 AUTO-PILOT : OFF ⚪
+                    </label>
+                    <label className="flex items-center gap-3 text-[11px] font-bold text-gray-300 cursor-pointer">
+                      <input type="checkbox" defaultChecked className="accent-cyan w-4 h-4" />
+                      🔗 Injecter dans l'onglet ouvert
+                    </label>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <button className="py-6 bg-[#2a1b3d] hover:bg-[#3d2757] text-white text-[10px] font-bold rounded-lg border border-purple-500/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
+                      <span className="text-xl">💎</span>
+                      Packs PRD (0)
+                    </button>
+                    <button 
+                      id="btn-joindre-zip"
+                      onClick={triggerNativeZipPicker}
+                      className="py-6 bg-[#1a2f3a] hover:bg-[#254250] text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
+                    >
+                      <span className="text-xl">📎</span>
+                      Joindre ZIP (Stitch)
+                    </button>
+                  </div>
+                </div>
+
+                {/* PANEL 3 (DROITE) : WORKFLOW & FILE D'ATTENTE */}
+                <div className="flex flex-col gap-4 overflow-y-auto hide-scrollbar">
+                  
+                  {/* Roadmap Visual */}
+                  <div className="bg-[#050505] border border-white/5 rounded-xl p-5">
+                     <h2 className="text-white font-bold text-[11px] mb-5 tracking-wide">Workflow "Design-First" (Hybride)</h2>
+                     <div className="flex flex-col gap-3 text-[10px] font-mono text-gray-400 relative">
+                        <div className="absolute left-[11px] top-6 bottom-6 w-px bg-white/5 z-0"></div>
+
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#051505] border border-green-500/50 flex items-center justify-center text-green-400 shrink-0 text-[10px]">0</div>
+                          <span className="text-green-400">Création (Boilerplate)</span>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#051020] border border-blue-500/50 flex items-center justify-center text-blue-400 shrink-0 text-[10px]">1</div>
+                          <span className="text-blue-400">Génération UI (Stitch)</span>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#150520] border border-indigo-500/50 flex items-center justify-center text-indigo-400 shrink-0 text-[10px]">2</div>
+                          <span className="text-indigo-400">Scan HTML & Blueprint JSON</span>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#051a20] border border-cyan/80 flex items-center justify-center text-cyan shadow-[0_0_15px_rgba(8,179,201,0.4)] shrink-0 text-[10px]">3</div>
+                          <span className="text-cyan font-bold">Orchestration des Lots</span>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#200520] border border-purple-500/50 flex items-center justify-center text-purple-400 shrink-0 text-[10px]">4</div>
+                          <span className="text-purple-400">Génération Contractuelle</span>
+                        </div>
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className="w-6 h-6 rounded-full bg-[#2a1a00] border border-orange-500/50 flex items-center justify-center text-orange-400 shrink-0 text-[10px]">5</div>
+                          <span className="text-orange-400">Validation Industrielle</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Trombone Actions */}
+                  <div className="flex flex-col gap-2">
+                    <button 
+                      onClick={() => {
+                        const proj = selectedLaunchProject || newProjectName;
+                        if (!proj) return;
+                        
+                        const aiTarget = window.KIROV_TARGET_AI || "deepseek";
+                        // Indicate loading state on button if desired, but we keep it silent
+                        fetch("http://localhost:5005/api/bridge/trombone", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ project_id: selectedLaunchProject })
-                        });
-                        const data = await res.json();
-                        alert(data.message || "Lancement en cours...");
-                      } catch (e: any) {
-                        alert("Erreur de connexion au Moteur Electron : " + e.message);
-                      }
-                    }}
-                    className="flex-1 py-2 rounded-lg text-black font-bold text-xs bg-gradient-to-r from-cyan to-blue-500 hover:from-cyan/80 hover:to-blue-500/80 transition-colors"
-                  >
-                    🚀 Lancer l'Aperçu
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-2 space-y-1">
-                {["Enrichment", "Intent", "WBS", "Architecture", "Design", "Génération", "Testing", "Déverrouillage", "Transition", "Mission", "Évolution"].map((phase, idx) => {
-                  const isCurrent = activePhase === (idx + 1);
-                  return (
-                    <div key={idx} className={`flex items-center gap-3 p-2 rounded border ${isCurrent ? 'bg-gradient-to-r from-cyan/30 to-cyan/10 border-cyan text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'bg-gradient-to-r from-black/30 to-black/10 border-white/5 opacity-60'}`}>
-                      <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isCurrent ? 'bg-gradient-to-br from-cyan to-blue-500 text-black' : 'bg-gradient-to-br from-white/20 to-white/5'}`}>{idx}</div>
-                      <span className="text-sm font-medium">{phase}</span>
+                          body: JSON.stringify({ target_project: proj, target_ai: aiTarget, start_index: 1, zip_mode: true })
+                        }).catch(e => console.error(e));
+                      }}
+                      className="w-full bg-[#0a1025] hover:bg-[#101a35] border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
+                    >
+                      <span>🔄</span> Reconstruire la file
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        console.log("L'automatisation est lancée !");
+                        if (!bridgeQueueData.current || Object.keys(bridgeQueueData.current).length === 0) {
+                          // Si aucune tâche n'est en cours (elle a été consommée ou bloquée), on force l'avancement (SKIP)
+                          const proj = selectedLaunchProject || newProjectName;
+                          if (!proj) return;
+                          fetch("http://localhost:5005/api/debug/advance-batch", { 
+                            method: "POST", headers: { "Content-Type": "application/json" }, 
+                            body: JSON.stringify({ project_id: proj }) 
+                          }).catch(() => null);
+                          return;
+                        }
+                        const targetAi = Object.keys(bridgeQueueData.current)[0];
+                        fetch("http://localhost:5005/api/bridge/prompt", {
+                           method: "POST", headers: { "Content-Type": "application/json" },
+                           body: JSON.stringify({ 
+                             prompt: bridgeQueueData.current[targetAi].prompt, 
+                             target_ai: targetAi,
+                             phase_num: bridgeQueueData.current[targetAi].phase_num,
+                             is_multi_batch: bridgeQueueData.current[targetAi].is_multi_batch,
+                             project_id: bridgeQueueData.current[targetAi].project_id
+                           })
+                        }).catch(() => null);
+                      }}
+                      className="w-full bg-[#250a25] hover:bg-[#351035] border border-purple-500/30 text-purple-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
+                    >
+                      <span>🚀</span> Lancer l'Automatisation (Phase 4)
+                    </button>
+                  </div>
+                  
+                  {/* Queue List */}
+                  <div className="flex-1 bg-[#050505] border border-white/5 rounded-xl p-4 flex flex-col gap-4 min-h-[150px]">
+                    {/* Tâche Actuelle */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-cyan font-bold text-[11px] flex items-center gap-2">
+                           <span className="w-1 h-3 bg-cyan inline-block rounded-sm"></span> Tâche Actuelle
+                        </span>
+                        <button 
+                          onClick={() => {
+                            if (!bridgeQueueData.current) { alert("Aucune tâche active."); return; }
+                            const targetAi = Object.keys(bridgeQueueData.current)[0];
+                            if (!targetAi || !bridgeQueueData.current[targetAi]) { alert("Aucune tâche active."); return; }
+                            fetch("http://localhost:5005/api/bridge/prompt", {
+                               method: "POST", headers: { "Content-Type": "application/json" },
+                               body: JSON.stringify({ 
+                                 prompt: bridgeQueueData.current[targetAi].prompt, 
+                                 target_ai: targetAi,
+                                 phase_num: bridgeQueueData.current[targetAi].phase_num,
+                                 is_multi_batch: bridgeQueueData.current[targetAi].is_multi_batch,
+                                 project_id: bridgeQueueData.current[targetAi].project_id
+                               })
+                            }).catch(() => null);
+                            alert("Prompt poussé manuellement dans la zone texte KIROV5 !");
+                          }}
+                          className="bg-[#0f2a2a] text-cyan text-[8px] font-bold px-2 py-1 rounded transition-colors"
+                        >
+                          FORCER ENVOI
+                        </button>
+                      </div>
+                      
+                      {bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0 ? Object.entries(bridgeQueueData.current).map(([ai, task]: [string, any]) => (
+                        <div key={ai} className="bg-[#111] p-3 rounded-lg text-[9px] text-gray-400 font-mono">
+                          <div className="text-pink font-bold mb-1">[{ai.toUpperCase()}] {task.phase_name || 'Tâche'}</div>
+                          <div className="truncate opacity-80">{task.prompt.substring(0, 80)}...</div>
+                        </div>
+                      )) : (
+                        <div className="text-[10px] text-gray-500 italic pl-3">Aucune tâche en cours.</div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
 
-              <div className="mt-2 bg-gradient-to-b from-gray-900 to-black border border-white/10 rounded-xl p-3 font-mono text-[10px] text-green-400 flex-1 min-h-[150px] overflow-y-auto flex flex-col-reverse">
-                <div>
-                  {mouchardLogs.map((log: string, idx: number) => (
-                    <div key={idx} className="mb-1 opacity-90 break-all">{log}</div>
-                  ))}
+                    <div className="w-full h-px bg-white/5"></div>
+
+                    <div className="flex flex-col gap-2 flex-1 min-h-0">
+                       <div className="flex items-center justify-between">
+                         <span className="text-orange-400 font-bold text-[10px] flex items-center gap-2">
+                            <span>⏳</span> En attente ({bridgeQueueData.queue.length})
+                         </span>
+                         <button 
+                           onClick={() => {
+                             const proj = selectedLaunchProject || newProjectName;
+                             if (!proj) return;
+                             fetch("http://localhost:5005/api/debug/advance-batch", { 
+                               method: "POST", headers: { "Content-Type": "application/json" }, 
+                               body: JSON.stringify({ project_id: proj }) 
+                             }).catch(() => null);
+                           }}
+                           className="text-[9px] text-gray-500 hover:text-gray-300"
+                         >
+                           Passer (Skip)
+                         </button>
+                       </div>
+
+                       <div className="flex-1 overflow-y-auto pr-1 space-y-2 hide-scrollbar">
+                         {bridgeQueueData.queue.length > 0 ? bridgeQueueData.queue.map((task, i) => (
+                           <div key={i} className="bg-[#111] border border-white/5 p-2 rounded flex flex-col gap-1">
+                             <div className="text-[9px] font-bold text-gray-400 flex justify-between">
+                               <span>[{i+1}] {task.phase_name || 'Action'}</span>
+                               <span className="text-purple-400">{task.target_ai?.toUpperCase()}</span>
+                             </div>
+                             <div className="text-[8px] text-gray-600 font-mono truncate">{task.prompt.substring(0, 60)}...</div>
+                           </div>
+                         )) : (
+                           <div className="text-[10px] text-gray-600 italic p-2 text-center border border-dashed border-white/5 rounded">File vide.</div>
+                         )}
+                       </div>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             </div>
           )}
@@ -822,11 +1110,11 @@ const Carousel = ({ items }: { items: React.ReactNode[] }) => {
   return (
     <div
       ref={scrollRef}
-      className="design-carte-carrousel-conteneur w-full max-w-full flex overflow-x-auto gap-4 py-24 px-28 -my-20 hide-scrollbar scroll-smooth relative"
+      className="design-carte-carrousel-conteneur w-full max-w-full flex overflow-x-auto gap-4 py-4 px-2 hide-scrollbar scroll-smooth relative"
       style={{ scrollBehavior: 'smooth' }}
     >
       {items.map((item, idx) => (
-        <div key={idx} className="shrink-0 relative z-0 hover:z-50">
+        <div key={idx} className="shrink-0 relative z-0 hover:z-10">
           {item}
         </div>
       ))}
@@ -845,15 +1133,69 @@ const getLocalPackReadme = (packId: string): string | null => {
   return null;
 };
 
+const CarteV0GuestChat = ({ messages, showGuestPacks, setShowGuestPacks, guestPacksCount }: any) => {
+  return (
+    <div className="design-carte-v0-guest flex-shrink-0 w-full xl:w-[320px] z-30">
+      <div 
+        onClick={() => setShowGuestPacks && setShowGuestPacks(!showGuestPacks)}
+        className={`h-full rounded-2xl p-6 border flex flex-col justify-between transition-all cursor-pointer shadow-2xl relative overflow-hidden group ${
+          showGuestPacks 
+            ? 'border-purple-400 bg-purple-950/40 shadow-[0_0_30px_rgba(168,85,247,0.3)]' 
+            : 'border-white/10 bg-black/60 hover:border-purple-500/50 hover:bg-purple-950/20'
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
+        <div className="relative z-10 flex flex-col h-full">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <span className="text-2xl">🐋</span>
+          </div>
+          <h3 className="text-xl font-black text-white mb-1 leading-tight">V0-GUEST</h3>
+          <div className="text-purple-400 font-bold text-xs uppercase tracking-widest mb-2">Hermes PRD Pack Engine</div>
+          
+          {/* FLUX DE CHAT ET BULLES INTÉGRÉS DANS LA CARTE V0-GUEST */}
+          {messages && messages.length > 0 ? (
+            <div className="mt-2 p-3 bg-black/70 border border-purple-500/30 rounded-xl max-h-[280px] min-h-[160px] overflow-y-auto space-y-2 text-left shadow-inner flex-1">
+              <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center justify-between border-b border-purple-500/20 pb-1">
+                <span>💬 Discussion Chat Active</span>
+                <span className="text-[9px] text-purple-400 font-mono">{messages.length} msg</span>
+              </div>
+              {messages.map((m: any, idx: number) => (
+                <div key={m.id || idx} className={`p-2.5 rounded-xl text-xs leading-relaxed border ${m.role === 'user' ? 'bg-purple-900/60 border-purple-400/50 text-purple-100 text-right ml-2' : 'bg-zinc-900/90 border-white/10 text-gray-200 mr-2'}`}>
+                  <span className="font-bold text-[9px] block opacity-70 mb-0.5">{m.role === 'user' ? 'Vous' : 'Hermes AI'}</span>
+                  {m.content}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-400 leading-relaxed mb-3">
+              Accédez à vos propres packs sur-mesure générés localement par reverse engineering avec l'Agent Hermes.
+            </p>
+          )}
+        </div>
+        <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
+            {guestPacksCount || 4} PACKS DISPONIBLES
+          </span>
+          <span className={`text-xl transition-transform ${showGuestPacks ? 'rotate-90 text-purple-400' : 'text-zinc-500 group-hover:text-purple-400'}`}>➔</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const WidgetPrdPacks = ({
   selectedPacks,
   togglePack,
   isClient,
   getCachedGradient,
-  onDetailStateChange
+  onDetailStateChange,
+  messages,
+  showGuestPacks,
+  setShowGuestPacks
 }: any) => {
   const [packReadmes, setPackReadmes] = useState<{ [id: string]: string }>({});
   const [selectedPrdDetail, setSelectedPrdDetail] = useState<{ packId: string, packName: string, readmeText: string } | null>(null);
+  const [guestPacks, setGuestPacks] = useState<any[]>([]);
 
   const handleSetSelectedPrdDetail = (detail: { packId: string, packName: string, readmeText: string } | null) => {
     setSelectedPrdDetail(detail);
@@ -874,47 +1216,6 @@ const WidgetPrdPacks = ({
     });
   }, []);
 
-  // 1. Vue détaillée de l'article README quand sélectionné
-  if (selectedPrdDetail) {
-    const fullReadme = packReadmes[selectedPrdDetail.packId] || getLocalPackReadme(selectedPrdDetail.packId) || selectedPrdDetail.readmeText;
-
-    return (
-      <div className="design-fenetre-readme w-full backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/20 shadow-[0_10px_40px_rgba(0,0,0,0.5)] mt-4 relative animate-fadeIn text-white" style={{ background: isClient ? getCachedGradient('prd-detail-' + selectedPrdDetail.packId, 0.9) : 'rgba(0,0,0,0.9)' }}>
-        <button
-          onClick={() => handleSetSelectedPrdDetail(null)}
-          className="absolute top-6 right-6 w-8 h-8 bg-white/10 hover:bg-red-500 rounded-full flex flex-col items-center justify-center text-white font-bold transition-colors z-20"
-          title="Fermer"
-        >
-          ✕
-        </button>
-
-        <span className="px-3 py-1 bg-cyan/20 text-cyan text-xs font-bold rounded-md mb-4 inline-block border border-cyan/30">💎 PACK PRD : {selectedPrdDetail.packId}</span>
-        <h2 className="text-2xl md:text-3xl font-black text-white mb-4 leading-tight">{selectedPrdDetail.packName}</h2>
-
-        <div className="w-full h-px bg-white/10 mb-6"></div>
-
-        {/* DOCUMENTATION README COMPLÈTE */}
-        <div className="design-readme-contenu text-gray-100 leading-relaxed whitespace-pre-line overflow-y-auto hide-scrollbar bg-black/40 p-6 rounded-2xl border border-white/10 font-mono">
-          {fullReadme}
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
-          <span className="text-xs text-cyan font-mono font-bold tracking-widest uppercase">CONTRAT SUTURE ARCHITECTURE</span>
-          <button
-            onClick={() => handleSetSelectedPrdDetail(null)}
-            className="px-6 py-3 bg-white/5 hover:bg-white/20 text-white font-bold rounded-xl transition-all border border-white/10 hover:border-cyan"
-          >
-            ← Retour à la liste
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Fetch Guest Packs
-  const [guestPacks, setGuestPacks] = useState<any[]>([]);
-  const [showGuestPacks, setShowGuestPacks] = useState(false);
-
   const fetchGuestPacks = async () => {
     try {
       const res = await fetch("http://localhost:5005/api/bridge/list-guest-packs");
@@ -934,9 +1235,71 @@ const WidgetPrdPacks = ({
     fetchGuestPacks();
   }, []);
 
+  // 1. Vue détaillée de l'article README quand sélectionné
+  if (selectedPrdDetail) {
+    let rawReadme = (packReadmes[selectedPrdDetail.packId] && packReadmes[selectedPrdDetail.packId].trim().length > 5)
+      ? packReadmes[selectedPrdDetail.packId]
+      : (selectedPrdDetail.readmeText && selectedPrdDetail.readmeText.trim().length > 5)
+      ? selectedPrdDetail.readmeText
+      : (getLocalPackReadme(selectedPrdDetail.packId) || "");
+
+    if (!rawReadme || rawReadme.trim().length < 5) {
+      rawReadme = `# 💎 PRD PACK : ${selectedPrdDetail.packName} (${selectedPrdDetail.packId})\n\n### ⚙️ Spécifications techniques du contrat PRD\n\n- **Identifiant Pack**: ${selectedPrdDetail.packId}\n- **Statut**: Actif & Intégré au Moteur Sovereign\n- **Description**: Ce module PRD fournit la structure, les règles d'architecture et les spécifications d'injection pour l'IA DeepSeek & Stitch.\n\n*Le fichier README complet est disponible dans le dossier prd_packs/${selectedPrdDetail.packId}/README.md.*`;
+    }
+
+    return (
+      <div 
+        className="design-fenetre-readme w-full rounded-3xl p-6 md:p-8 border-2 border-cyan/60 shadow-[0_0_80px_rgba(124,58,237,0.45)] my-4 relative animate-fadeIn text-white z-20 flex flex-col min-h-[480px]"
+        style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #1e1b4b 35%, #0f172a 70%, #06b6d4 100%)' }}
+      >
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+          <span className="px-3.5 py-1.5 bg-cyan/20 text-cyan text-xs font-bold rounded-xl border border-cyan/40 flex items-center gap-2 shadow-sm">
+            <span>💎</span> PACK PRD : {selectedPrdDetail.packId}
+          </span>
+          <button
+            onClick={() => handleSetSelectedPrdDetail(null)}
+            className="w-10 h-10 bg-cyan/20 hover:bg-cyan/40 text-cyan rounded-xl flex items-center justify-center font-bold text-lg transition-all border border-cyan/40 cursor-pointer shadow-md"
+            title="Fermer (Retour aux packs)"
+          >
+            ✕
+          </button>
+        </div>
+
+        <h2 className="text-2xl md:text-3xl font-black text-cyan mb-2 leading-tight drop-shadow-[0_2px_10px_rgba(6,182,212,0.5)] flex-shrink-0">
+          {selectedPrdDetail.packName}
+        </h2>
+
+        <div className="w-full h-px bg-gradient-to-r from-cyan via-purple-400 to-cyan/20 mb-4 flex-shrink-0"></div>
+
+        {/* DOCUMENTATION README COMPLÈTE - THÈME FOLD DIRECTEMENT DERRIÈRE LE TEXTE */}
+        <div 
+          className="design-readme-contenu flex-1 text-white font-medium leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[500px] p-6 rounded-2xl border-2 border-cyan/50 font-mono text-sm shadow-[0_0_40px_rgba(8,179,201,0.3)] min-h-[300px]"
+          style={{ 
+            background: 'linear-gradient(135deg, #4c1d95 0%, #1e1b4b 35%, #0f172a 70%, #06b6d4 100%)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+          }}
+        >
+          {rawReadme}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-white/15 flex justify-between items-center flex-shrink-0">
+          <span className="text-xs text-cyan/90 font-mono font-bold tracking-widest uppercase flex items-center gap-2">
+            <span>⚡</span> SUTURE PRD ENGINE
+          </span>
+          <button
+            onClick={() => handleSetSelectedPrdDetail(null)}
+            className="px-6 py-2.5 bg-cyan/20 hover:bg-cyan/40 text-cyan font-bold rounded-xl transition-all border border-cyan/40 flex items-center gap-2 cursor-pointer hover:bg-cyan/30 shadow-md"
+          >
+            ← Fermer & Retour aux packs
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 2. Vue Carrousel de TOUS les Packs PRD sur la Page d'Accueil
   return (
-    <div id="prd-packs-carousel-section" className="w-full my-4">
+    <div id="prd-packs-carousel-section" className="w-full flex-1 min-w-0 my-2">
       <div className="flex items-center justify-between mb-3 px-2">
         <h4 className="design-prd-titre-section font-black uppercase tracking-widest text-cyan flex items-center gap-2">
           <span>💎</span> PACKS PRD DE CONNAISSANCES ({AVAILABLE_PACKS.length})
@@ -948,131 +1311,116 @@ const WidgetPrdPacks = ({
         )}
       </div>
 
-      <div className="flex gap-4 items-stretch relative">
-        {/* CARTE JOKER (FIXE À GAUCHE) */}
-        <div className="w-[280px] flex-shrink-0 z-20 py-24 -my-20">
-          <div 
-            onClick={() => setShowGuestPacks(!showGuestPacks)}
-            className={`h-full rounded-2xl p-6 border flex flex-col justify-between transition-all cursor-pointer shadow-2xl relative overflow-hidden group ${
-              showGuestPacks 
-                ? 'border-purple-400 bg-purple-950/40 shadow-[0_0_30px_rgba(168,85,247,0.3)]' 
-                : 'border-white/10 bg-black/60 hover:border-purple-500/50 hover:bg-purple-950/20'
-            }`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
-            <div className="relative z-10">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <span className="text-2xl">🐋</span>
-              </div>
-              <h3 className="text-xl font-black text-white mb-2 leading-tight">V0-GUEST</h3>
-              <div className="text-purple-400 font-bold text-sm uppercase tracking-widest mb-3">Hermes PRD Pack Engine</div>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Accédez à vos propres packs sur-mesure générés localement par reverse engineering avec l'Agent Hermes.
-              </p>
-            </div>
-            <div className="relative z-10 mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
-                {guestPacks.length} PACKS DISPONIBLES
-              </span>
-              <span className={`text-xl transition-transform ${showGuestPacks ? 'rotate-90 text-purple-400' : 'text-zinc-500 group-hover:text-purple-400'}`}>➔</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CARROUSEL PRINCIPAL V.0.1.0 */}
-        <div className="flex-1 overflow-hidden">
-          <Carousel items={AVAILABLE_PACKS.map((pack: any) => {
-            const packId = pack.id;
-            const packName = pack.name;
-            const Icon = pack.icon || Box;
-            const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
-            const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
-            let cleanSummary = readmeText
-              .replace(/^#+.*$/gm, '')
-              .replace(/^>.*$/gm, '')
-              .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-              .replace(/[*_~`]/g, '')
-              .trim();
-            
-            const paragraphs = cleanSummary.split('\n').map(p => p.trim()).filter(p => p.length > 20);
-            const firstParagraph = paragraphs.length > 0 ? paragraphs[0] : "Spécifications techniques du contrat PRD.";
-            const shortDesc = firstParagraph.length > 180 ? (firstParagraph.substring(0, 180) + "...") : firstParagraph;
-
-            return (
-              <div
-                key={packId}
-                className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-cyan shadow-[0_0_25px_rgba(8,179,201,0.4)]' : 'border-white/10 hover:border-cyan/50'}`}
-                style={{ background: isClient ? getCachedGradient('prd-card-' + packId, 0.7) : 'rgba(0,0,0,0.7)' }}
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-cyan text-black shadow-md' : (pack.color || 'bg-cyan/20 text-cyan')}`}>
-                      <Icon size={20} />
-                    </div>
-                    <span className="px-2 py-0.5 bg-cyan/20 text-cyan text-[10px] font-bold rounded-md uppercase tracking-wider">💎 PRD</span>
-                  </div>
-                  {togglePack && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePack(packId);
-                      }}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-cyan text-black shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}
-                      title={isSelected ? "Désélectionner ce pack" : "Sélectionner ce pack pour l'IA"}
-                    >
-                      {isSelected ? '✓' : '+'}
-                    </button>
-                  )}
-                </div>
-
-                <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
-                <p className="design-carte-desc flex-1 opacity-85 leading-relaxed">{shortDesc}</p>
-
-                <button
-                  onClick={() => handleSetSelectedPrdDetail({ packId, packName, readmeText })}
-                  className="design-prd-btn text-cyan text-xs font-bold hover:underline self-end cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan/30 transition-all"
-                >
-                  <span>📖</span> Lire le README →
+      <div className="flex gap-4 items-stretch relative w-full">
+        {/* CARROUSEL PRINCIPAL (COMMUTE AVEC LES PACKS GUEST) */}
+        <div className="flex-1 min-w-0 min-h-[480px] overflow-hidden py-4 flex items-center">
+          {showGuestPacks ? (
+            guestPacks.length === 0 ? (
+              <div className="h-full min-h-[220px] rounded-2xl p-6 border border-purple-500/20 bg-purple-950/20 backdrop-blur-md flex flex-col items-center justify-center text-center">
+                <p className="text-purple-300 font-bold text-sm">Aucun pack Guest n'a encore été généré.</p>
+                <p className="text-xs text-zinc-400 mt-2">Utilisez l'interface V0-GUEST pour scanner un projet local et créer un pack sur-mesure.</p>
+                <button onClick={fetchGuestPacks} className="mt-4 text-xs text-purple-300 border border-purple-500/40 px-4 py-1.5 rounded-full hover:bg-purple-900/40 transition-colors">
+                  🔄 Recharger les packs Guest
                 </button>
               </div>
-            );
-          })} />
-        </div>
-      </div>
+            ) : (
+              <Carousel items={guestPacks.map((pack: any) => {
+                const packId = pack.id;
+                const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
+                
+                return (
+                  <div
+                    key={packId}
+                    className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-purple-400 shadow-[0_0_25px_rgba(168,85,247,0.4)] bg-purple-950/60' : 'border-purple-500/20 hover:border-purple-400/60 bg-black/50'}`}
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-purple-500 text-white shadow-md' : 'bg-purple-500/20 text-purple-400 border border-purple-500/40'}`}>
+                          <Zap size={18} />
+                        </div>
+                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded-md uppercase tracking-wider border border-purple-500/30">🐋 GUEST</span>
+                      </div>
+                      {togglePack && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePack(packId);
+                          }}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-purple-500 text-white shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-purple-500/40 hover:text-white'}`}
+                        >
+                          {isSelected ? '✓' : '+'}
+                        </button>
+                      )}
+                    </div>
 
-      {/* CARROUSEL DES PACKS GUEST (AFFICHE SI JOKER SELECTIONNE) */}
-      {showGuestPacks && (
-        <div className="mt-8 pt-6 border-t border-purple-500/20 animate-fadeIn">
-          <div className="flex items-center justify-between mb-3 px-2">
-            <h4 className="design-prd-titre-section font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
-              <span>🐋</span> MES PACKS GUEST GÉNÉRÉS PAR HERMES ({guestPacks.length})
-            </h4>
-            <button onClick={fetchGuestPacks} className="text-[10px] text-purple-300 border border-purple-500/30 px-3 py-1 rounded-full hover:bg-purple-900/30 transition-colors">
-              Actualiser
-            </button>
-          </div>
-          
-          {guestPacks.length === 0 ? (
-            <div className="p-8 text-center border border-purple-500/20 rounded-2xl bg-purple-950/10">
-              <p className="text-purple-300 text-sm">Aucun pack Guest n'a encore été généré.</p>
-              <p className="text-xs text-zinc-500 mt-2">Utilisez l'interface V0-GUEST pour scanner un projet local et créer un pack.</p>
-            </div>
+                    <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight truncate">{pack.name}</h3>
+                    <p className="design-carte-desc flex-1 opacity-85 leading-relaxed text-zinc-300 text-xs line-clamp-4">
+                      {pack.description}
+                    </p>
+                    
+                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-purple-400/80">{pack.modulesCount} MODULES</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`http://localhost:5005/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
+                            let content = "";
+                            if (res.ok) {
+                              const data = await res.json();
+                              content = data.data?.content || data.content || "";
+                            }
+                            handleSetSelectedPrdDetail({ 
+                              packId, 
+                              packName: pack.name, 
+                              readmeText: content || `# PACK GUEST : ${pack.name}\n\nSpécifications techniques du pack Guest ${pack.name}.\n\nModule réutilisable scanné dans ${pack.path}.` 
+                            });
+                          } catch (e) {
+                            handleSetSelectedPrdDetail({ 
+                              packId, 
+                              packName: pack.name, 
+                              readmeText: `# PACK GUEST : ${pack.name}\n\nSpécifications techniques du pack Guest ${pack.name}.` 
+                            });
+                          }
+                        }}
+                        className="design-prd-btn text-purple-400 text-xs font-bold hover:underline cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 transition-all"
+                      >
+                        <span>📖</span> README →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })} />
+            )
           ) : (
-            <Carousel items={guestPacks.map((pack: any) => {
+            <Carousel items={AVAILABLE_PACKS.map((pack: any) => {
               const packId = pack.id;
+              const packName = pack.name;
+              const Icon = pack.icon || Box;
               const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
+              const readmeText = packReadmes[packId] || getLocalPackReadme(packId) || "Spécifications techniques du contrat PRD.";
+              let cleanSummary = readmeText
+                .replace(/^#+.*$/gm, '')
+                .replace(/^>.*$/gm, '')
+                .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+                .replace(/[*_~`]/g, '')
+                .trim();
               
+              const paragraphs = cleanSummary.split('\n').map(p => p.trim()).filter(p => p.length > 20);
+              const firstParagraph = paragraphs.length > 0 ? paragraphs[0] : "Spécifications techniques du contrat PRD.";
+              const shortDesc = firstParagraph.length > 180 ? (firstParagraph.substring(0, 180) + "...") : firstParagraph;
+
               return (
                 <div
                   key={packId}
-                  className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-purple-400 shadow-[0_0_25px_rgba(168,85,247,0.4)] bg-purple-950/60' : 'border-purple-500/20 hover:border-purple-400/60 bg-black/50'}`}
+                  className={`design-carte-carrousel design-prd-carte rounded-2xl p-5 border backdrop-blur-md flex flex-col transition-all shadow-lg relative group ${isSelected ? 'border-cyan shadow-[0_0_25px_rgba(8,179,201,0.4)]' : 'border-white/10 hover:border-cyan/50'}`}
+                  style={{ background: isClient ? getCachedGradient('prd-card-' + packId, 0.7) : 'rgba(0,0,0,0.7)' }}
                 >
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-purple-500 text-white shadow-md' : 'bg-purple-500/20 text-purple-400 border border-purple-500/40'}`}>
-                        <Zap size={18} />
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${isSelected ? 'bg-cyan text-black shadow-md' : (pack.color || 'bg-cyan/20 text-cyan')}`}>
+                        <Icon size={20} />
                       </div>
-                      <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-[10px] font-bold rounded-md uppercase tracking-wider border border-purple-500/30">🐋 GUEST</span>
+                      <span className="px-2 py-0.5 bg-cyan/20 text-cyan text-[10px] font-bold rounded-md uppercase tracking-wider">💎 PRD</span>
                     </div>
                     {togglePack && (
                       <button
@@ -1080,39 +1428,44 @@ const WidgetPrdPacks = ({
                           e.stopPropagation();
                           togglePack(packId);
                         }}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-purple-500 text-white shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-purple-500/40 hover:text-white'}`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isSelected ? 'bg-cyan text-black shadow-md scale-110' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}`}
+                        title={isSelected ? "Désélectionner ce pack" : "Sélectionner ce pack pour l'IA"}
                       >
                         {isSelected ? '✓' : '+'}
                       </button>
                     )}
                   </div>
 
-                  <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight truncate">{pack.name}</h3>
-                  <p className="design-carte-desc flex-1 opacity-85 leading-relaxed text-zinc-300 text-xs line-clamp-4">
-                    {pack.description}
-                  </p>
-                  
-                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-purple-400/80">{pack.modulesCount} MODULES</span>
+                  <h3 className="design-carte-titre text-base font-bold text-white mb-2 leading-tight">{packName}</h3>
+                  <p className="design-carte-desc flex-1 opacity-85 leading-relaxed">{shortDesc}</p>
+
+                  <div className="mt-auto pt-3 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-cyan/80">MODULE PRD</span>
                     <button
                       onClick={async () => {
-                        // Charger le README dynamique depuis le bridge
+                        let content = packReadmes[packId] || getLocalPackReadme(packId) || "";
                         try {
-                          const res = await fetch(`http://localhost:5005/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
+                          const res = await fetch(`http://localhost:5005/api/bridge/read-file?packId=${encodeURIComponent(packId)}`);
                           if (res.ok) {
                             const data = await res.json();
-                            const content = data.data?.content || data.content;
-                            if (content) {
-                              handleSetSelectedPrdDetail({ packId, packName: pack.name, readmeText: content });
+                            const fetched = data.content || data.data?.content;
+                            if (fetched && fetched.trim().length > 5) {
+                              content = fetched;
+                              setPackReadmes(prev => ({ ...prev, [packId]: fetched }));
                             }
                           }
                         } catch (e) {
-                          console.error('Erreur chargement README', e);
+                          console.warn("API Bridge read fallback", e);
                         }
+                        handleSetSelectedPrdDetail({
+                          packId,
+                          packName,
+                          readmeText: content || `# 💎 PRD PACK : ${packName} (${packId})\n\n### ⚙️ Spécifications techniques du contrat PRD\n\n- **Identifiant Pack**: ${packId}\n- **Statut**: Actif & Intégré au Moteur Sovereign`
+                        });
                       }}
-                      className="design-prd-btn text-purple-300 text-[11px] font-bold hover:text-white cursor-pointer transition-all bg-purple-900/40 px-3 py-1.5 rounded-lg border border-purple-500/40 hover:bg-purple-500/40"
+                      className="design-prd-btn text-cyan text-xs font-bold hover:underline cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan/30 transition-all hover:bg-cyan/10"
                     >
-                      Détails →
+                      <span>📖</span> Lire le README →
                     </button>
                   </div>
                 </div>
@@ -1120,7 +1473,9 @@ const WidgetPrdPacks = ({
             })} />
           )}
         </div>
-      )}
+      </div>
+
+
     </div>
   );
 };
@@ -1128,8 +1483,11 @@ const WidgetPrdPacks = ({
 const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) => {
   const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchProjects = (silent = false) => {
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
     const cardStyles = [
       "bg-gradient-to-br from-[#bf6969]/80 to-[#c27042]/90 backdrop-blur-md",
       "bg-gradient-to-br from-[#a387b9]/80 to-[#aa6b73]/90 backdrop-blur-md",
@@ -1140,16 +1498,28 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       .then(res => res.json())
       .then(data => {
         if (data.success && data.projects) {
-          setLiveProjects(data.projects.map((p: string, i: number) => ({
-            name: p,
-            desc: "Environnement Local",
-            bg: cardStyles[i % cardStyles.length]
-          })));
+          setLiveProjects(data.projects.map((p: any, i: number) => {
+            const projName = typeof p === 'string' ? p : (p.projectName || p.name || p.projectId);
+            return {
+              name: projName,
+              desc: "Environnement Local",
+              bg: cardStyles[i % cardStyles.length]
+            };
+          }));
         }
         setIsLoading(false);
+        setIsRefreshing(false);
       }).catch(() => {
         setIsLoading(false);
+        setIsRefreshing(false);
       });
+  };
+
+  useEffect(() => {
+    fetchProjects();
+    // Rafraîchissement automatique toutes les 5 secondes
+    const interval = setInterval(() => fetchProjects(true), 5000);
+    return () => clearInterval(interval);
   }, []);
 
   if (isLoading) {
@@ -1158,8 +1528,16 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
 
   if (liveProjects.length === 0) {
     return (
-      <div className="p-4 text-cyan text-sm italic">
-        Recherche des projets sur votre disque dur... (Assurez-vous que le Moteur Electron est lancé et rechargez la page).
+      <div className="p-4 flex flex-col items-center gap-3 text-center">
+        <div className="text-cyan text-sm italic">
+          Aucun projet trouvé sur votre disque dur.
+        </div>
+        <button
+          onClick={() => fetchProjects()}
+          className="px-4 py-2 rounded-xl bg-cyan/20 border border-cyan/40 text-cyan text-xs font-bold hover:bg-cyan/40 transition-colors"
+        >
+          🔄 Rafraîchir la liste
+        </button>
       </div>
     );
   }
@@ -1180,6 +1558,27 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         }
       };
 
+      const handleDeleteProject = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${p.name}" de l'interface ET de votre disque dur ?`)) {
+          try {
+            const res = await fetch("http://localhost:5005/api/projects/delete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ project_id: p.name })
+            });
+            const data = await res.json();
+            if (data.success) {
+              setLiveProjects(prev => prev.filter(proj => proj.name !== p.name));
+            } else {
+              alert(`Erreur lors de la suppression : ${data.message || 'Échec server'}`);
+            }
+          } catch (err: any) {
+            alert(`Erreur réseau lors de la suppression : ${err.message}`);
+          }
+        }
+      };
+
       return (
         <div
           key={i}
@@ -1187,24 +1586,42 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
           style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
           onClick={handleOpenProject}
         >
+          {/* Bouton de suppression rouge direct depuis le carrousel */}
+          <button
+            onClick={handleDeleteProject}
+            className="z-20 absolute top-3 right-3 w-8 h-8 rounded-full bg-red-600/80 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center transition-all shadow-lg hover:scale-110 cursor-pointer"
+            title="Supprimer ce projet du disque dur et de l'interface"
+          >
+            🗑️
+          </button>
+
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-overlay pointer-events-none"></div>
           <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
-          <div className="z-10 relative pointer-events-none w-full">
+          <div className="z-10 relative pointer-events-none w-full pr-8">
             <div className="text-white/70 text-xs font-bold uppercase tracking-widest drop-shadow-md">PROJET</div>
             <h3 className="design-carte-titre text-xl font-black text-white break-all drop-shadow-lg leading-tight w-full">{p.name}</h3>
           </div>
           <div className="design-carte-desc z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none w-full">{p.desc}</div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenProject();
-            }}
-            className="z-10 bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors mt-2"
-            title="Ouvrir le projet, vérifier les dépendances et lancer l'aperçu"
-          >
-            🚀 Ouvrir & Designer
-          </button>
+          <div className="z-10 flex items-center gap-2 mt-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenProject();
+              }}
+              className="bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
+              title="Ouvrir le projet, vérifier les dépendances et lancer l'aperçu"
+            >
+              🚀 Ouvrir & Designer
+            </button>
+            <button
+              onClick={handleDeleteProject}
+              className="bg-red-600/30 hover:bg-red-600/60 text-red-200 border border-red-500/40 font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center gap-1"
+              title="Supprimer définitivement du disque dur"
+            >
+              🗑️ Supprimer
+            </button>
+          </div>
         </div>
       );
     })]} />
@@ -1225,6 +1642,7 @@ export default function Dashboard() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState("connexion");
   const [isDragging, setIsDragging] = useState(false);
 
   // Simulation des phases de création
@@ -1258,6 +1676,7 @@ export default function Dashboard() {
   // --- ETAT : PACKS PRD SELECTIONNES & VISIBILITE CARROUSEL ---
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
   const [showPacksCarousel, setShowPacksCarousel] = useState(false);
+  const [showGuestPacks, setShowGuestPacks] = useState(false);
   const [packSearchQuery, setPackSearchQuery] = useState("");
 
   // MODAL NOUVEAU PROJET V0 -> CREATION MODE INLINE
@@ -1365,7 +1784,7 @@ export default function Dashboard() {
 
   // --- WIDGET THEMES COLOR SAVER ---
   const [isColorModalOpen, setIsColorModalOpen] = useState(false);
-  const [activeTheme, setActiveTheme] = useState("random");
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem("tiger_active_theme") || "fold");
   const [savedThemes, setSavedThemes] = useState<{ name: string, colors: Record<string, string> }[]>([]);
   const [newThemeName, setNewThemeName] = useState("");
 
@@ -1375,8 +1794,8 @@ export default function Dashboard() {
     if (loaded) {
       try {
         let parsed = JSON.parse(loaded);
-        const defaultBg = "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
-        parsed = parsed.map((t: any) => t.name === "fold" && !t.colors["bg-app"] ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
+        const defaultBg = "linear-gradient(135deg, #4c1d95 0%, #1e1b4b 35%, #0f172a 70%, #06b6d4 100%)";
+        parsed = parsed.map((t: any) => t.name === "fold" ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
         setSavedThemes(parsed);
       } catch (e) { }
     } else {
@@ -1389,7 +1808,7 @@ export default function Dashboard() {
           "icon-projects": "linear-gradient(135deg, #d38b5d, #a26038)",
           "icon-packs": "linear-gradient(135deg, #445499, #252e66)",
           "icon-news": "linear-gradient(135deg, #389eb2, #1f6475)",
-          "bg-app": "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)"
+          "bg-app": "linear-gradient(135deg, #4c1d95 0%, #1e1b4b 35%, #0f172a 70%, #06b6d4 100%)"
         }
       };
       setSavedThemes([defaultTheme]);
@@ -2010,12 +2429,16 @@ Description : ${newProjectDesc}.`;
       }
     };
 
-    if (selectedStartPhase !== 200 && !reuseActiveTab) {
+    if (selectedStartPhase !== 200) {
       sendUiPrompt().then(() => {
         console.log("Prompt UI envoyé au Bridge");
-        window.open(getUrl(uiAi, true), "_blank");
+        if (!reuseActiveTab) {
+          window.open(getUrl(uiAi, true), "_blank");
+        }
       }).catch(() => {
-        window.open(getUrl(uiAi, true), "_blank");
+        if (!reuseActiveTab) {
+          window.open(getUrl(uiAi, true), "_blank");
+        }
       });
     }
   };
@@ -2680,7 +3103,7 @@ Format attendu:
           <WidgetSettings
             isModal={true}
             onClose={() => setIsSettingsOpen(false)}
-            initialTab="connexion"
+            initialTab={settingsInitialTab}
             isClient={isClient}
             getCachedGradient={getCachedGradient}
             mouchardLogs={mouchardLogs}
@@ -3145,51 +3568,290 @@ Format attendu:
             </div>
           )}
 
-          <div className="design-chat-layout mx-auto w-full flex flex-col pb-[140px]">
+          <div className="design-chat-layout w-full flex-1 flex flex-col justify-center my-auto pb-[140px] relative">
+            {(() => {
+              const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
+              const lastMsg = lastWidgetIndex !== -1 ? messages[lastWidgetIndex] : null;
+              const activeWidgetType = lastMsg ? lastMsg.widget : null;
+              const hasActiveCarousel = showPacksCarousel || activeWidgetType === "packs" || activeWidgetType === "projects" || activeWidgetType === "news" || activeWidgetType === "youtube" || isColorModalOpen || isApkModalOpen;
 
-            {/* CARROUSEL DES PACKS PRD SUR CLIC DE L'ICONE */}
-            {showPacksCarousel && !activeProject && (
-              <WidgetPrdPacks
-                selectedPacks={selectedPacks}
-                togglePack={togglePack}
-                newProjectName={newProjectName}
-                setNewProjectName={setNewProjectName}
-                setActiveProject={setActiveProject}
-                handleSend={handleSend}
-                isClient={isClient}
-                getCachedGradient={getCachedGradient}
-                onDetailStateChange={setIsPrdDetailOpen}
-              />
-            )}
+              return (
+                <div className="w-full flex flex-col xl:flex-row items-stretch justify-between gap-6 relative min-h-[50vh] my-auto">
+                  {/* CARTE V0-GUEST PERMANENTE À GAUCHE CONTENANT TOUT LE FLUX DU CHAT */}
+                  <CarteV0GuestChat
+                    messages={messages}
+                    showGuestPacks={showGuestPacks}
+                    setShowGuestPacks={setShowGuestPacks}
+                    guestPacksCount={4}
+                  />
 
-            {!isPrdDetailOpen && (
-              <div className="design-chat-bulles w-full flex flex-col">
-                {messages.map((msg, index) => {
-                  const lastWidgetIndex = messages.map(m => !!m.widget).lastIndexOf(true);
-                  const isLastWidgetOverall = index === lastWidgetIndex;
-                  const isAccueilMsg = index === 0;
+                  {/* CARROUSEL ACTIF / PANNEAUX INLINE POSITIONNÉS À DROITE DE V0-GUEST */}
+                  {hasActiveCarousel && (
+                    <div className="flex-1 w-full flex flex-col items-center justify-center my-auto z-20">
+                      {!isColorModalOpen && !isApkModalOpen && (showPacksCarousel || activeWidgetType === "packs") && !activeProject && (
+                        <WidgetPrdPacks
+                          selectedPacks={selectedPacks}
+                          togglePack={togglePack}
+                          newProjectName={newProjectName}
+                          setNewProjectName={setNewProjectName}
+                          setActiveProject={setActiveProject}
+                          handleSend={handleSend}
+                          isClient={isClient}
+                          getCachedGradient={getCachedGradient}
+                          onDetailStateChange={setIsPrdDetailOpen}
+                          showGuestPacks={showGuestPacks}
+                          setShowGuestPacks={setShowGuestPacks}
+                        />
+                      )}
+                      {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "projects" && (
+                        <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />
+                      )}
+                      {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "news" && (
+                        WidgetNews()
+                      )}
+                      {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "youtube" && (
+                        WidgetYouTube()
+                      )}
 
-                  return (
-                    <div key={msg.id} className={`w-full max-w-full flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                      {/* Message Bubble */}
-                      <div
-                        className={`${isAccueilMsg ? 'design-msg-accueil' : 'design-chat-bulle'} p-5 rounded-3xl backdrop-blur-md border border-white/20 text-gray-100 shadow-xl ${msg.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
-                        style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
-                      >
-                        {msg.content}
-                      </div>
+                      {/* PANNEAU THÈMES EN LIGNE (À la place des carrousels) */}
+                      {isColorModalOpen && (
+                        <div className="w-full bg-black/90 border-2 border-pink-500/50 rounded-3xl p-6 shadow-2xl backdrop-blur-md relative my-2 text-white animate-fadeIn flex-1 min-w-0">
+                          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/10">
+                            <h3 className="text-xl font-black text-pink-400 flex items-center gap-2">
+                              🎨 Gestion des Thèmes & Couleurs
+                            </h3>
+                            <button 
+                              onClick={() => setIsColorModalOpen(false)}
+                              className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all cursor-pointer border border-white/20"
+                            >
+                              ✕ Masquer
+                            </button>
+                          </div>
 
-                      {/* Dynamic Widgets Injected into Chat (ONLY LAST ONE OVERALL) */}
-                      {isLastWidgetOverall && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
-                      {isLastWidgetOverall && msg.widget === "news" && WidgetNews()}
-                      {isLastWidgetOverall && msg.widget === "youtube" && WidgetYouTube()}
-                      {isLastWidgetOverall && msg.widget === "settings" && WidgetSettings({ isClient, getCachedGradient, mouchardLogs, activePhase, availableProjects, setAvailableProjects, selectedLaunchProject, setSelectedLaunchProject, isMobileNative })}
-                      {isLastWidgetOverall && msg.widget === "phases" && WidgetPhases()}
+                          {/* BOUTON DÉDIÉ : FIXER LE FOND D'ÉCRAN ELECTRON */}
+                          <div className="bg-cyan/10 border border-cyan/30 rounded-xl p-4 flex flex-col gap-2 mb-4">
+                            <div className="text-xs font-bold text-cyan uppercase tracking-wider flex items-center gap-2">
+                              <span>🖥️</span> Page d'Accueil Electron
+                            </div>
+                            <p className="text-xs text-gray-300">
+                              Fixer le fond d'écran enregistré ("fold") pour la page d'accueil Electron.
+                            </p>
+                            <button
+                              onClick={() => {
+                                const defaultBg = "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
+                                const updatedThemes = savedThemes.map(t => t.name === "fold" ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
+                                setSavedThemes(updatedThemes);
+                                localStorage.setItem("tiger_saved_themes", JSON.stringify(updatedThemes));
+                                setActiveTheme("fold");
+                                document.body.style.background = defaultBg;
+                                document.body.style.backgroundAttachment = "fixed";
+                                fetch("http://localhost:5005/api/theme", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ activeTheme: "fold", bgApp: defaultBg })
+                                }).catch(() => { });
+                                setIsColorModalOpen(false);
+                              }}
+                              className="w-full mt-1 py-2.5 bg-cyan text-black font-extrabold rounded-lg hover:bg-cyan/80 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                            >
+                              🖼️ Appliquer ce Fond d'Écran sur Electron ("fold")
+                            </button>
+                          </div>
+
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 mb-4">
+                            <div className="text-sm font-bold text-gray-400">Mode actuel : <span className="text-cyan uppercase">{activeTheme}</span></div>
+
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={newThemeName}
+                                onChange={(e) => setNewThemeName(e.target.value)}
+                                placeholder="Nom (ex: Nuit, Océan, fold...)"
+                                className="flex-1 bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan"
+                              />
+                              <button
+                                onClick={saveCurrentTheme}
+                                className="px-4 py-2 bg-cyan text-black font-bold rounded-lg hover:bg-cyan/80 transition-colors whitespace-nowrap cursor-pointer"
+                              >
+                                Save Mode
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Thèmes Enregistrés</div>
+
+                            <div
+                              onClick={() => { setActiveTheme("random"); setIsColorModalOpen(false); }}
+                              className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                            >
+                              <span className="font-bold flex items-center gap-2">🎲 Mode Aléatoire (Dynamique)</span>
+                              {activeTheme === "random" && <span className="text-cyan">✓</span>}
+                            </div>
+
+                            {savedThemes.map((t) => (
+                              <div
+                                key={t.name}
+                                onClick={() => applySavedTheme(t)}
+                                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === t.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                              >
+                                <span className="font-bold capitalize">{t.name}</span>
+                                <button
+                                  onClick={(e) => deleteSavedTheme(t.name, e)}
+                                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded border border-red-500/20 cursor-pointer"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PANNEAU V0-APK EN LIGNE (À la place des carrousels) */}
+                      {isApkModalOpen && (
+                        <div className="w-full bg-[#090d16] border-2 border-purple-500/60 rounded-3xl p-6 shadow-2xl backdrop-blur-md relative my-2 text-white animate-fadeIn flex-1 min-w-0 flex flex-col max-h-[520px] overflow-y-auto custom-scrollbar">
+                          <div className="flex justify-between items-center mb-4 pb-2 border-b border-purple-500/30">
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl animate-bounce">📱</span>
+                              <div>
+                                <h3 className="text-purple-300 font-black text-base md:text-lg uppercase tracking-wider flex items-center gap-2">
+                                  v0-apk — Compilateur Mobile Java
+                                </h3>
+                                <p className="text-xs text-slate-400">Génération d'APK Android Souverain sans dépendance système externe</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setIsApkModalOpen(false)}
+                              className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all cursor-pointer border border-white/20"
+                            >
+                              ✕ Masquer
+                            </button>
+                          </div>
+
+                          {/* Cible Projet */}
+                          <div className="flex flex-col gap-2 bg-black/50 p-4 rounded-2xl border border-purple-500/20 mb-3">
+                            <label htmlFor="apk-target-inline" className="text-purple-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+                              <span>📁</span> SELECTIONNER L'APPLICATION À COMPILER :
+                            </label>
+                            <select
+                              id="apk-target-inline"
+                              value={selectedApkTarget || activeProject || ""}
+                              onChange={e => setSelectedApkTarget(e.target.value)}
+                              className="w-full bg-[#121824] text-white border border-purple-500/40 rounded-xl px-4 py-2.5 outline-none focus:border-purple-400 text-xs font-semibold cursor-pointer"
+                            >
+                              <option value="">-- Sélectionner un projet --</option>
+                              {realProjects.map(p => (
+                                <option key={p.name} value={p.name}>📁 {p.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Configuration Build */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div className="bg-black/50 p-3 rounded-2xl border border-purple-500/20 flex flex-col gap-1">
+                              <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">☕ Java Portable</span>
+                              <div className="text-[11px] text-slate-300 bg-purple-950/30 p-2 rounded-xl border border-purple-800/40 font-mono">
+                                JDK 17 + Capacitor Android Engine
+                              </div>
+                            </div>
+                            <div className="bg-black/50 p-3 rounded-2xl border border-purple-500/20 flex flex-col gap-1">
+                              <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">🎨 Thèmes Persistent</span>
+                              <div className="text-[11px] text-slate-300 bg-purple-950/30 p-2 rounded-xl border border-purple-800/40 font-mono">
+                                Injection Zero-Touch CSS embarquée
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Terminal Logs */}
+                          <div className="bg-[#05070d] p-3 rounded-2xl border border-slate-800 flex flex-col gap-2 mb-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                <span className={`w-2.5 h-2.5 rounded-full ${apkBuildStatus === 'building' ? 'bg-yellow-400 animate-ping' : apkBuildStatus === 'success' ? 'bg-green-400' : 'bg-slate-600'}`}></span>
+                                Logs Compilation APK
+                              </span>
+                              {apkLogs.length > 0 && (
+                                <button onClick={() => setApkLogs([])} className="text-[10px] text-slate-500 hover:text-slate-300 underline cursor-pointer">
+                                  Effacer
+                                </button>
+                              )}
+                            </div>
+                            <div className="bg-black/80 p-3 rounded-xl border border-slate-900 font-mono text-[11px] h-24 overflow-y-auto custom-scrollbar flex flex-col gap-1 text-slate-300">
+                              {apkLogs.length === 0 ? (
+                                <span className="text-slate-600 italic text-center my-auto">Prêt. Cliquez sur "Compiler l'APK".</span>
+                              ) : (
+                                apkLogs.map((log, idx) => <div key={idx} className="leading-tight">{log}</div>)
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-between pt-2 border-t border-purple-500/20">
+                            {apkOutputUrl && (
+                              <a href={apkOutputUrl} download className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-green-900/40 animate-bounce">
+                                <span>📥</span> Télécharger APK
+                              </a>
+                            )}
+                            <button
+                              disabled={apkBuildStatus === 'building'}
+                              onClick={async () => {
+                                const target = selectedApkTarget || activeProject;
+                                if (!target) return alert("Veuillez sélectionner un projet !");
+                                setApkBuildStatus("building");
+                                setApkLogs([`> Initialisation build APK pour [${target}]...`]);
+                                try {
+                                  const res = await fetch("http://localhost:5005/api/apk/build", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ project: target })
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    setApkBuildStatus("success");
+                                    setApkOutputUrl(data.apkUrl || `http://localhost:5005/downloads/${target}.apk`);
+                                    setApkLogs(l => [...l, "✅ APK généré avec succès !"]);
+                                  } else {
+                                    setApkBuildStatus("error");
+                                    setApkLogs(l => [...l, `❌ Erreur build: ${data.error || 'Échec'}`]);
+                                  }
+                                } catch (e: any) {
+                                  setApkBuildStatus("error");
+                                  setApkLogs(l => [...l, `❌ Erreur réseau: ${e.message}`]);
+                                }
+                              }}
+                              className={`ml-auto px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md ${apkBuildStatus === 'building' ? 'bg-purple-900/50 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
+                            >
+                              {apkBuildStatus === 'building' ? '⚙️ Compilation...' : '📱 Compiler l\'APK'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  )}
+
+                  {/* CHAT DISCUSSION BUBBLES POSITIONED TO THE RIGHT ONLY WHEN NO CAROUSEL IS ACTIVE */}
+                  {!hasActiveCarousel && (
+                    <div className="design-chat-bulles w-full xl:w-[450px] shrink-0 flex flex-col gap-3 items-end z-10 ml-auto">
+                      {messages.map((msg, index) => {
+                        const isAccueilMsg = index === 0;
+                        return (
+                          <div key={msg.id} className="w-full flex flex-col items-end">
+                            <div
+                              className={`${isAccueilMsg ? 'design-msg-accueil' : 'design-chat-bulle'} p-5 rounded-3xl rounded-br-sm backdrop-blur-md border border-white/20 text-gray-100 shadow-xl`}
+                              style={{ background: isClient ? getCachedGradient('msg-' + msg.id, msg.role === "user" ? 0.8 : 0.6) : 'rgba(0,0,0,0.6)' }}
+                            >
+                              {msg.content}
+                            </div>
+                            {index === lastWidgetIndex && msg.widget === "settings" && WidgetSettings({ isClient, getCachedGradient, mouchardLogs, activePhase, availableProjects, setAvailableProjects, selectedLaunchProject, setSelectedLaunchProject, isMobileNative })}
+                            {index === lastWidgetIndex && msg.widget === "phases" && WidgetPhases()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div ref={chatEndRef} />
           </div>
         </main>
@@ -3303,7 +3965,7 @@ Format attendu:
             
             {/* ⚙️ Réglages */}
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => { setSettingsInitialTab("connexion"); setIsSettingsOpen(true); }}
               className="design-app-icone design-icone-reglages flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Réglages"
             >
@@ -3335,6 +3997,7 @@ Format attendu:
             {/* 📁 Projets */}
             <button
               onClick={() => {
+                setShowPacksCarousel(false);
                 handleSend("Mes projets");
                 setInput("");
               }}
@@ -3349,10 +4012,6 @@ Format attendu:
             <button
               onClick={() => {
                 setShowPacksCarousel(prev => !prev);
-                setTimeout(() => {
-                  const el = document.getElementById("prd-packs-carousel-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }, 50);
               }}
               className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               title="Packs PRD"
@@ -3368,24 +4027,28 @@ Format attendu:
 
             {/* 🎁 V0-Guest */}
             <button
-              onClick={() => {
-                setActiveProject("v0-guest");
-                setPreviewUrl("http://localhost:3007");
-                fetch("http://localhost:5005/api/bridge/launch-project", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ project_id: "v0-guest" })
-                }).catch(e => console.error("Erreur lancement v0-guest:", e));
+              onClick={async () => {
+                window.dispatchEvent(new CustomEvent('open-mouchard'));
+                try {
+                  await fetch("http://localhost:5005/api/bridge/launch-project", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: "v0-guest" })
+                  });
+                } catch (e: any) {
+                  console.error("Erreur lancement v0-guest:", e);
+                }
               }}
-              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
+              className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden cursor-pointer"
               style={{ backgroundImage: 'linear-gradient(135deg, #00c6ff, #0072ff)' }}
-              title="Générateur PRD Hermes (V0-Guest)"
+              title="Démarrer le serveur V0-Guest (localhost:3007) en arrière-plan"
             >
               <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🎁</span>
               <span className="design-app-texte z-10 drop-shadow-md">V0-Guest</span>
             </button>
             <button
               onClick={() => {
+                setShowPacksCarousel(false);
                 handleSend("Actualités IA");
                 setInput("");
               }}
@@ -3401,8 +4064,13 @@ Format attendu:
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                setMouchardLogs(prev => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...prev]);
-                setIsRightSidebarOpen(true);
+                setIsRightSidebarOpen(prev => {
+                  const nextState = !prev;
+                  if (nextState) {
+                    setMouchardLogs(l => ["> Console-V0 ouverte. Prêt pour l'Introspection AST.", ...l]);
+                  }
+                  return nextState;
+                });
               }}
               className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               style={{ backgroundImage: 'linear-gradient(135deg, #475163, #1f2530)' }}
@@ -3497,7 +4165,11 @@ Format attendu:
 
             {/* 🎨 Thèmes */}
             <button
-              onClick={() => setIsColorModalOpen(true)}
+              onClick={() => {
+                setIsApkModalOpen(false);
+                setShowPacksCarousel(false);
+                setIsColorModalOpen(prev => !prev);
+              }}
               className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               style={{ backgroundImage: 'linear-gradient(135deg, #993a61, #4d152c)' }}
               title="Thèmes & Couleurs"
@@ -3508,7 +4180,11 @@ Format attendu:
 
             {/* 📱 v0-apk */}
             <button
-              onClick={() => setIsApkModalOpen(true)}
+              onClick={() => {
+                setIsColorModalOpen(false);
+                setShowPacksCarousel(false);
+                setIsApkModalOpen(prev => !prev);
+              }}
               className="design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
               style={{ backgroundImage: 'linear-gradient(135deg, #5b227a, #230930)' }}
               title="Compiler l'Application Mobile (.apk - Java Portable)"
@@ -3663,6 +4339,8 @@ Format attendu:
                       className="w-full bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs cursor-pointer"
                     >
                       <option value="Vite + React + Tailwind + TS">⭐ 1er Choix (Prioritaire) : Vite + React + Tailwind + TS</option>
+                      <option value="Vite + React + TS + Canvas 2D">🎮 Jeu 2D : Vite + React + TS + Canvas 2D</option>
+                      <option value="Vite + React + TS + Three.js / R3F (3D GPU)">🚀 Jeu 3D GPU : Vite + React + TS + Three.js / R3F</option>
                       <option value="Next.js + Tailwind + App Router">Next.js + Tailwind + App Router</option>
                       <option value="HTML + CSS Vanilla + JS">HTML + CSS Vanilla + JS</option>
 
@@ -3930,7 +4608,11 @@ Format attendu:
                         : "";
 
                       let stackInstructions = `\n\n[STACK TECHNIQUE OBLIGATOIRE : ${newProjectStack.toUpperCase()}]\n`;
-                      if (newProjectStack.includes("Vite")) {
+                      if (newProjectStack.includes("Three.js") || newProjectStack.includes("3D GPU")) {
+                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être un jeu Web 3D accéléré GPU généré en **React + Vite + TypeScript (TSX) + Three.js / React Three Fiber (@react-three/fiber, @react-three/drei)**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx, src/components/3d/Scene3D.tsx, src/components/3d/PlayerController.tsx.\n• Rendu 3D GPU : Canvas WebGL/WebGPU, éclairages PBR, contrôles de caméra Orbit/PointerLock, chargement de modèles glTF/GLB et HUD React/Tailwind superposé.\n\n[PHASE 0 : PRE-VIZ MAQUETTE NANO BANANA]\n• Avant le code source, générer la maquette visuelle d'écran de jeu (Wireframe / Design Mockup) pour valider l'ergonomie du HUD et du Viewport 3D.\n\n[SÉQUENCE DE MICRO-ACTIONS MULTI-ÉTAPES (DECOUPAGE ULTRA-COMPLEXE)]\n• ACTION 1/6 (Core Engine 3D) :\n  - 1.A : Architecture Canvas WebGL/R3F, Resize Handler & Viewport High-DPI.\n  - 1.B : Boucle de rendu 60 FPS DeltaTime, Render Queue & Gestionnaire de pause.\n  - 1.C : Configuration des caméras (OrbitControls & PointerLock FPS/TPS).\n• ACTION 2/6 (Moteur Physique & Collisions) :\n  - 2.A : Raycasting et masques de collisions 3D.\n  - 2.B : Calculs de forces Rigidbodies, vecteurs de rebond & gravité.\n  - 2.C : Zones de détection Triggers & volumes d'événements.\n• ACTION 3/6 (Contrôles Multi-Input) :\n  - 3.A : Entrées Clavier (WASD / Flèches) & Souris (Pointer Lock).\n  - 3.B : Overlay Joypad tactile mobile réactif (Joypad.tsx).\n  - 3.C : Support Gamepad API pour manettes USB/Bluetooth.\n• ACTION 4/6 (Game State & Level Manager) :\n  - 4.A : Machine à états (Init, StartMenu, Playing, Pause, GameOver, Victory).\n  - 4.B : Chargement des cartes de niveaux & parseur de données JSON.\n  - 4.C : Gestionnaire d'entités ECS & Spawner de bonus/ennemis.\n• ACTION 5/6 (Audio 3D & SFX Synth) :\n  - 5.A : Contexte Web Audio API, Noeud Panner 3D spatialisé.\n  - 5.B : Synthétiseur de bruitages 8-bit / SFX (Tir, Hit, Explosion, Powerup).\n  - 5.C : Gestionnaire de musique de fond & effets Reverb.\n• ACTION 6/6 (HUD Overlay & Leaderboard) :\n  - 6.A : Interface React/Tailwind superposée (Vies, Score, Jauge Énergie).\n  - 6.B : Écrans modaux (Pause, Game Over, Victoire).\n  - 6.C : Tableau des scores (Leaderboard) & enregistrement local.\n";
+                      } else if (newProjectStack.includes("Canvas 2D")) {
+                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être un jeu Web 2D généré en **React + Vite + TypeScript (TSX) + Canvas 2D**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx, src/game/GameEngine.ts.\n• Moteur : Moteur 2D avec boucle requestAnimationFrame, physique de collisions AABB/rebonds, Web Audio API pour effets sonores et HUD complet avec Tailwind.\n\n[PHASE 0 : PRE-VIZ MAQUETTE NANO BANANA]\n• Avant le code source, générer la maquette visuelle d'écran de jeu 2D (Wireframe / Design Mockup) pour valider le layout Arcade, le Canvas et la disposition des boutons.\n\n[SÉQUENCE DE MICRO-ACTIONS MULTI-ÉTAPES (DECOUPAGE ULTRA-COMPLEXE)]\n• ACTION 1/6 (Core Engine 2D) :\n  - 1.A : Architecture Canvas 2D, Aspect-Ratio Lock 16:9 & High-DPI Scaling.\n  - 1.B : Boucle requestAnimationFrame 60 FPS avec DeltaTime & Pause state.\n  - 1.C : Gestionnaire de scène et grille de coordonnées 2D.\n• ACTION 2/6 (Physique & Collisions AABB) :\n  - 2.A : Détection de collisions AABB (Axis-Aligned Bounding Boxes).\n  - 2.B : Calculs de rebonds angulaires, impulsion & frottements.\n  - 2.C : Triggers de bonus, pièges et limites du terrain.\n• ACTION 3/6 (Contrôles Multi-Input) :\n  - 3.A : Handlers d'événements Clavier (WASD / Flèches).\n  - 3.B : Overlay Joypad tactile mobile réactif (Joypad.tsx).\n  - 3.C : Support Gamepad API pour manettes.\n• ACTION 4/6 (Game State & Levels) :\n  - 4.A : Machine à états de jeu (StartMenu, Playing, Pause, GameOver).\n  - 4.B : Chargeur de cartes de niveaux & parseur de grille (levels_data.json).\n  - 4.C : Entity Component System (ECS) & gestionnaire d'objets.\n• ACTION 5/6 (Audio Web API Synth) :\n  - 5.A : Master Node Web Audio API & oscillateurs.\n  - 5.B : Synthétiseur de bruitages 8-bit (Tir, Rebonds, Explosions).\n  - 5.C : Gestionnaire audio global & réglages de volume.\n• ACTION 6/6 (HUD Overlay & Leaderboard) :\n  - 6.A : Interface React/Tailwind superposée (Score, Vies, Jauges).\n  - 6.B : Écrans modaux (Pause, Game Over, Victoire).\n  - 6.C : Modale Leaderboard avec classement et confettis.\n";
+                      } else if (newProjectStack.includes("Vite")) {
                         stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **React + Vite + TypeScript (TSX)**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx.\n• Style & Thème : Définir toutes les variables CSS :root dans src/index.css ou src/design.css.\n";
                       } else if (newProjectStack.includes("Next")) {
                         stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **Next.js (App Router)**.\n• Générer : package.json, app/layout.tsx, app/page.tsx, app/globals.css.\n";
@@ -3982,18 +4664,26 @@ Format attendu:
                           }).catch(() => null);
                           
                           if (!reuseActiveTab) {
-                            await fetch(`${API_BASE}/v1/mission/start`, {
+                            await fetch(`${API_BASE}/v1/bridge/inject`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ name: genId, prompt: "OPEN_TAB_ONLY", target_ai: finalTargetAi, reuse_tab: false })
+                              body: JSON.stringify({ project_id: genId, prompt: "OPEN_TAB_ONLY", target_ai: finalTargetAi, phase_num: selectedStartPhase })
                             }).catch(() => null);
+
+                            const logicAiUrl = getTargetAiUrl(finalTargetAi);
+                            window.open(logicAiUrl, '_blank');
                           }
                         } else {
-                          await fetch(`${API_BASE}/v1/mission/start`, {
+                          await fetch(`${API_BASE}/v1/bridge/inject`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: genId, prompt: megaPrompt, stack: newProjectStack, target_ai: finalTargetAi, packs: selectedPacks, phase: selectedStartPhase, reuse_tab: reuseActiveTab, auto_submit: isAutoPilotOn })
+                            body: JSON.stringify({ project_id: genId, prompt: megaPrompt, target_ai: finalTargetAi, phase_num: selectedStartPhase, packs: selectedPacks })
                           }).catch(() => null);
+
+                          if (!reuseActiveTab) {
+                            const logicAiUrl = getTargetAiUrl(finalTargetAi);
+                            window.open(logicAiUrl, '_blank');
+                          }
                         }
                       }
 
@@ -4030,7 +4720,7 @@ Format attendu:
               </button>
 
               <button
-                onClick={() => { setActiveProject(null); setNewProjectName(""); setTromboneFiles([]); setIsCreationMode(true); }}
+                onClick={() => { setActiveProject(null); setNewProjectName(""); setTromboneFiles([]); setSettingsInitialTab("creation"); setIsSettingsOpen(true); }}
                 className="design-btn-new-v0 font-bold flex items-center gap-1 transition-all z-20 hover:scale-105"
                 title="Créer un nouveau projet"
               >
@@ -4057,308 +4747,6 @@ Format attendu:
           )}
         </div>
       </footer>
-
-
-      {/* MODAL COLOR SAVER 🎨 */}
-      {isColorModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-black/90 border border-white/20 rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col gap-6 relative">
-            <button onClick={() => setIsColorModalOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">✕</button>
-            <h3 className="text-xl font-black text-white flex items-center gap-2">
-              🎨 Gestion des Thèmes
-            </h3>
-
-            {/* BOUTON DÉDIÉ : FIXER LE FOND D'ÉCRAN ELECTRON */}
-            <div className="bg-cyan/10 border border-cyan/30 rounded-xl p-4 flex flex-col gap-2">
-              <div className="text-xs font-bold text-cyan uppercase tracking-wider flex items-center gap-2">
-                <span>🖥️</span> Page d'Accueil Electron
-              </div>
-              <p className="text-xs text-gray-300">
-                Fixer le fond d'écran enregistré ("fold") pour la page d'accueil Electron.
-              </p>
-              <button
-                onClick={() => {
-                  const defaultBg = "linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #000000 100%)";
-                  const updatedThemes = savedThemes.map(t => t.name === "fold" ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
-                  setSavedThemes(updatedThemes);
-                  localStorage.setItem("tiger_saved_themes", JSON.stringify(updatedThemes));
-                  setActiveTheme("fold");
-                  document.body.style.background = defaultBg;
-                  document.body.style.backgroundAttachment = "fixed";
-                  fetch("http://localhost:5005/api/theme", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ activeTheme: "fold", bgApp: defaultBg })
-                  }).catch(() => { });
-                  setIsColorModalOpen(false);
-                }}
-                className="w-full mt-1 py-2.5 bg-cyan text-black font-extrabold rounded-lg hover:bg-cyan/80 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-              >
-                🖼️ Appliquer ce Fond d'Écran sur Electron ("fold")
-              </button>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
-              <div className="text-sm font-bold text-gray-400">Mode actuel : <span className="text-cyan uppercase">{activeTheme}</span></div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newThemeName}
-                  onChange={(e) => setNewThemeName(e.target.value)}
-                  placeholder="Nom (ex: Nuit, Océan, fold...)"
-                  className="flex-1 bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan"
-                />
-                <button
-                  onClick={saveCurrentTheme}
-                  className="px-4 py-2 bg-cyan text-black font-bold rounded-lg hover:bg-cyan/80 transition-colors whitespace-nowrap"
-                >
-                  Save Mode
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto hide-scrollbar">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Thèmes Enregistrés</div>
-
-              <div
-                onClick={() => { setActiveTheme("random"); setIsColorModalOpen(false); }}
-                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === "random" ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
-              >
-                <span className="font-bold flex items-center gap-2">🎲 Mode Aléatoire (Dynamique)</span>
-                {activeTheme === "random" && <span className="text-cyan">✓</span>}
-              </div>
-
-              <div
-                onClick={() => { setActiveTheme("fold"); setIsColorModalOpen(false); }}
-                className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === "fold" ? "bg-cyan/20 border-cyan text-white shadow-[0_0_15px_rgba(8,179,201,0.3)]" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
-              >
-                <span className="font-bold flex items-center gap-2">⚡ Thème FOLD (Fixe Enregistré)</span>
-                {activeTheme === "fold" && <span className="text-cyan">✓</span>}
-              </div>
-
-              {savedThemes.map((theme, i) => (
-                <div
-                  key={i}
-                  onClick={() => { setActiveTheme(theme.name); setIsColorModalOpen(false); }}
-                  className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${activeTheme === theme.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex -space-x-2">
-                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-settings"] }}></div>
-                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-ai"] }}></div>
-                      <div className="w-5 h-5 rounded-full shadow-md" style={{ background: theme.colors["icon-projects"] }}></div>
-                    </div>
-                    <span className="font-bold">{theme.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {activeTheme === theme.name && <span className="text-cyan">✓</span>}
-                    <button
-                      onClick={(e) => deleteTheme(theme.name, e)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                      title="Supprimer ce thème"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 📱 MODAL COMPILATEUR APK MOBILE (v0-apk) */}
-      {isApkModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-fadeIn">
-          <div className="bg-[#090d16] border-2 border-purple-500/60 rounded-3xl shadow-[0_0_50px_rgba(168,85,247,0.4)] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-white">
-            
-            {/* Header Modal */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-purple-500/30 bg-[#060910]">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl animate-bounce">📱</span>
-                <div>
-                  <h3 className="text-purple-300 font-black text-base md:text-lg uppercase tracking-wider flex items-center gap-2">
-                    v0-apk — Compilateur Mobile Java Portable
-                  </h3>
-                  <p className="text-xs text-slate-400">Génération d'APK Android Souverain sans dépendance système externe</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsApkModalOpen(false)}
-                className="text-slate-400 hover:text-white bg-white/10 hover:bg-red-500 rounded-full w-8 h-8 flex items-center justify-center transition-colors font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Corps Modal */}
-            <div className="p-6 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
-              
-              {/* Cible Projet */}
-              <div className="flex flex-col gap-2 bg-black/50 p-4 rounded-2xl border border-purple-500/20">
-                <label htmlFor="apk-target" className="text-purple-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
-                  <span>📁</span> SELECTIONNER L'APPLICATION À COMPILER :
-                </label>
-                <select
-                  id="apk-target"
-                  value={selectedApkTarget || activeProject || ""}
-                  onChange={e => setSelectedApkTarget(e.target.value)}
-                  className="w-full bg-[#121824] text-white border border-purple-500/40 rounded-xl px-4 py-2.5 outline-none focus:border-purple-400 text-xs font-semibold cursor-pointer"
-                >
-                  <option value="">-- Sélectionner un projet --</option>
-                  {realProjects.map(p => (
-                    <option key={p.name} value={p.name}>📁 {p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Configuration Build */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-black/50 p-4 rounded-2xl border border-purple-500/20 flex flex-col gap-2">
-                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">☕ Environnement Java</span>
-                  <div className="text-xs text-slate-300 bg-purple-950/30 p-2.5 rounded-xl border border-purple-800/40 font-mono">
-                    JDK Portable 17 + Capacitor Android Engine
-                  </div>
-                </div>
-
-                <div className="bg-black/50 p-4 rounded-2xl border border-purple-500/20 flex flex-col gap-2">
-                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">🎨 Thèmes Persistent</span>
-                  <div className="text-xs text-slate-300 bg-purple-950/30 p-2.5 rounded-xl border border-purple-800/40 font-mono">
-                    Injection Zero-Touch CSS embarquée
-                  </div>
-                </div>
-              </div>
-
-              {/* Terminal de Build Logs */}
-              <div className="bg-[#05070d] p-4 rounded-2xl border border-slate-800 flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${apkBuildStatus === 'building' ? 'bg-yellow-400 animate-ping' : apkBuildStatus === 'success' ? 'bg-green-400' : 'bg-slate-600'}`}></span>
-                    Logs de Compilation APK
-                  </span>
-                  {apkLogs.length > 0 && (
-                    <button
-                      onClick={() => setApkLogs([])}
-                      className="text-[10px] text-slate-500 hover:text-slate-300 underline"
-                    >
-                      Effacer logs
-                    </button>
-                  )}
-                </div>
-                <div className="bg-black/80 p-3 rounded-xl border border-slate-900 font-mono text-[11px] h-36 overflow-y-auto custom-scrollbar flex flex-col gap-1 text-slate-300">
-                  {apkLogs.length === 0 ? (
-                    <span className="text-slate-600 italic text-center my-auto">Prêt pour la compilation. Cliquez sur "Compiler l'APK".</span>
-                  ) : (
-                    apkLogs.map((log, idx) => (
-                      <div key={idx} className="leading-tight">{log}</div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center justify-between pt-2 border-t border-purple-500/20">
-                {apkOutputUrl && (
-                  <a
-                    href={apkOutputUrl}
-                    download
-                    className="px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-green-900/40 animate-bounce"
-                  >
-                    <span>📥</span> Télécharger APK (.apk)
-                  </a>
-                )}
-                <div className="flex items-center gap-3 ml-auto">
-                  <button
-                    onClick={() => setIsApkModalOpen(false)}
-                    className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all"
-                  >
-                    Fermer
-                  </button>
-                  <button
-                    disabled={apkBuildStatus === 'building'}
-                    onClick={async () => {
-                      const target = selectedApkTarget || activeProject;
-                      if (!target) {
-                        alert("Veuillez sélectionner un projet à compiler.");
-                        return;
-                      }
-                      setApkBuildStatus('building');
-                      setApkLogs([`[v0-apk] 🚀 Démarrage du pipeline pour "${target}"...`]);
-
-                      // Injection directe dans le Terminal Console-V0
-                      const appendTerminalLog = (msg: string) => {
-                        const term = document.getElementById('mouchard-terminal-logs');
-                        if (term) {
-                          const line = document.createElement('div');
-                          line.className = 'font-mono text-[11px] text-purple-300 py-0.5 border-b border-purple-900/20 flex items-start gap-2';
-                          line.innerHTML = `<span class="text-purple-500 font-bold">🖥️ [Console-V0]</span> <span>${msg}</span>`;
-                          term.appendChild(line);
-                          term.scrollTop = term.scrollHeight;
-                        }
-                      };
-
-                      appendTerminalLog(`[v0-apk] 🚀 Lancement de la compilation APK pour "${target}"...`);
-
-                      try {
-                        const res = await fetch("http://localhost:5005/api/mobile/build-apk", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ project: target })
-                        });
-                        const data = await res.json();
-                        
-                        if (data.success) {
-                          // Lancement de la boucle d'écoute en temps réel (Polling Console-V0 + Modal)
-                          let lastCount = 0;
-                          const pollInterval = setInterval(async () => {
-                            try {
-                              const lRes = await fetch("http://localhost:5005/api/mobile/build-logs");
-                              const lData = await lRes.json();
-                              if (lData.logs && lData.logs.length > lastCount) {
-                                const newLogs = lData.logs.slice(lastCount);
-                                lastCount = lData.logs.length;
-                                setApkLogs(lData.logs);
-                                newLogs.forEach((l: string) => appendTerminalLog(l));
-                              }
-                              
-                              if (!lData.building) {
-                                clearInterval(pollInterval);
-                                if (lData.result && lData.result.success) {
-                                  setApkBuildStatus('success');
-                                  if (lData.result.apkUrl) setApkOutputUrl(lData.result.apkUrl);
-                                } else {
-                                  setApkBuildStatus('error');
-                                }
-                              }
-                            } catch (err) {
-                              // Poursuivre le polling
-                            }
-                          }, 500);
-                        } else {
-                          setApkBuildStatus('error');
-                          setApkLogs(prev => [...prev, `[v0-apk] ⚠️ ${data.message || 'Échec du lancement'}`]);
-                          appendTerminalLog(`[v0-apk ⚠️] ${data.message}`);
-                        }
-                      } catch (e: any) {
-                        setApkBuildStatus('idle');
-                        setApkLogs(prev => [...prev, `[v0-apk] ℹ️ Erreur réseau lors de la connexion au backend.`]);
-                        appendTerminalLog(`[v0-apk ℹ️] Erreur réseau backend.`);
-                      }
-                    }}
-                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-purple-900/50 disabled:opacity-50"
-                  >
-                    <span>📱</span>
-                    <span>{apkBuildStatus === 'building' ? 'Compilation en cours...' : 'COMPILER L\'APK (v0-apk)'}</span>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      )}
-
 
       <style dangerouslySetInnerHTML={{
         __html: `
