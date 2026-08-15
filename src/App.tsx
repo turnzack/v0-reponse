@@ -89,6 +89,7 @@ const WidgetSettings = ({
   const [overridePrompt, setOverridePrompt] = useState("");
   const [savedMsg, setSavedMsg] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectInstructions, setNewProjectInstructions] = useState("");
   const [isExtConnected, setIsExtConnected] = useState(true);
 
   useEffect(() => {
@@ -561,6 +562,8 @@ const WidgetSettings = ({
                       <span className="text-white">📄</span> INSTRUCTIONS / VISION
                     </label>
                     <textarea 
+                      value={newProjectInstructions}
+                      onChange={(e) => setNewProjectInstructions(e.target.value)}
                       placeholder="Décrivez l'application ou copiez votre PRD..."
                       className="w-full flex-1 min-h-[120px] bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan resize-none"
                     />
@@ -610,17 +613,64 @@ const WidgetSettings = ({
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     <button className="py-6 bg-[#2a1b3d] hover:bg-[#3d2757] text-white text-[10px] font-bold rounded-lg border border-purple-500/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
                       <span className="text-xl">💎</span>
-                      Packs PRD (0)
+                      Packs PRD ({((window as any).KIROV_SELECTED_PACKS || []).length})
                     </button>
                     <button 
                       id="btn-joindre-zip"
-                      onClick={triggerNativeZipPicker}
+                      onClick={() => {
+                        const fileInput = document.createElement("input");
+                        fileInput.type = "file";
+                        fileInput.accept = ".zip";
+                        fileInput.onchange = (e: any) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                             // on délègue au main app via window event
+                             window.dispatchEvent(new CustomEvent('kirov5-upload-zip', { detail: file }));
+                          }
+                        };
+                        fileInput.click();
+                      }}
                       className="py-6 bg-[#1a2f3a] hover:bg-[#254250] text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
                     >
                       <span className="text-xl">📎</span>
                       Joindre ZIP (Stitch)
                     </button>
                   </div>
+
+                  <button 
+                    onClick={() => {
+                      const proj = selectedLaunchProject || newProjectName;
+                      if (!proj) {
+                        alert("Veuillez sélectionner ou créer un projet !");
+                        return;
+                      }
+                      
+                      // Phase 1 : Forcer la cible sur Stitch pour la génération UI initiale
+                      const aiTarget = "stitch";
+                      
+                      fetch("http://localhost:5005/bridge/prompt", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          target_ai: aiTarget,
+                          user_prompt: newProjectInstructions || "Génère l'application avec ces packs et directives.",
+                          packs: ((window as any).KIROV_SELECTED_PACKS || []),
+                          target_project: proj,
+                          phase_num: 1
+                        })
+                      }).then(() => {
+                        alert("✅ Méga-Prompt généré avec succès ! Il a été envoyé à l'orchestrateur.");
+                        // Force toujours l'ouverture de Google Stitch pour la Phase 1
+                        window.open("https://stitch.withgoogle.com/", "_blank");
+                      }).catch(e => {
+                        console.error(e);
+                        alert("Erreur: Le moteur :5005 est-il lancé ?");
+                      });
+                    }}
+                    className="w-full mt-4 py-4 bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 text-white text-[11px] font-black uppercase tracking-wider rounded-lg border border-emerald-500/50 transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                  >
+                    <span>🚀</span> LANCER PHASE 1 (Prompt vers l'IA)
+                  </button>
                 </div>
 
                 {/* PANEL 3 (DROITE) : WORKFLOW & FILE D'ATTENTE */}
@@ -677,6 +727,27 @@ const WidgetSettings = ({
                       className="w-full bg-[#0a1025] hover:bg-[#101a35] border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
                     >
                       <span>🔄</span> Reconstruire la file
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        const proj = selectedLaunchProject || newProjectName;
+                        if (!proj) { alert("Sélectionnez un projet d'abord."); return; }
+                        try {
+                          const res = await fetch("http://localhost:5005/api/bridge/reset-session", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ project_id: proj })
+                          });
+                          const data = await res.json();
+                          alert(data.success ? `🔓 ${data.message}` : `❌ ${data.error}`);
+                        } catch (e) {
+                          alert("❌ Moteur :5005 inaccessible.");
+                        }
+                      }}
+                      className="w-full bg-[#2a0a0a] hover:bg-[#3d1010] border border-red-500/40 text-red-300 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
+                    >
+                      <span>🔓</span> DÉBLOQUER SESSION (Anti-Lockout)
                     </button>
                     
                     <button 
@@ -1675,6 +1746,9 @@ export default function Dashboard() {
 
   // --- ETAT : PACKS PRD SELECTIONNES & VISIBILITE CARROUSEL ---
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
+  useEffect(() => {
+    (window as any).KIROV_SELECTED_PACKS = selectedPacks;
+  }, [selectedPacks]);
   const [showPacksCarousel, setShowPacksCarousel] = useState(false);
   const [showGuestPacks, setShowGuestPacks] = useState(false);
   const [packSearchQuery, setPackSearchQuery] = useState("");
