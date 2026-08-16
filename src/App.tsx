@@ -219,6 +219,8 @@ const WidgetSettings = ({
   const [sutureSingleFileOnly, setSutureSingleFileOnly] = useState<boolean>(localStorage.getItem("suture_single_file") !== "false");
   const [sutureAutoPromote, setSutureAutoPromote] = useState<boolean>(localStorage.getItem("suture_auto_promote") !== "false");
   const [sutureStatus, setSutureStatus] = useState<"idle"|"saved">("idle");
+  const [sutureBtnState, setSutureBtnState] = useState<"clean" | "working" | "error">("clean");
+  const lastAutoSutureTime = useRef<number>(0);
 
   const saveSutureSettings = () => {
     localStorage.setItem("suture_dryrun", sutureDryRunMode);
@@ -290,16 +292,37 @@ const WidgetSettings = ({
             )}
           </div>
           <div className="flex-1 overflow-y-auto py-4 hide-scrollbar flex md:flex-col gap-1 px-4">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap md:whitespace-normal ${activeTab === t.id ? 'bg-cyan/20 border border-cyan/50 text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
-              >
-                <span className="text-xl">{t.icon}</span>
-                <span className="font-bold text-sm tracking-wide">{t.label}</span>
-              </button>
-            ))}
+            {tabs.map(t => {
+              let tabStyle = "";
+              if (t.id === "suture") {
+                if (sutureBtnState === "error") {
+                  tabStyle = "bg-red-600 text-white border-2 border-red-400 shadow-[0_0_20px_#ff0055] animate-pulse font-bold";
+                } else if (sutureBtnState === "working") {
+                  tabStyle = "bg-purple-600 text-white border-2 border-purple-300 shadow-[0_0_20px_#a855f7] animate-pulse font-bold";
+                } else {
+                  tabStyle = activeTab === "suture"
+                    ? "bg-emerald-600/30 border border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                    : "text-emerald-400 border border-emerald-500/30 hover:bg-emerald-950/40";
+                }
+              } else {
+                tabStyle = activeTab === t.id
+                  ? 'bg-cyan/20 border border-cyan/50 text-white shadow-[0_0_10px_rgba(8,179,201,0.2)]'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white';
+              }
+
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap md:whitespace-normal ${tabStyle}`}
+                >
+                  <span className="text-xl">{t.icon}</span>
+                  <span className="font-bold text-sm tracking-wide">
+                    {t.id === "suture" && sutureBtnState === "error" ? "🔴 Suture (Erreur !)" : t.id === "suture" && sutureBtnState === "working" ? "🟣 Suture V2..." : t.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -524,8 +547,26 @@ const WidgetSettings = ({
                   </div>
                 </h2>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80] animate-pulse"></div>
-                  <span className="text-[10px] text-green-400 font-bold">MOTEUR ACTIF</span>
+                  <div className={`w-3 h-3 rounded-full ${
+                    sutureBtnState === "error"
+                      ? "bg-red-500 shadow-[0_0_12px_#ff0055] animate-ping"
+                      : sutureBtnState === "working"
+                      ? "bg-purple-500 shadow-[0_0_12px_#a855f7] animate-pulse"
+                      : "bg-emerald-400 shadow-[0_0_8px_#4ade80]"
+                  }`}></div>
+                  <span className={`text-[11px] font-black uppercase tracking-wider ${
+                    sutureBtnState === "error"
+                      ? "text-red-400"
+                      : sutureBtnState === "working"
+                      ? "text-purple-300"
+                      : "text-emerald-400"
+                  }`}>
+                    {sutureBtnState === "error"
+                      ? "🔴 ERREUR DÉTECTÉE (SUTURE REQUIS)"
+                      : sutureBtnState === "working"
+                      ? "🟣 SUTURE V2 EN COURS..."
+                      : "🟢 MOTEUR AUTO-PILOT PRÊT"}
+                  </span>
                 </div>
               </div>
 
@@ -1936,6 +1977,10 @@ export default function Dashboard() {
   const [settingsInitialTab, setSettingsInitialTab] = useState("connexion");
   const [isDragging, setIsDragging] = useState(false);
 
+  // État Suture V2 pour le bouton de l'IDE
+  const [sutureBtnState, setSutureBtnState] = useState<"clean" | "error" | "working">("clean");
+  const lastAutoSutureTime = useRef<number>(0);
+
   // Simulation des phases de création
   const [activePhase, setActivePhase] = useState(1);
   const [isClient, setIsClient] = useState(false);
@@ -2088,10 +2133,13 @@ export default function Dashboard() {
     if (loaded) {
       try {
         let parsed = JSON.parse(loaded);
+        if (!Array.isArray(parsed)) throw new Error("Not an array");
         const defaultBg = "linear-gradient(135deg, #4c1d95 0%, #1e1b4b 35%, #0f172a 70%, #06b6d4 100%)";
         parsed = parsed.map((t: any) => t.name === "fold" ? { ...t, colors: { ...t.colors, "bg-app": defaultBg } } : t);
         setSavedThemes(parsed);
-      } catch (e) { }
+      } catch (e) { 
+        setSavedThemes([]);
+      }
     } else {
       // "fold" default theme from screenshot
       const defaultTheme = {
@@ -2409,6 +2457,41 @@ export default function Dashboard() {
           }
         })
         .catch(() => { });
+
+      // Polling dynamique READ-ONLY de l'Orchestrateur Autonome (Zero-Touch)
+      fetch("http://localhost:5005/api/bridge/autonomous-status")
+        .then(res => res.json())
+        .then(autoData => {
+          if (autoData.success && (autoData.data || autoData.status)) {
+            const statusObj = autoData.data || autoData.status;
+            const st = statusObj.state;
+            if (st === 'diagnosing' || st === 'repair_required' || st === 'error') {
+              setSutureBtnState('error');
+            } else if (['repair_planned', 'patching_staging', 'validating', 'browser_verifying', 'repairing', 'working'].includes(st)) {
+              setSutureBtnState('working');
+            } else if (['starting_server', 'launch_requested', 'restarting'].includes(st)) {
+              setSutureBtnState('working');
+            } else if (st === 'ready') {
+              setSutureBtnState('clean');
+            } else if (activeProject) {
+              fetch(`http://localhost:5005/api/suture/status?project=${activeProject}`)
+                .then(res => res.json())
+                .then(data => {
+                  if (data.success && data.status) {
+                    setSutureBtnState(data.status);
+                  }
+                }).catch(() => {});
+            }
+          }
+        }).catch(() => {
+          if (activeProject) {
+            fetch(`http://localhost:5005/api/suture/status?project=${activeProject}`)
+              .then(res => res.json())
+              .then(data => {
+                if (data.success && data.status) setSutureBtnState(data.status);
+              }).catch(() => {});
+          }
+        });
     }, 1000);
     return () => clearInterval(interval);
   }, [isClient]);
@@ -3213,12 +3296,11 @@ Format attendu:
 
       // Si c'est une Suture, déclencher le moteur Suture V2 Zero-Touch en arrière-plan
       if (action === "suture") {
-        fetch("http://localhost:5005/bridge/prompt", {
+        fetch("http://localhost:5005/v1/suture/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            phase_num: "suture",
-            projectid: activeProject,
+            project_id: activeProject,
             activeFile: activeFile || "",
             rawError: errorDetails || "",
             prompt: errorDetails || "Analyse et corrige les erreurs du projet."
@@ -3517,9 +3599,27 @@ Format attendu:
                 ✕
               </button>
 
-              <button title="Suture (Correction Bug)" onClick={() => handleIDEAction("suture")} className="design-ide-btn-action w-10 h-10 rounded-xl bg-white/5 hover:bg-cyan/20 text-xl border border-white/10 hover:border-cyan flex items-center justify-center transition-all group relative">
+              <button 
+                title={
+                  sutureBtnState === "error"
+                    ? "🔴 Erreur détectée dans le code ! Suture V2 en cours..."
+                    : sutureBtnState === "working"
+                    ? "🟣 Suture V2 en plein travail (génération & test du correctif)..."
+                    : "🟢 Projet propre - Aucune erreur détectée"
+                } 
+                onClick={() => handleIDEAction("suture")} 
+                className={`design-ide-btn-action w-10 h-10 rounded-xl text-xl border flex items-center justify-center transition-all group relative ${
+                  sutureBtnState === "error" 
+                    ? "bg-red-600 text-white border-2 border-red-400 shadow-[0_0_25px_#ff0055] animate-pulse ring-2 ring-red-500" 
+                    : sutureBtnState === "working"
+                    ? "bg-purple-600 text-white border-2 border-purple-300 shadow-[0_0_25px_#a855f7] animate-pulse ring-2 ring-purple-500"
+                    : "bg-emerald-600/30 text-emerald-400 border border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.4)] hover:bg-emerald-500 hover:border-emerald-400 hover:text-white"
+                }`}
+              >
                 🩺
-                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-cyan pointer-events-none transition-opacity">Auto-Suture</span>
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-white pointer-events-none transition-opacity font-bold">
+                  {sutureBtnState === "error" ? "🔴 Suture (Erreur !)" : sutureBtnState === "working" ? "🟣 Suture V2..." : "🟢 Suture V2 (OK)"}
+                </span>
               </button>
 
               <button title="Refactoring" onClick={() => handleIDEAction("refactor")} className="design-ide-btn-action w-10 h-10 rounded-xl bg-white/5 hover:bg-purple-500/20 text-xl border border-white/10 hover:border-purple-500 flex items-center justify-center transition-all group relative">
@@ -4035,12 +4135,17 @@ Format attendu:
                             {savedThemes.map((t) => (
                               <div
                                 key={t.name}
-                                onClick={() => applySavedTheme(t)}
+                                onClick={() => {
+                                  setActiveTheme(t.name);
+                                  document.body.style.background = t.colors["bg-app"] || "";
+                                  if (t.name === "fold") document.body.style.backgroundAttachment = "fixed";
+                                  else document.body.style.backgroundAttachment = "scroll";
+                                }}
                                 className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${activeTheme === t.name ? "bg-cyan/20 border-cyan text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
                               >
                                 <span className="font-bold capitalize">{t.name}</span>
                                 <button
-                                  onClick={(e) => deleteSavedTheme(t.name, e)}
+                                  onClick={(e) => deleteTheme(t.name, e)}
                                   className="text-xs text-red-400 hover:text-red-300 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded border border-red-500/20 cursor-pointer"
                                 >
                                   Supprimer
@@ -4340,6 +4445,8 @@ Format attendu:
             {/* 📁 Projets */}
             <button
               onClick={() => {
+                setActiveProject(null);
+                setActiveFile(null);
                 setShowPacksCarousel(false);
                 handleSend("Mes projets");
                 setInput("");
@@ -4354,6 +4461,8 @@ Format attendu:
             {/* 💎 Packs PRD */}
             <button
               onClick={() => {
+                setActiveProject(null);
+                setActiveFile(null);
                 setShowPacksCarousel(prev => !prev);
               }}
               className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
