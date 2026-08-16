@@ -206,9 +206,55 @@ const WidgetSettings = ({
     { id: "deepseek", label: "DeepSeek", icon: "🐋" },
     { id: "override", label: "Override", icon: "💉" },
     { id: "connexion", label: "Connexion", icon: "⚙️" },
+    { id: "suture", label: "Suture V2", icon: "🩺" },
   ];
 
   const [bridgeQueueData, setBridgeQueueData] = useState<{current: any, queue: any[]}>({current: null, queue: []});
+
+  // États Suture V2
+  const [sutureDryRunMode, setSutureDryRunMode] = useState<string>(localStorage.getItem("suture_dryrun") || "none");
+  const [sutureLockedFiles, setSutureLockedFiles] = useState<string>(localStorage.getItem("suture_locked_files") || "src/index.css,src/design.css,src/main.tsx,tsconfig.json,vite.config.ts,package.json");
+  const [sutureHistory, setSutureHistory] = useState<any[]>([]);
+  const [sutureHistoryLoading, setSutureHistoryLoading] = useState(false);
+  const [sutureSingleFileOnly, setSutureSingleFileOnly] = useState<boolean>(localStorage.getItem("suture_single_file") !== "false");
+  const [sutureAutoPromote, setSutureAutoPromote] = useState<boolean>(localStorage.getItem("suture_auto_promote") !== "false");
+  const [sutureStatus, setSutureStatus] = useState<"idle"|"saved">("idle");
+
+  const saveSutureSettings = () => {
+    localStorage.setItem("suture_dryrun", sutureDryRunMode);
+    localStorage.setItem("suture_locked_files", sutureLockedFiles);
+    localStorage.setItem("suture_single_file", String(sutureSingleFileOnly));
+    localStorage.setItem("suture_auto_promote", String(sutureAutoPromote));
+    // Envoyer au moteur
+    fetch("http://localhost:5005/api/suture/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dryRunMode: sutureDryRunMode,
+        lockedFiles: sutureLockedFiles.split(",").map(f => f.trim()).filter(Boolean),
+        singleFileOnly: sutureSingleFileOnly,
+        autoPromote: sutureAutoPromote
+      })
+    }).catch(() => {});
+    setSutureStatus("saved");
+    setTimeout(() => setSutureStatus("idle"), 2500);
+  };
+
+  const loadSutureHistory = async (projectId?: string) => {
+    setSutureHistoryLoading(true);
+    try {
+      const url = projectId
+        ? `http://localhost:5005/api/suture/history?projectId=${projectId}`
+        : "http://localhost:5005/api/suture/history";
+      const res = await fetch(url);
+      const data = await res.json();
+      setSutureHistory(data.repairs || []);
+    } catch {
+      setSutureHistory([]);
+    } finally {
+      setSutureHistoryLoading(false);
+    }
+  };
 
   useEffect(() => {
     let interval: any;
@@ -306,6 +352,7 @@ const WidgetSettings = ({
                           <option value="claude">🟣 Claude Web</option>
                           <option value="kimi">🌙 Kimi Web</option>
                           <option value="qwen">🌐 Qwen Coder</option>
+                          <option value="perplexity">🔍 Perplexity AI</option>
                           <option value="custom">➕ IA Personnalisée</option>
                         </select>
                         <button
@@ -462,6 +509,179 @@ const WidgetSettings = ({
                     <div className="text-green-400 text-xs font-bold mt-4 flex items-center gap-2">✅ Bridge connecté (auto-détecté)</div>
                   </>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "suture" && (
+            <div className="space-y-6 animate-fadeIn" onMouseEnter={() => { if (sutureHistory.length === 0) loadSutureHistory(); }}>
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <h2 className="text-xl font-black text-white flex items-center gap-3">
+                  <span className="text-3xl">🩺</span>
+                  <div>
+                    <div>Suture V2 — Moteur Zero-Touch</div>
+                    <div className="text-[10px] font-normal text-gray-400 mt-0.5">Réparation autonome, isolée et atomique</div>
+                  </div>
+                </h2>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_#4ade80] animate-pulse"></div>
+                  <span className="text-[10px] text-green-400 font-bold">MOTEUR ACTIF</span>
+                </div>
+              </div>
+
+              {/* SECTION 1 : MODE DE VALIDATION */}
+              <div className="bg-gradient-to-br from-black/40 to-[#0a1a0a]/60 border border-white/10 rounded-xl p-5 space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400 flex items-center gap-2">
+                  🔬 Mode de Validation (Dry-Run)
+                </span>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                  Contrôle si le moteur compile le code dans le bac à sable avant de l'appliquer en production.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: "none", icon: "🚀", label: "Production", desc: "Applique directement" },
+                    { id: "plan", icon: "🗺️", label: "Plan Only", desc: "Génère sans appliquer" },
+                    { id: "true", icon: "🧪", label: "Full Dry-Run", desc: "Clone + build + bloque" },
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setSutureDryRunMode(m.id)}
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all text-center ${sutureDryRunMode === m.id ? 'bg-green-900/40 border-green-500/70 text-white shadow-[0_0_12px_rgba(74,222,128,0.2)]' : 'bg-black/30 border-white/10 text-gray-500 hover:border-white/30 hover:text-gray-300'}`}
+                    >
+                      <span className="text-xl">{m.icon}</span>
+                      <span className="font-black text-[10px]">{m.label}</span>
+                      <span className="text-[9px] opacity-70">{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION 2 : PROMOTION AUTOMATIQUE */}
+              <div className="bg-gradient-to-br from-black/40 to-[#0a0a1a]/60 border border-white/10 rounded-xl p-5 space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan flex items-center gap-2">
+                  ⚡ Options de Promotion
+                </span>
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between cursor-pointer bg-black/20 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors">
+                    <div>
+                      <div className="text-white font-bold text-sm">Promotion Automatique</div>
+                      <div className="text-[10px] text-gray-500">Si la compilation réussit, le patch est appliqué sans confirmation</div>
+                    </div>
+                    <div
+                      onClick={() => setSutureAutoPromote(v => !v)}
+                      className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${sutureAutoPromote ? 'bg-cyan' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${sutureAutoPromote ? 'left-7' : 'left-1'}`}></div>
+                    </div>
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer bg-black/20 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors">
+                    <div>
+                      <div className="text-white font-bold text-sm">Fichier Unique Seulement</div>
+                      <div className="text-[10px] text-gray-500">La Suture ne peut modifier qu'un seul fichier par réparation (plus sûr)</div>
+                    </div>
+                    <div
+                      onClick={() => setSutureSingleFileOnly(v => !v)}
+                      className={`relative w-12 h-6 rounded-full transition-colors cursor-pointer ${sutureSingleFileOnly ? 'bg-cyan' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${sutureSingleFileOnly ? 'left-7' : 'left-1'}`}></div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* SECTION 3 : FICHIERS VERROUILLÉS */}
+              <div className="bg-gradient-to-br from-black/40 to-[#1a0a0a]/60 border border-red-500/20 rounded-xl p-5 space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-red-400 flex items-center gap-2">
+                  🔒 Fichiers Verrouillés (Intouchables)
+                </span>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                  Ces fichiers ne seront <strong className="text-red-300">JAMAIS</strong> modifiés par une Suture, même si l'IA essaie. Séparés par des virgules.
+                </p>
+                <textarea
+                  value={sutureLockedFiles}
+                  onChange={e => setSutureLockedFiles(e.target.value)}
+                  rows={3}
+                  className="w-full bg-black/40 text-red-200 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] font-mono outline-none focus:border-red-500/50 resize-none"
+                  placeholder="src/design.css,package.json,..."
+                />
+                <div className="flex flex-wrap gap-2">
+                  {sutureLockedFiles.split(",").map(f => f.trim()).filter(Boolean).map(f => (
+                    <span key={f} className="flex items-center gap-1 bg-red-900/20 border border-red-500/30 text-red-300 text-[9px] font-mono px-2 py-1 rounded-full">
+                      🔒 {f}
+                      <button
+                        onClick={() => setSutureLockedFiles(prev => prev.split(",").map(s => s.trim()).filter(s => s !== f).join(", "))}
+                        className="text-red-500 hover:text-white ml-1 font-bold"
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* SECTION 4 : ACTIONS RAPIDES */}
+              <div className="bg-gradient-to-br from-black/40 to-[#0a0a0a]/60 border border-white/10 rounded-xl p-5 space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400 flex items-center gap-2">
+                  ⚡ Actions Rapides Suture
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => fetch("http://localhost:5005/api/suture/purge-workspaces", { method: "POST" }).then(() => alert("✅ Bac à sable vidé !")).catch(() => alert("❌ Moteur inaccessible"))}
+                    className="py-3 bg-orange-900/20 hover:bg-orange-900/40 border border-orange-500/30 text-orange-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    🗑️ Vider le Bac à Sable
+                  </button>
+                  <button
+                    onClick={() => loadSutureHistory()}
+                    className="py-3 bg-blue-900/20 hover:bg-blue-900/40 border border-blue-500/30 text-blue-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    🔄 Rafraîchir Historique
+                  </button>
+                  <button
+                    onClick={() => fetch("http://localhost:5005/api/suture/rollback-last", { method: "POST" }).then(r => r.json()).then(d => alert(d.success ? `✅ Rollback : ${d.message}` : `❌ ${d.error}`)).catch(() => alert("❌ Moteur inaccessible"))}
+                    className="py-3 bg-purple-900/20 hover:bg-purple-900/40 border border-purple-500/30 text-purple-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    ↩️ Rollback Dernier Patch
+                  </button>
+                  <button
+                    onClick={saveSutureSettings}
+                    className={`py-3 border rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all ${sutureStatus === "saved" ? 'bg-green-900/40 border-green-500/50 text-green-300' : 'bg-cyan/10 hover:bg-cyan/20 border-cyan/40 text-cyan'}`}
+                  >
+                    {sutureStatus === "saved" ? "✅ Sauvegardé !" : "💾 Sauvegarder Config"}
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 5 : HISTORIQUE DES RÉPARATIONS */}
+              <div className="bg-gradient-to-br from-black/40 to-black/60 border border-white/10 rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    📋 Historique des Réparations
+                  </span>
+                  <button onClick={() => loadSutureHistory()} className="text-[9px] text-cyan hover:text-white bg-cyan/10 px-2 py-1 rounded">
+                    Actualiser
+                  </button>
+                </div>
+                <div className="max-h-[200px] overflow-y-auto hide-scrollbar space-y-2">
+                  {sutureHistoryLoading && (
+                    <div className="text-center text-gray-500 text-[10px] animate-pulse py-4">⏳ Chargement...</div>
+                  )}
+                  {!sutureHistoryLoading && sutureHistory.length === 0 && (
+                    <div className="text-center text-gray-600 text-[10px] italic py-4">
+                      Aucune réparation trouvée. Cliquez sur 🩺 dans l'explorateur pour lancer une Suture.
+                    </div>
+                  )}
+                  {sutureHistory.map((r: any, i: number) => (
+                    <div key={i} className={`flex items-center justify-between p-3 rounded-lg border text-[10px] font-mono ${r.status === 'applied' ? 'bg-green-900/10 border-green-500/20' : r.status === 'failed' ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
+                      <div className="flex flex-col gap-0.5 truncate flex-1 mr-2">
+                        <span className="text-white font-bold truncate">{r.repairId || r.id}</span>
+                        <span className="text-gray-500 truncate">{r.projectId} — {r.activeFile || "?"}</span>
+                        <span className="text-gray-600">{r.startedAt ? new Date(r.startedAt).toLocaleString("fr-FR") : ""}</span>
+                      </div>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[9px] font-bold ${r.status === 'applied' ? 'bg-green-900/30 border-green-500/40 text-green-300' : r.status === 'failed' ? 'bg-red-900/30 border-red-500/40 text-red-300' : 'bg-yellow-900/30 border-yellow-500/40 text-yellow-300'}`}>
+                        {r.status === 'applied' ? '✅ Appliqué' : r.status === 'failed' ? '❌ Échec' : '⚠️ Partiel'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -2912,13 +3132,26 @@ Format attendu:
             <span className="text-blue-400">📄</span>
             <span className="design-explorateur-texte design-explorateur-fichier truncate">{node.name}</span>
           </div>
-          <button
-            className="hidden group-hover:block text-xs text-white bg-white/20 rounded px-1 hover:bg-cyan/50"
-            title="Ajouter au Trombone"
-            onClick={(e) => { e.stopPropagation(); attachToTrombone(node.path); }}
-          >
-            📎
-          </button>
+          <div className="hidden group-hover:flex items-center gap-1">
+            <button
+              className="text-xs text-white bg-white/20 rounded px-1 hover:bg-red-500/50 transition-colors"
+              title="Suture : Réparer ou débugger ce fichier"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setActiveFile(node.path);
+                setTimeout(() => handleIDEAction("suture", `Veuillez analyser ce fichier et corriger toutes les erreurs, fautes de frappe ou imports manquants.`), 100);
+              }}
+            >
+              🩺
+            </button>
+            <button
+              className="text-xs text-white bg-white/20 rounded px-1 hover:bg-cyan/50 transition-colors"
+              title="Ajouter au Trombone"
+              onClick={(e) => { e.stopPropagation(); attachToTrombone(node.path); }}
+            >
+              📎
+            </button>
+          </div>
         </div>
       );
     }
@@ -2978,11 +3211,47 @@ Format attendu:
         })
       });
 
-      // Si c'est une Suture, tenter également le moteur d'Auto-Réparation v5 en arrière-plan
+      // Si c'est une Suture, déclencher le moteur Suture V2 Zero-Touch en arrière-plan
       if (action === "suture") {
-        fetch(`http://localhost:5005/api/mobile/v5/projects/${activeProject}/repair/auto`, {
-          method: "POST"
-        }).catch(() => { });
+        fetch("http://localhost:5005/bridge/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phase_num: "suture",
+            projectid: activeProject,
+            activeFile: activeFile || "",
+            rawError: errorDetails || "",
+            prompt: errorDetails || "Analyse et corrige les erreurs du projet."
+          })
+        }).then(async res => {
+          const data = await res.json();
+          if (data.success && data.status === "applied") {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString() + "_suture_ok",
+              role: "assistant",
+              content: `✅ Suture V2 réussie !\n\n🔧 ${data.repairId}\n🚀 Statut : **Patch appliqué en production**\n📁 Fichiers corrigés : ${JSON.stringify(data.patchReport?.files?.map((f: any) => f.path) || [])}`
+            }]);
+          } else if (data.success) {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString() + "_suture_partial",
+              role: "assistant",
+              content: `⚠️ Suture V2 : correctif généré mais non promu.\nStatut : ${data.validationReport?.code || data.status}\n\nLe correctif est dans l'espace isolé. Vérifiez les logs du moteur pour plus de détails.`
+            }]);
+          } else {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString() + "_suture_fail",
+              role: "assistant",
+              content: `❌ Suture V2 échouée.\nCode : ${data.code || "INCONNU"}\n${data.message || ""}`
+            }]);
+          }
+        }).catch(() => {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString() + "_suture_err",
+            role: "assistant",
+            content: `❌ Impossible de joindre le moteur Suture V2. Vérifiez que l'Orchestrateur Electron tourne sur le port 5005.`
+          }]);
+        });
+        return; // On s'arrête : Suture V2 est autonome, pas besoin d'ouvrir un onglet IA.
       }
 
       // CORRECTION TIMING : Ouvrir l'IA cible dans un onglet dédié RÉUTILISÉ
@@ -4454,6 +4723,7 @@ Format attendu:
                       <option value="kimi">🌙 Kimi (Moonshot)</option>
                       <option value="gemini">🔵 Gemini</option>
                       <option value="qwen">🔴 Qwen</option>
+                      <option value="perplexity">🔍 Perplexity AI</option>
                     </select>
                   </div>
 
