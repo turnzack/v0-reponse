@@ -69,7 +69,9 @@ const WidgetSettings = ({
   isAutoPilot,
   setIsAutoPilot,
   reuseActiveTab,
-  setReuseActiveTab
+  setReuseActiveTab,
+  selectedStartPhase = "UNDEF",
+  setSelectedStartPhase = () => console.error("MISSING SETTER")
 }: any) => {
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -857,10 +859,16 @@ const WidgetSettings = ({
                   </div>
 
                   <div>
-                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">💉 MODE & LOT DE DÉPART</label>
-                    <select className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan">
-                      <option>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
-                      <option>⚙️ Phase 2 : Logique G5</option>
+                    <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">💉 MODE & LOT DE DÉPART (Val: {selectedStartPhase})</label>
+                    <select 
+                      value={selectedStartPhase}
+                      onChange={(e) => setSelectedStartPhase(Number(e.target.value))}
+                      className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
+                    >
+                      <option value={0}>🚀 TOUT : Pipeline Complète (Zero-Touch)</option>
+                      <option value={1}>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
+                      <option value={2}>⚙️ Phase 2 : Logique G5</option>
+                      <option value={4}>🎨 Phase 3/4 : Câblage Métier (Business Wiring)</option>
                     </select>
                   </div>
 
@@ -898,6 +906,27 @@ const WidgetSettings = ({
                         return;
                       }
                       
+                      if (Number(selectedStartPhase) === 0) {
+                        // Lancer la pipeline complète (Trombone)
+                        fetch("http://localhost:5005/api/bridge/trombone", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ 
+                            target_project: proj, 
+                            target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                            start_index: 1, 
+                            zip_mode: true,
+                            start_phase: 0
+                          })
+                        }).then(r => r.json()).then(tData => {
+                          alert("✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4.");
+                        }).catch(e => {
+                          console.error(e);
+                          alert("Erreur: Le moteur :5005 est-il lancé ?");
+                        });
+                        return;
+                      }
+                      
                       // Phase 1 : Forcer la cible sur Stitch pour la génération UI initiale
                       const aiTarget = "stitch";
                       
@@ -920,9 +949,14 @@ const WidgetSettings = ({
                         alert("Erreur: Le moteur :5005 est-il lancé ?");
                       });
                     }}
-                    className="w-full mt-4 py-4 bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 text-white text-[11px] font-black uppercase tracking-wider rounded-lg border border-emerald-500/50 transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                    className={`w-full mt-4 py-4 rounded-lg border transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${
+                      Number(selectedStartPhase) === 0 
+                        ? "bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-500/70 hover:to-pink-500/70 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+                        : "bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                    }`}
                   >
-                    <span>🚀</span> LANCER PHASE 1 (Prompt vers l'IA)
+                    <span>{Number(selectedStartPhase) === 0 ? "🚀" : "✨"}</span> 
+                    {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
                   </button>
                 </div>
 
@@ -963,24 +997,105 @@ const WidgetSettings = ({
                   </div>
 
                   {/* Trombone Actions */}
-                  <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => {
-                        const proj = selectedLaunchProject || newProjectName;
-                        if (!proj) return;
-                        
-                        const aiTarget = window.KIROV_TARGET_AI || "deepseek";
-                        // Indicate loading state on button if desired, but we keep it silent
-                        fetch("http://localhost:5005/api/bridge/trombone", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ target_project: proj, target_ai: aiTarget, start_index: 1, zip_mode: true })
-                        }).catch(e => console.error(e));
-                      }}
-                      className="w-full bg-[#0a1025] hover:bg-[#101a35] border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
-                    >
-                      <span>🔄</span> Reconstruire la file
-                    </button>
+                  {Number(selectedStartPhase) === 4 && (
+                    <div className="flex flex-col gap-2 mb-2">
+                      <button 
+                        onClick={async () => {
+                          const proj = selectedLaunchProject || newProjectName;
+                          if (!proj) return;
+                          const aiTarget = window.KIROV_TARGET_AI || "deepseek";
+                          try {
+                            alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
+                            const res = await fetch("http://localhost:5005/api/bridge/generate-wiring-pack", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ 
+                                projectId: proj,
+                                baseVersionId: "version-active",
+                                request: "Audite la coquille vide et propose le câblage métier.",
+                                targetFiles: [],
+                                targetRoutes: [],
+                                source: "phase-4-ui"
+                              })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              const wiringPackId = data.data?.wiringPackId || data.wiringPackId || 'Inconnu';
+                              alert("✅ Pack PRD Métier (Logic Wiring) généré avec l'ID : " + wiringPackId + "\\nL'IA va maintenant être injectée automatiquement dans la file d'attente...");
+                              
+                              // FUSION: Auto-injection dans la file d'attente
+                              const trombonePayload = {
+                                target_project: proj,
+                                target_ai: aiTarget,
+                                start_phase: 4,
+                                wiringPackId: wiringPackId,
+                                zip_mode: true
+                              };
+                              
+                              fetch("http://localhost:5005/api/bridge/trombone", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(trombonePayload)
+                              })
+                              .then(r => r.json())
+                              .then(tData => {
+                                if (tData.mode === 'multi_batch') {
+                                  alert("✅ " + tData.message);
+                                } else if (tData.error) {
+                                  alert("❌ Erreur lors de l'injection : " + tData.error);
+                                }
+                              })
+                              .catch(e => console.error("Trombone error", e));
+
+                            } else {
+                              const errorMsg = data.error && data.error.message ? data.error.message : JSON.stringify(data.error);
+                              alert("❌ Erreur lors de l'audit: " + errorMsg);
+                            }
+                          } catch (e: any) {
+                            alert("❌ Erreur lors de l'audit: " + (e.message || e));
+                          }
+                        }}
+                        className="w-full bg-[#051a20] hover:bg-[#083040] border border-cyan/40 text-cyan px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(8,179,201,0.2)]"
+                      >
+                        <span>🔍</span> AUDITER LA COQUILLE VIDE (Générer Pack Métier)
+                      </button>
+                    </div>
+                  )}
+                    <div className="flex flex-col gap-2 mb-2">
+                      <button 
+                        onClick={() => {
+                          const proj = selectedLaunchProject || newProjectName;
+                          if (!proj) return;
+                          
+                          const aiTarget = window.KIROV_TARGET_AI || "deepseek";
+                          
+                          const payload = Number(selectedStartPhase) === 4 
+                            ? {
+                                projectId: proj, 
+                                start_phase: 4, 
+                                wiringPackId: `wiring-${proj.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+                                promotionMode: "disabled", 
+                                autoPilot: true
+                              }
+                            : { 
+                                target_project: proj, 
+                                target_ai: aiTarget, 
+                                start_index: 1, 
+                                zip_mode: true,
+                                start_phase: selectedStartPhase
+                              };
+
+                          fetch("http://localhost:5005/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
+                          }).catch(e => console.error(e));
+                        }}
+                        className="w-full bg-[#0a1025] hover:bg-[#101a35] border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
+                      >
+                        <span>🔄</span> Reconstruire la file
+                      </button>
+                    </div>
 
                     <button
                       onClick={async () => {
@@ -1113,8 +1228,6 @@ const WidgetSettings = ({
                     </div>
                   </div>
                 </div>
-
-              </div>
             </div>
           )}
 
@@ -1995,24 +2108,46 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
               )}
             </button>
             {p.installed !== false && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLaunchingProject(p.name);
-                  fetch("http://localhost:5005/api/bridge/install-dependencies", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ project_id: p.name })
-                  }).then(() => {
-                    alert("Réinstallation démarrée dans le terminal !");
-                    setLaunchingProject(null);
-                  }).catch(() => setLaunchingProject(null));
-                }}
-                className="bg-orange-500/30 hover:bg-orange-500/60 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center border border-orange-500/40"
-                title="Forcer la réinstallation des dépendances (npm install)"
-              >
-                🔄
-              </button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLaunchingProject(p.name);
+                    fetch("http://localhost:5005/api/bridge/install-dependencies", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ project_id: p.name })
+                    }).then(() => {
+                      alert("Réinstallation démarrée dans le terminal !");
+                      setLaunchingProject(null);
+                    }).catch(() => setLaunchingProject(null));
+                  }}
+                  className="bg-orange-500/30 hover:bg-orange-500/60 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center border border-orange-500/40"
+                  title="Forcer la réinstallation des dépendances (npm install)"
+                >
+                  🔄
+                </button>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const res = await fetch("http://localhost:5005/api/bridge/manual-pnpm-run", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ project_id: p.name })
+                      });
+                      const data = await res.json();
+                      alert(data.message || "Terminal ouvert !");
+                    } catch(err: any) {
+                      alert("Erreur de connexion au bridge: " + err.message);
+                    }
+                  }}
+                  className="font-bold py-2 px-3 rounded-xl text-xs bg-purple-500/60 hover:bg-purple-500 text-white transition-all shadow-md"
+                  title="Lancer manuellement avec pnpm run dev (ouvre un terminal)"
+                >
+                  💻 PNPM
+                </button>
+              </>
             )}
             <button
               onClick={handleDeleteProject}
@@ -3621,6 +3756,8 @@ Format attendu:
             setIsAutoPilot={setIsAutoPilot}
             reuseActiveTab={reuseActiveTab}
             setReuseActiveTab={setReuseActiveTab}
+            selectedStartPhase={selectedStartPhase}
+            setSelectedStartPhase={setSelectedStartPhase}
           />
         </div>
       )}
@@ -4448,7 +4585,7 @@ Format attendu:
                             >
                               {msg.content}
                             </div>
-                            {index === lastWidgetIndex && msg.widget === "settings" && WidgetSettings({ isClient, getCachedGradient, mouchardLogs, activePhase, availableProjects, setAvailableProjects, selectedLaunchProject, setSelectedLaunchProject, isMobileNative })}
+                            {index === lastWidgetIndex && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} isAutoPilot={isAutoPilot} setIsAutoPilot={setIsAutoPilot} reuseActiveTab={reuseActiveTab} setReuseActiveTab={setReuseActiveTab} selectedStartPhase={selectedStartPhase} setSelectedStartPhase={setSelectedStartPhase} />}
                             {index === lastWidgetIndex && msg.widget === "phases" && WidgetPhases()}
                           </div>
                         );
@@ -4509,8 +4646,7 @@ Format attendu:
               <div className="flex gap-2 items-center">
                 <button
                   onClick={async () => {
-                    // Nettoyage immédiat du frontend
-                    setMouchardLogs(["> Console nettoyée... Arrêt des processus en cours..."]);
+                    setMouchardLogs(["> Arrêt des processus en cours... (Historique conservé dans la console noire)"]);
                     try {
                       const res = await fetch("http://localhost:5005/api/bridge/stop-launch", { method: "POST" });
                       if (!res.ok) {
@@ -4522,7 +4658,7 @@ Format attendu:
                         return;
                       }
                       const data = await res.json();
-                      setMouchardLogs(["> ✅ " + (data.message || "Console nettoyée et processus arrêtés.")]);
+                      setMouchardLogs(["> ✅ " + (data.message || "Processus arrêtés.")]);
                     } catch (e: any) {
                       setMouchardLogs([
                         "> ⚠️ ERREUR DE CONNEXION AU MOTEUR !",
@@ -4532,7 +4668,7 @@ Format attendu:
                     }
                   }}
                   className="py-1 px-2 rounded text-white font-bold text-[10px] bg-red-500/20 border border-red-500/50 hover:bg-red-500 hover:text-white transition-colors shadow-md"
-                  title="Arrêter l'installation ou le serveur et nettoyer la console"
+                  title="Arrêter l'installation ou le serveur (Ne nettoie plus la console)"
                 >
                   ⏹️ Stop/Clear
                 </button>
@@ -5008,6 +5144,7 @@ Format attendu:
                     >
                       <option value={1}>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
                       <option value={2}>💻 Phase 2 : Le Backend (Assistant IA)</option>
+                      <option value={4}>🎨 Phase 3/4 : Câblage Métier (Business Wiring)</option>
                     </select>
                   </div>
 

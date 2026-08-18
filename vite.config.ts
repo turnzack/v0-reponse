@@ -27,4 +27,4 @@ export default defineConfig({
 })
 
 // === SCRIPT DE CORRECTION AUTOMATIQUE POUR CHAT_COMMS ===
-
+// Trigger Vite restart 1
