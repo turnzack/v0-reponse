@@ -1105,14 +1105,14 @@ const AdminDesignApp = () => {
       fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=src/design.css`)
         .then(res => res.json())
         .then(data => {
+          let parsedDesign: Record<string, string> = {};
+          let structure: Record<string, Record<string, string[]>> = {
+            "🎨 Paramètres du Projet": {}
+          };
           if (data.success && data.content) {
             const cssContent = data.content;
             const varRegex = /--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g;
             let match;
-            const parsedDesign: Record<string, string> = {};
-            const structure: Record<string, Record<string, string[]>> = {
-              "🎨 Paramètres du Projet": {}
-            };
 
             while ((match = varRegex.exec(cssContent)) !== null) {
               const fullVarName = match[1];
@@ -1177,9 +1177,10 @@ const AdminDesignApp = () => {
             if (Object.keys(structure["🎨 Paramètres du Projet"]).length === 0) {
               delete structure["🎨 Paramètres du Projet"];
             }
+          } // Fermeture du if (data.success && data.content)
 
-            // --- NOUVEAU: Fetch du dossier src/pages ---
-            fetch(`http://localhost:5005/api/fs/tree?project=${targetProject}`)
+          // --- NOUVEAU: Fetch de l'arbre indépendamment de design.css ---
+          fetch(`http://localhost:5005/api/fs/tree?project=${targetProject}`)
               .then(resTree => resTree.json())
               .then(treeData => {
                 if (treeData.success && treeData.tree) {
@@ -1210,7 +1211,30 @@ const AdminDesignApp = () => {
                       });
                     }
 
-                    // Le composant src/components a été retiré à la demande de l'utilisateur.
+                    // Extract components
+                    const compArr: string[] = [];
+                    extractFolder(treeData.tree, 'src/components', compArr);
+                    if (compArr.length > 0) {
+                      newStructure["📁 src/components"] = {};
+                      compArr.forEach(path => {
+                        const name = path.split('/').pop();
+                        if (name) newStructure["📁 src/components"][name] = [path];
+                      });
+                    }
+
+                    // Extract App.tsx explicitly
+                    const findAppTsx = (node: any) => {
+                      if (!node) return;
+                      if (node.type === 'file' && node.name === 'App.tsx' && node.path === 'src/App.tsx') {
+                         if (!newStructure["📁 Application"]) newStructure["📁 Application"] = {};
+                         newStructure["📁 Application"]["App"] = ["src/App.tsx"];
+                      }
+                      if (node.children && Array.isArray(node.children)) {
+                        node.children.forEach(findAppTsx);
+                      }
+                    };
+                    findAppTsx(treeData.tree);
+
                     if (Object.keys(newStructure).length > 0) {
                       setDesign(parsedDesign);
                       setDynamicStructure(newStructure);
@@ -1225,25 +1249,40 @@ const AdminDesignApp = () => {
                 }
 
                 // Fallback si l'arbre est vide ou erreur
-                setDesign(parsedDesign);
-                setDynamicStructure(structure);
-                const firstCat = Object.keys(structure)[0];
-                if (firstCat) {
-                  setActiveCategory(firstCat);
-                  setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                if (targetProject && !targetProject.includes("v0-interface-versel")) {
+                   const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
+                   setDesign(parsedDesign);
+                   setDynamicStructure(fallbackProj);
+                   setActiveCategory("📁 Application");
+                   setActiveSubCategory("App");
+                } else {
+                   setDesign(parsedDesign);
+                   setDynamicStructure(structure);
+                   const firstCat = Object.keys(structure)[0];
+                   if (firstCat) {
+                     setActiveCategory(firstCat);
+                     setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                   }
                 }
               }).catch((err) => {
                 console.error("Erreur réseau fetch tree:", err);
                 // Fallback si l'arbre ne charge pas
-                setDesign(parsedDesign);
-                setDynamicStructure(structure);
-                const firstCat = Object.keys(structure)[0];
-                if (firstCat) {
-                  setActiveCategory(firstCat);
-                  setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                if (targetProject && !targetProject.includes("v0-interface-versel")) {
+                   const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
+                   setDesign(parsedDesign);
+                   setDynamicStructure(fallbackProj);
+                   setActiveCategory("📁 Application");
+                   setActiveSubCategory("App");
+                } else {
+                   setDesign(parsedDesign);
+                   setDynamicStructure(structure);
+                   const firstCat = Object.keys(structure)[0];
+                   if (firstCat) {
+                     setActiveCategory(firstCat);
+                     setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
+                   }
                 }
               });
-          }
         })
         .finally(() => setIsLoaded(true));
     }

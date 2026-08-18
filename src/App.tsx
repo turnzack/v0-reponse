@@ -65,7 +65,11 @@ const WidgetSettings = ({
   setAvailableProjects,
   selectedLaunchProject,
   setSelectedLaunchProject,
-  isMobileNative
+  isMobileNative,
+  isAutoPilot,
+  setIsAutoPilot,
+  reuseActiveTab,
+  setReuseActiveTab
 }: any) => {
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -862,11 +866,11 @@ const WidgetSettings = ({
 
                   <div className="flex flex-col gap-3 mt-4 bg-[#111] p-4 rounded-lg border border-white/5">
                     <label className="flex items-center gap-3 text-[11px] font-bold text-gray-300 cursor-pointer">
-                      <input type="checkbox" className="accent-cyan w-4 h-4" />
-                      🤖 AUTO-PILOT : OFF ⚪
+                      <input type="checkbox" className="accent-cyan w-4 h-4" checked={isAutoPilot} onChange={() => setIsAutoPilot(!isAutoPilot)} />
+                      🤖 AUTO-PILOT : {isAutoPilot ? 'ON 🟢' : 'OFF ⚪'}
                     </label>
                     <label className="flex items-center gap-3 text-[11px] font-bold text-gray-300 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="accent-cyan w-4 h-4" />
+                      <input type="checkbox" className="accent-cyan w-4 h-4" checked={reuseActiveTab} onChange={() => setReuseActiveTab(!reuseActiveTab)} />
                       🔗 Injecter dans l'onglet ouvert
                     </label>
                   </div>
@@ -878,19 +882,7 @@ const WidgetSettings = ({
                     </button>
                     <button 
                       id="btn-joindre-zip"
-                      onClick={() => {
-                        const fileInput = document.createElement("input");
-                        fileInput.type = "file";
-                        fileInput.accept = ".zip";
-                        fileInput.onchange = (e: any) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                             // on délègue au main app via window event
-                             window.dispatchEvent(new CustomEvent('kirov5-upload-zip', { detail: file }));
-                          }
-                        };
-                        fileInput.click();
-                      }}
+                      onClick={triggerNativeZipPicker}
                       className="py-6 bg-[#1a2f3a] hover:bg-[#254250] text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
                     >
                       <span className="text-xl">📎</span>
@@ -1465,7 +1457,7 @@ const getLocalPackReadme = (packId: string): string | null => {
   return null;
 };
 
-const CarteV0GuestChat = ({ messages, showGuestPacks, setShowGuestPacks, guestPacksCount }: any) => {
+const CarteV0GuestChat = ({ messages, showGuestPacks, setShowGuestPacks, guestPacksCount, guestPackSearchQuery, setGuestPackSearchQuery }: any) => {
   return (
     <div className="design-carte-v0-guest flex-shrink-0 w-full xl:w-[320px] z-30">
       <div 
@@ -1483,6 +1475,18 @@ const CarteV0GuestChat = ({ messages, showGuestPacks, setShowGuestPacks, guestPa
           </div>
           <h3 className="text-xl font-black text-white mb-1 leading-tight">V0-GUEST</h3>
           <div className="text-purple-400 font-bold text-xs uppercase tracking-widest mb-2">Hermes PRD Pack Engine</div>
+          
+          <div className="mb-2 relative">
+            <input
+              type="text"
+              placeholder="Rechercher un pack Guest..."
+              value={guestPackSearchQuery || ''}
+              onChange={(e) => setGuestPackSearchQuery && setGuestPackSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-black/40 border border-purple-500/30 rounded-lg px-3 py-1.5 text-xs text-white placeholder-purple-400/50 focus:outline-none focus:border-purple-400 focus:bg-purple-900/20 transition-all"
+            />
+            <span className="absolute right-2 top-1.5 text-purple-400/50 text-xs">🔍</span>
+          </div>
           
           {/* FLUX DE CHAT ET BULLES INTÉGRÉS DANS LA CARTE V0-GUEST */}
           {messages && messages.length > 0 ? (
@@ -1523,11 +1527,27 @@ const WidgetPrdPacks = ({
   onDetailStateChange,
   messages,
   showGuestPacks,
-  setShowGuestPacks
+  setShowGuestPacks,
+  guestPackSearchQuery
 }: any) => {
   const [packReadmes, setPackReadmes] = useState<{ [id: string]: string }>({});
   const [selectedPrdDetail, setSelectedPrdDetail] = useState<{ packId: string, packName: string, readmeText: string } | null>(null);
   const [guestPacks, setGuestPacks] = useState<any[]>([]);
+
+  const fetchGuestPacks = async () => {
+    try {
+      const res = await fetch(`http://localhost:5005/api/bridge/list-guest-packs?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const payload = await res.json();
+        const data = payload.data || payload;
+        if (data.success && data.packs) {
+          setGuestPacks(data.packs);
+        }
+      }
+    } catch (e) {
+      console.error("Erreur lecture guest packs", e);
+    }
+  };
 
   const handleSetSelectedPrdDetail = (detail: { packId: string, packName: string, readmeText: string } | null) => {
     setSelectedPrdDetail(detail);
@@ -1548,20 +1568,7 @@ const WidgetPrdPacks = ({
     });
   }, []);
 
-  const fetchGuestPacks = async () => {
-    try {
-      const res = await fetch("http://localhost:5005/api/bridge/list-guest-packs");
-      if (res.ok) {
-        const payload = await res.json();
-        const data = payload.data || payload;
-        if (data.success && data.packs) {
-          setGuestPacks(data.packs);
-        }
-      }
-    } catch (e) {
-      console.error("Erreur lecture guest packs", e);
-    }
-  };
+
 
   useEffect(() => {
     fetchGuestPacks();
@@ -1656,7 +1663,16 @@ const WidgetPrdPacks = ({
                 </button>
               </div>
             ) : (
-              <Carousel items={guestPacks.map((pack: any) => {
+              <Carousel items={guestPacks.filter((pack: any) => {
+                if (!guestPackSearchQuery) return true;
+                const lowerQ = guestPackSearchQuery.toLowerCase();
+                return pack.name?.toLowerCase().includes(lowerQ) || 
+                       pack.description?.toLowerCase().includes(lowerQ) || 
+                       pack.id?.toLowerCase().includes(lowerQ) ||
+                       pack.category?.toLowerCase().includes(lowerQ);
+              }).sort((a: any, b: any) => {
+                return (a.name || "").localeCompare(b.name || "");
+              }).map((pack: any) => {
                 const packId = pack.id;
                 const isSelected = selectedPacks ? selectedPacks.includes(packId) : false;
                 
@@ -1813,9 +1829,10 @@ const WidgetPrdPacks = ({
 };
 
 const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) => {
-  const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string }[]>([]);
+  const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string, installed?: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [launchingProject, setLaunchingProject] = useState<string | null>(null);
 
   const fetchProjects = (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -1826,7 +1843,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
       "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
     ];
-    fetch("http://localhost:5005/api/projects")
+    fetch("http://localhost:5005/api/projects-v2")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.projects) {
@@ -1835,7 +1852,8 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
             return {
               name: projName,
               desc: "Environnement Local",
-              bg: cardStyles[i % cardStyles.length]
+              bg: cardStyles[i % cardStyles.length],
+              installed: p.installed
             };
           }));
         }
@@ -1877,16 +1895,19 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
   return <Carousel items={[
     ...liveProjects.map((p, i) => {
       const handleOpenProject = async () => {
+        setLaunchingProject(p.name);
         setActiveProject(p.name);
         try {
           window.dispatchEvent(new CustomEvent('open-mouchard'));
-          fetch("http://localhost:5005/api/bridge/launch-project", {
+          await fetch(`http://localhost:5005/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_id: p.name })
+            body: JSON.stringify({ project_id: p.name, open_explorer: false })
           }).catch(err => console.error("Erreur de lancement :", err));
         } catch (err: any) {
           console.error("Erreur de lancement :", err);
+        } finally {
+          setTimeout(() => setLaunchingProject(null), 2000);
         }
       };
 
@@ -1939,13 +1960,60 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleOpenProject();
+                if (launchingProject === p.name) return;
+                
+                if (p.installed === false) {
+                  setLaunchingProject(p.name);
+                  fetch("http://localhost:5005/api/bridge/install-dependencies", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: p.name })
+                  }).then(() => {
+                    alert("L'installation a démarré dans le terminal (Suture) ! Une fois terminée, vous pourrez lancer la Preview.");
+                    setLaunchingProject(null);
+                    // Mettre à jour l'état local pour simuler la réussite de l'installation et débloquer le bouton
+                    setLiveProjects(prev => prev.map(proj => proj.name === p.name ? {...proj, installed: true} : proj));
+                  }).catch(() => setLaunchingProject(null));
+                } else {
+                  handleOpenProject();
+                }
               }}
-              className="bg-white/20 hover:bg-white/40 text-white font-bold py-2 px-4 rounded-xl text-xs transition-colors"
-              title="Ouvrir le projet, vérifier les dépendances et lancer l'aperçu"
+              disabled={launchingProject === p.name}
+              className={`font-bold py-2 px-4 rounded-xl text-xs transition-all flex items-center gap-1.5 ${
+                launchingProject === p.name 
+                  ? "bg-cyan-500/40 text-cyan-200 cursor-wait animate-pulse" 
+                  : (p.installed === false ? "bg-orange-500/80 hover:bg-orange-600 text-white cursor-pointer" : "bg-white/20 hover:bg-white/40 text-white cursor-pointer")
+              }`}
+              title={p.installed === false ? "Installer les dépendances requises pour ce projet" : "Lancer la prévisualisation Vite"}
             >
-              🚀 Ouvrir & Designer
+              {launchingProject === p.name ? (
+                <>
+                  <span className="animate-spin inline-block">⏳</span> {p.installed === false ? "Installation..." : "Lancement..."}
+                </>
+              ) : (
+                p.installed === false ? <>📦 INSTALL</> : <>🚀 PREVIEW</>
+              )}
             </button>
+            {p.installed !== false && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLaunchingProject(p.name);
+                  fetch("http://localhost:5005/api/bridge/install-dependencies", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: p.name })
+                  }).then(() => {
+                    alert("Réinstallation démarrée dans le terminal !");
+                    setLaunchingProject(null);
+                  }).catch(() => setLaunchingProject(null));
+                }}
+                className="bg-orange-500/30 hover:bg-orange-500/60 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center border border-orange-500/40"
+                title="Forcer la réinstallation des dépendances (npm install)"
+              >
+                🔄
+              </button>
+            )}
             <button
               onClick={handleDeleteProject}
               className="bg-red-600/30 hover:bg-red-600/60 text-red-200 border border-red-500/40 font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center gap-1"
@@ -2015,7 +2083,10 @@ export default function Dashboard() {
     (window as any).KIROV_SELECTED_PACKS = selectedPacks;
   }, [selectedPacks]);
   const [showPacksCarousel, setShowPacksCarousel] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [availableBackups, setAvailableBackups] = useState<string[]>([]);
   const [showGuestPacks, setShowGuestPacks] = useState(false);
+  const [guestPackSearchQuery, setGuestPackSearchQuery] = useState("");
   const [packSearchQuery, setPackSearchQuery] = useState("");
 
   // MODAL NOUVEAU PROJET V0 -> CREATION MODE INLINE
@@ -2025,7 +2096,7 @@ export default function Dashboard() {
   const [newProjectDesc, setNewProjectDesc] = useState("");
   const [newProjectLogicAi, setNewProjectLogicAi] = useState("deepseek");
   const [newProjectInstructions, setNewProjectInstructions] = useState("");
-  const [isAutoPilotOn, setIsAutoPilotOn] = useState(false);
+  const [isAutoPilotOn, setIsAutoPilotOn] = useState(true);
   const [isLocalZipMode, setIsLocalZipMode] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
@@ -2243,15 +2314,20 @@ export default function Dashboard() {
     if (activeProject === 'v0-guest' || activeProject === 'V0-Guest') {
       setIsIdeFullscreen(true);
       setPreviewUrl("http://localhost:3007");
+      setPreviewInput("http://localhost:3007");
       lastPreviewUrlRef.current = "http://localhost:3007";
     } else if (activeProject) {
       setIsIdeFullscreen(true);
-      setPreviewUrl(null);
+      const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
+      const defaultUrl = isNextJs ? "http://localhost:3000" : "http://127.0.0.1:5173";
+      setPreviewUrl(defaultUrl);
+      setPreviewInput(defaultUrl);
+      lastPreviewUrlRef.current = defaultUrl;
     } else {
       setIsIdeFullscreen(false);
       setPreviewUrl(null);
     }
-  }, [activeProject]);
+  }, [activeProject, fsTree]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -2259,7 +2335,7 @@ export default function Dashboard() {
         const route = event.data.route;
         const hashRoute = route === '/' ? '' : `#${route}`;
         setPreviewUrl(currentUrl => {
-          const baseUrl = currentUrl ? currentUrl.split('#')[0] : 'http://localhost:5173/';
+          const baseUrl = currentUrl ? currentUrl.split('#')[0] : 'http://127.0.0.1:5173/';
           const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
           return `${cleanBase}${hashRoute}`;
         });
@@ -2375,14 +2451,15 @@ export default function Dashboard() {
           console.log("Aucun projet mobile trouvé ou dossier inexistant.");
         }
       } else {
-        fetch("http://localhost:5005/api/projects")
+        fetch("http://localhost:5005/api/projects-v2")
           .then(res => res.json())
           .then(data => {
             if (data.success && data.projects) {
-              setRealProjects(data.projects.map((p: string, i: number) => ({
-                name: p,
+              setRealProjects(data.projects.map((p: any, i: number) => ({
+                name: p.name,
                 desc: "Environnement Local",
-                bg: cardStyles[i % cardStyles.length]
+                bg: cardStyles[i % cardStyles.length],
+                installed: p.installed
               })));
             }
           }).catch(() => { });
@@ -2742,8 +2819,9 @@ export default function Dashboard() {
   const handleStartNewV0Project = () => {
     if (!newProjectName.trim()) return alert("Veuillez donner un nom à votre projet");
 
+    const logicAi = window.KIROV_TARGET_AI || localStorage.getItem("tiger_targetAi") || "deepseek";
     setIsCreationMode(false);
-    localStorage.setItem("tiger_targetAi", newProjectLogicAi);
+    localStorage.setItem("tiger_targetAi", logicAi);
 
     const promptText = `Génère l'interface UI/UX complète et moderne pour le projet : ${newProjectName}.
 Stack / Structure : ${newProjectStack}.
@@ -2773,7 +2851,7 @@ Description : ${newProjectDesc}.`;
     const msg: Message = {
       id: Date.now().toString(),
       role: "assistant",
-      content: `🚀 Lancement de la phase UI pour "${newProjectName}".\nL'assistant Logique (${newProjectLogicAi.toUpperCase()}) prendra le relais quand vous glisserez le fichier HTML final dans le chat.`,
+      content: `🚀 Lancement de la phase UI pour "${newProjectName}".\nL'assistant Logique (${logicAi.toUpperCase()}) prendra le relais quand vous glisserez le fichier HTML final dans le chat.`,
       widget: "phases"
     };
     setActivePhase(1);
@@ -2821,6 +2899,7 @@ Description : ${newProjectDesc}.`;
   };
 
   const handleStartLocalZipPipeline = () => {
+    const logicAi = window.KIROV_TARGET_AI || localStorage.getItem("tiger_targetAi") || "deepseek";
     const designProjectId = activeProject || (newProjectName.trim()
       ? "Projet_" + newProjectName.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now().toString().slice(-4)
       : "Projet_Local_ZIP_" + Date.now().toString().slice(-4));
@@ -2834,7 +2913,7 @@ Description : ${newProjectDesc}.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         zip_mode: true,
-        target_ai: newProjectLogicAi,
+        target_ai: logicAi,
         target_project: designProjectId,
         start_phase: selectedStartPhase === 0 ? 1 : selectedStartPhase,
         auto_pilot: isAutoPilot,
@@ -2847,10 +2926,10 @@ Description : ${newProjectDesc}.`;
         setMessages(prev => [...prev, {
           id: Date.now().toString() + "_hermes",
           role: "assistant",
-          content: `✅ ${data.message}\n\n📡 Lot ${data.current_batch || (selectedStartPhase === 0 ? 1 : selectedStartPhase)}/${data.total_batches} transmis à ${newProjectLogicAi.toUpperCase()}.\n⚙️ AutoPilot: ${isAutoPilot ? 'ACTIVÉ 🟢 (Lancement automatique des lots suivants)' : 'DÉSACTIVÉ 🟠'}\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
+          content: `✅ ${data.message}\n\n📡 Lot ${data.current_batch || (selectedStartPhase === 0 ? 1 : selectedStartPhase)}/${data.total_batches} transmis à ${logicAi.toUpperCase()}.\n⚙️ AutoPilot: ${isAutoPilot ? 'ACTIVÉ 🟢 (Lancement automatique des lots suivants)' : 'DÉSACTIVÉ 🟠'}\nFichiers détectés : ${(data.files_detected || []).join(', ')}`
         }]);
         if (!reuseActiveTab) {
-          const logicAiUrl = getTargetAiUrl(newProjectLogicAi);
+          const logicAiUrl = getTargetAiUrl(logicAi);
           window.open(logicAiUrl, '_blank');
         }
       } else {
@@ -3538,6 +3617,10 @@ Format attendu:
             selectedLaunchProject={selectedLaunchProject}
             setSelectedLaunchProject={setSelectedLaunchProject}
             isMobileNative={isMobileNative}
+            isAutoPilot={isAutoPilot}
+            setIsAutoPilot={setIsAutoPilot}
+            reuseActiveTab={reuseActiveTab}
+            setReuseActiveTab={setReuseActiveTab}
           />
         </div>
       )}
@@ -3622,6 +3705,54 @@ Format attendu:
                 </span>
               </button>
 
+              {/* Bacs de sauvegarde Time Machine */}
+              <button
+                title="Immortaliser le projet (Sauvegarde)"
+                onClick={() => {
+                  if (!activeProject) return;
+                  fetch("http://localhost:5005/api/bridge/backup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: activeProject })
+                  })
+                  .then(res => res.json())
+                  .then(data => {
+                    if (data.success) alert("📸 " + data.message + "\n" + data.backupName);
+                    else alert("Erreur: " + data.error);
+                  })
+                  .catch(e => alert("Erreur réseau: " + e.message));
+                }}
+                className="design-ide-btn-action w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white text-xl border border-blue-500/30 hover:border-blue-500 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.6)] group relative mt-2"
+              >
+                📸
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-blue-400 pointer-events-none transition-opacity font-bold">
+                  Immortaliser (Sauvegarder)
+                </span>
+              </button>
+
+              <button
+                title="Restaurer le projet (Time Machine)"
+                onClick={() => {
+                  if (!activeProject) return;
+                  fetch("http://localhost:5005/api/bridge/backups?project_id=" + activeProject)
+                  .then(res => res.json())
+                  .then(data => {
+                    if (!data.success || !data.backups || data.backups.length === 0) {
+                      return alert("⏪ Aucune sauvegarde trouvée pour ce projet.");
+                    }
+                    setAvailableBackups(data.backups);
+                    setShowBackupModal(true);
+                  })
+                  .catch(e => alert("Erreur réseau: " + e.message));
+                }}
+                className="design-ide-btn-action w-10 h-10 rounded-xl bg-slate-500/20 text-slate-400 hover:bg-slate-500 hover:text-white text-xl border border-slate-500/30 hover:border-slate-500 flex items-center justify-center transition-all group relative mb-2"
+              >
+                ⏪
+                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-slate-400 pointer-events-none transition-opacity font-bold">
+                  Restaurer (Dernier Backup)
+                </span>
+              </button>
+
               <button title="Refactoring" onClick={() => handleIDEAction("refactor")} className="design-ide-btn-action w-10 h-10 rounded-xl bg-white/5 hover:bg-purple-500/20 text-xl border border-white/10 hover:border-purple-500 flex items-center justify-center transition-all group relative">
                 🔄
                 <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-purple-400 pointer-events-none transition-opacity">Refactoring</span>
@@ -3666,6 +3797,11 @@ Format attendu:
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
                   }).catch(e => console.error("Erreur lancement v0-guest:", e));
+                  
+                  // Ouverture automatique dans un nouvel onglet
+                  setTimeout(() => {
+                    window.open("http://localhost:3007", "_blank");
+                  }, 2500);
                 }}
                 className="design-ide-btn-action w-10 h-10 rounded-xl bg-gradient-to-br from-cyan/20 to-purple-500/20 text-cyan hover:from-cyan hover:to-purple-500 hover:text-black text-xl border border-cyan/40 flex items-center justify-center transition-all group relative shadow-[0_0_12px_rgba(0,240,255,0.3)]"
               >
@@ -3706,21 +3842,6 @@ Format attendu:
                 </span>
               </button>
 
-              <button
-                title="Lancer Preview"
-                onClick={() => {
-                  if (!activeProject) return;
-                  fetch("http://localhost:5005/api/bridge/launch-project", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ project_id: activeProject })
-                  }).catch(e => console.error("Erreur lacement preview:", e));
-                }}
-                className="design-ide-btn-action w-10 h-10 rounded-full bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-xl border border-green-500/30 hover:border-green-500 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)] group relative"
-              >
-                🚀
-                <span className="absolute left-14 bg-black px-2 py-1 text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap text-green-400 pointer-events-none transition-opacity font-bold">Lancer Preview</span>
-              </button>
             </div>
 
             {/* 2. Explorateur de fichiers */}
@@ -3731,18 +3852,54 @@ Format attendu:
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan animate-pulse"></span>
                     Projet Actif
                   </span>
-                  <button
-                    onClick={() => {
-                      fetch("http://localhost:5005/api/projects")
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (!activeProject) return;
+                        console.log("Clic Suture Manuel ! Projet:", activeProject, "Etat actuel:", sutureBtnState);
+                        
+                        // Si Suture est vert (le moteur a arrêté de surveiller les erreurs), 
+                        // on force un redémarrage de l'analyse (Preview) pour qu'il détecte la nouvelle erreur !
+                        if (sutureBtnState !== "error") {
+                          fetch("http://localhost:5005/api/bridge/launch-project", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ project_id: activeProject })
+                          }).catch(() => {});
+                        }
+
+                        // Déclenchement de la réparation manuelle (Lock file)
+                        fetch("http://localhost:5005/api/suture/launch", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ projectId: activeProject })
+                        })
                         .then(r => r.json())
-                        .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
-                        .catch(() => { });
-                    }}
-                    className="text-xs text-gray-400 hover:text-cyan p-1 transition-colors"
-                    title="Actualiser la liste des projets"
-                  >
-                    🔄
-                  </button>
+                        .then(d => console.log("Réponse Suture API:", d))
+                        .catch(e => console.error("Erreur Suture API:", e));
+                      }}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded transition-colors border shadow-sm flex items-center gap-1 ${
+                        sutureBtnState === "error" ? "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse hover:bg-red-500/30" :
+                        sutureBtnState === "working" ? "bg-purple-500/20 text-purple-400 border-purple-500/50 hover:bg-purple-500/30" :
+                        "bg-green-500/20 text-green-400 border-green-500/50 opacity-50 hover:opacity-100"
+                      }`}
+                      title="Lancer Suture V2 manuellement"
+                    >
+                      sutur🩺
+                    </button>
+                    <button
+                      onClick={() => {
+                        fetch("http://localhost:5005/api/projects")
+                          .then(r => r.json())
+                          .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
+                          .catch(() => { });
+                      }}
+                      className="text-xs text-gray-400 hover:text-cyan p-1 transition-colors"
+                      title="Actualiser la liste des projets"
+                    >
+                      🔄
+                    </button>
+                  </div>
                 </div>
 
                 {/* SÉLECTEUR DE PROJETS INTERACTIF */}
@@ -3763,7 +3920,7 @@ Format attendu:
                       fetch("http://localhost:5005/api/bridge/launch-project", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ project_id: selected })
+                        body: JSON.stringify({ project_id: selected, open_explorer: false })
                       }).catch(err => console.error("Erreur de lancement :", err));
                     }
                   }}
@@ -3796,7 +3953,6 @@ Format attendu:
                   <span className="text-sm text-gray-300 font-mono">{activeFile || 'Aucun fichier sélectionné'}</span>
                 </div>
                 <div className="flex gap-4 items-center">
-                  {previewUrl && (
                     <div className="flex items-center gap-2">
                       <div className="text-xs text-green-400 animate-pulse font-bold flex items-center gap-2">
                         <span className="w-2 h-2 bg-green-400 rounded-full"></span> SERVER:
@@ -3813,7 +3969,6 @@ Format attendu:
                       />
                       <button onClick={() => setPreviewUrl(previewInput)} className="text-[10px] bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white px-2 py-1 rounded font-bold border border-green-500/30">Go</button>
                     </div>
-                  )}
                   <button
                     onClick={() => handleSaveFile(fileContent)}
                     disabled={!activeFile}
@@ -3909,7 +4064,7 @@ Format attendu:
                               fetch("http://localhost:5005/api/bridge/launch-project", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ project_id: activeProject })
+                                body: JSON.stringify({ project_id: activeProject, open_explorer: false })
                               }).catch(e => console.error("Erreur lancement preview:", e));
                             }}
                             className="px-2.5 py-1 bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white text-[11px] rounded font-bold border border-green-500/30 transition-all flex items-center gap-1"
@@ -4026,6 +4181,8 @@ Format attendu:
                     showGuestPacks={showGuestPacks}
                     setShowGuestPacks={setShowGuestPacks}
                     guestPacksCount={4}
+                    guestPackSearchQuery={guestPackSearchQuery}
+                    setGuestPackSearchQuery={setGuestPackSearchQuery}
                   />
 
                   {/* CARROUSEL ACTIF / PANNEAUX INLINE POSITIONNÉS À DROITE DE V0-GUEST */}
@@ -4044,6 +4201,7 @@ Format attendu:
                           onDetailStateChange={setIsPrdDetailOpen}
                           showGuestPacks={showGuestPacks}
                           setShowGuestPacks={setShowGuestPacks}
+                          guestPackSearchQuery={guestPackSearchQuery}
                         />
                       )}
                       {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "projects" && (
@@ -4487,6 +4645,10 @@ Format attendu:
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
                   });
+                  // Ouverture automatique dans un nouvel onglet
+                  setTimeout(() => {
+                    window.open("http://localhost:3007", "_blank");
+                  }, 2500);
                 } catch (e: any) {
                   console.error("Erreur lancement v0-guest:", e);
                 }
@@ -4852,11 +5014,11 @@ Format attendu:
                   {/* BOUTON TOGGLE AUTO-PILOT */}
                   <button
                     type="button"
-                    onClick={() => setIsAutoPilotOn(!isAutoPilotOn)}
-                    className={`mt-4 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${isAutoPilotOn ? 'bg-green-600/30 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'}`}
+                    onClick={() => setIsAutoPilot(!isAutoPilot)}
+                    className={`mt-4 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${isAutoPilot ? 'bg-green-600/30 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'}`}
                   >
                     <span>🤖</span>
-                    <span>AUTO-PILOT : {isAutoPilotOn ? 'ON 🟢' : 'OFF ⚪'}</span>
+                    <span>AUTO-PILOT : {isAutoPilot ? 'ON 🟢' : 'OFF ⚪'}</span>
                   </button>
 
                   {/* BOUTON TOGGLE INJECTER DANS L'ONGLET DEJA OUVERT */}
@@ -5066,7 +5228,7 @@ Format attendu:
                       } else if (newProjectStack.includes("Canvas 2D")) {
                         stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être un jeu Web 2D généré en **React + Vite + TypeScript (TSX) + Canvas 2D**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx, src/game/GameEngine.ts.\n• Moteur : Moteur 2D avec boucle requestAnimationFrame, physique de collisions AABB/rebonds, Web Audio API pour effets sonores et HUD complet avec Tailwind.\n\n[PHASE 0 : PRE-VIZ MAQUETTE NANO BANANA]\n• Avant le code source, générer la maquette visuelle d'écran de jeu 2D (Wireframe / Design Mockup) pour valider le layout Arcade, le Canvas et la disposition des boutons.\n\n[SÉQUENCE DE MICRO-ACTIONS MULTI-ÉTAPES (DECOUPAGE ULTRA-COMPLEXE)]\n• ACTION 1/6 (Core Engine 2D) :\n  - 1.A : Architecture Canvas 2D, Aspect-Ratio Lock 16:9 & High-DPI Scaling.\n  - 1.B : Boucle requestAnimationFrame 60 FPS avec DeltaTime & Pause state.\n  - 1.C : Gestionnaire de scène et grille de coordonnées 2D.\n• ACTION 2/6 (Physique & Collisions AABB) :\n  - 2.A : Détection de collisions AABB (Axis-Aligned Bounding Boxes).\n  - 2.B : Calculs de rebonds angulaires, impulsion & frottements.\n  - 2.C : Triggers de bonus, pièges et limites du terrain.\n• ACTION 3/6 (Contrôles Multi-Input) :\n  - 3.A : Handlers d'événements Clavier (WASD / Flèches).\n  - 3.B : Overlay Joypad tactile mobile réactif (Joypad.tsx).\n  - 3.C : Support Gamepad API pour manettes.\n• ACTION 4/6 (Game State & Levels) :\n  - 4.A : Machine à états de jeu (StartMenu, Playing, Pause, GameOver).\n  - 4.B : Chargeur de cartes de niveaux & parseur de grille (levels_data.json).\n  - 4.C : Entity Component System (ECS) & gestionnaire d'objets.\n• ACTION 5/6 (Audio Web API Synth) :\n  - 5.A : Master Node Web Audio API & oscillateurs.\n  - 5.B : Synthétiseur de bruitages 8-bit (Tir, Rebonds, Explosions).\n  - 5.C : Gestionnaire audio global & réglages de volume.\n• ACTION 6/6 (HUD Overlay & Leaderboard) :\n  - 6.A : Interface React/Tailwind superposée (Score, Vies, Jauges).\n  - 6.B : Écrans modaux (Pause, Game Over, Victoire).\n  - 6.C : Modale Leaderboard avec classement et confettis.\n";
                       } else if (newProjectStack.includes("Vite")) {
-                        stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **React + Vite + TypeScript (TSX)**.\n• Générer : package.json, vite.config.ts, index.html, src/main.tsx, src/App.tsx.\n• Style & Thème : Définir toutes les variables CSS :root dans src/index.css ou src/design.css.\n";
+                        stackInstructions += "⚠️ CONTRAT BOILERPLATE (GOLDEN CONTRACT) : Ce projet s'appuie sur un boilerplate préexistant (React + Vite + TS + Tailwind).\\n• INTERDICTION FORMELLE : Ne crée PAS et ne modifie PAS les fichiers `package.json`, `vite.config.ts`, `index.html`, `src/main.tsx` ou `src/index.css`.\\n• CHEMINS APLATIS (OBLIGATOIRE) : Tu DOIS placer TOUTES les pages directement à la racine de `src/pages/` (ex: `src/pages/SignatureManagerPage.tsx`). NE CRÉE JAMAIS de sous-dossiers imbriqués ni de fichiers `code.tsx` profonds.\\n• ANTI-DOUBLON : Ne crée pas la même page en double (ex: n'écris pas `Analyzer.tsx` ET `AnalyzerPage.tsx`). Génère un seul fichier par page avec le suffixe 'Page'.\\n• ROUTAGE STRICT : Dans `src/App.tsx`, vérifie que chaque import correspond EXACTEMENT au nom du fichier plat que tu as généré dans `src/pages/`. N'invente pas de routes fantômes.\\n";
                       } else if (newProjectStack.includes("Next")) {
                         stackInstructions += "⚠️ CONSTRUCTEUR : Ce projet DOIT IMPÉRATIVEMENT être généré en **Next.js (App Router)**.\n• Générer : package.json, app/layout.tsx, app/page.tsx, app/globals.css.\n";
                       } else {
@@ -5200,6 +5362,70 @@ Format attendu:
           )}
         </div>
       </footer>
+
+      {/* MODAL: Time Machine (Backup Selection) */}
+      {showBackupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => setShowBackupModal(false)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+              <span className="text-2xl">⏪</span> Machine à Remonter le Temps
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">
+              Choisissez l'une des sauvegardes ci-dessous pour restaurer votre projet à un état antérieur. 
+              <br /><span className="text-red-400 font-bold">Attention : le code actuel sera écrasé.</span>
+            </p>
+            
+            <div className="space-y-3">
+              {availableBackups.map((bName) => (
+                <div key={bName} className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10 hover:border-blue-500/50 transition-all">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📸</span>
+                    <div>
+                      <div className="font-bold text-sm text-blue-300">{bName.replace('backup-', '')}</div>
+                      <div className="text-xs text-slate-500">Sauvegarde Kirov</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Confirmer la restauration de ${bName} ?\nTout le travail actuel non sauvegardé sera perdu.`)) {
+                        fetch("http://localhost:5005/api/bridge/restore-backup", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ project_id: activeProject, backup_name: bName })
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                          if (d.success) {
+                            alert("✅ " + d.message);
+                            setShowBackupModal(false);
+                          } else {
+                            alert("❌ Erreur Restauration : " + d.error);
+                          }
+                        }).catch(e => alert("Erreur réseau: " + e.message));
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all"
+                  >
+                    Restaurer
+                  </button>
+                </div>
+              ))}
+              
+              {availableBackups.length === 0 && (
+                <div className="text-center p-4 text-slate-500 italic">
+                  Aucune sauvegarde disponible.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style dangerouslySetInnerHTML={{
         __html: `
