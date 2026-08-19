@@ -1156,7 +1156,11 @@ const WidgetSettings = ({
                                     const sd = await sr.json();
                                     setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
                                     if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
-                                    else if (['failed','rejected','promotion_rejected'].includes(sd.state)) { clearInterval(poll); reject(new Error(`${label}: ${sd.error || sd.state}`)); }
+                                    else if (['failed','rejected','promotion_rejected'].includes(sd.state)) {
+                                      clearInterval(poll);
+                                      const errMsg = typeof sd.error === 'string' ? sd.error : (sd.error?.message || sd.state);
+                                      reject(new Error(`${label}: ${errMsg}`));
+                                    }
                                   } catch(e) { /* continuer */ }
                                 }, 3000);
                               });
@@ -4791,7 +4795,7 @@ Format attendu:
                                 setApkBuildStatus("building");
                                 setApkLogs([`> Initialisation build APK pour [${target}]...`]);
                                 try {
-                                  const res = await fetch("http://localhost:5005/api/apk/build", {
+                                  const res = await fetch("http://localhost:5005/api/mobile/build-apk", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ project: target })
