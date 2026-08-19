@@ -738,11 +738,6 @@ const AdminDesignApp = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: activePagePath, content })
     }).catch(() => {});
-    fetch("http://localhost:5005/api/design-save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project: targetProject, file: activePagePath, content })
-    }).catch(() => {});
   };
 
   const parsedPageSettings = useMemo(() => {
@@ -1177,100 +1172,29 @@ const AdminDesignApp = () => {
         })
         .finally(() => setIsLoaded(true));
     } else {
-      // Cas 2 : Projet Utilisateur (Parser dynamiquement son design.css)
-      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=src/design.css`)
+      // Cas 2 : Projet Utilisateur (Lire le design-tokens.json du projet)
+      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
         .then(res => res.json())
         .then(data => {
           let parsedDesign: Record<string, string> = {};
-          let structure: Record<string, Record<string, string[]>> = {
-            "🎨 Paramètres du Projet": {}
-          };
           if (data.success && data.content) {
-            const cssContent = data.content;
-            const varRegex = /--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/g;
-            let match;
+             try {
+                parsedDesign = JSON.parse(data.content);
+             } catch(e) {}
+          }
 
-            while ((match = varRegex.exec(cssContent)) !== null) {
-              const fullVarName = match[1];
-              const value = match[2].trim().replace(/!important$/, '').trim();
-              const camelCaseKey = fullVarName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-              parsedDesign[camelCaseKey] = value;
-
-              // Détermination Intelligente de la Catégorie (Niveau 1) et Sous-Catégorie (Niveau 2)
-              let n1 = "🧩 Autres Composants";
-              let n2 = "Divers";
-              const keyLow = fullVarName.toLowerCase();
-
-              // Heuristiques de catégorisation :
-              if (keyLow.includes('app') || keyLow.includes('global') || keyLow.includes('body')) {
-                n1 = "🌍 Structure Globale"; n2 = "Architecture";
-              }
-              if (keyLow.includes('couleur') || keyLow.includes('color') || keyLow.includes('bg') || keyLow.includes('fond')) {
-                n1 = "🌍 Structure Globale"; n2 = "Couleurs & Fonds";
-              }
-              if (keyLow.includes('font') || keyLow.includes('text') || keyLow.includes('typ')) {
-                n1 = "🌍 Structure Globale"; n2 = "Typographie";
-              }
-
-              if (keyLow.includes('header') || keyLow.includes('nav') || keyLow.includes('menu')) {
-                n1 = "🏠 Page d'Accueil"; n2 = "En-tête (Header)";
-              }
-              if (keyLow.includes('hero') || keyLow.includes('banner')) {
-                n1 = "🏠 Page d'Accueil"; n2 = "Section Héro";
-              }
-              if (keyLow.includes('footer') || keyLow.includes('pied')) {
-                n1 = "🏠 Page d'Accueil"; n2 = "Pied de page (Footer)";
-              }
-
-              if (keyLow.includes('btn') || keyLow.includes('bouton') || keyLow.includes('button')) {
-                n1 = "📱 Composants"; n2 = "Boutons";
-              }
-              if (keyLow.includes('card') || keyLow.includes('carte') || keyLow.includes('box')) {
-                n1 = "📱 Composants"; n2 = "Cartes & Blocs";
-              }
-              if (keyLow.includes('input') || keyLow.includes('form') || keyLow.includes('saisie')) {
-                n1 = "📱 Composants"; n2 = "Formulaires";
-              }
-              if (keyLow.includes('modal') || keyLow.includes('popup') || keyLow.includes('dialog')) {
-                n1 = "🪟 Modales & Popups"; n2 = "Fenêtres";
-              }
-
-              // Règle de fallback pour grouper intelligemment s'il n'y a pas de match spécifique
-              if (n1 === "🧩 Autres Composants") {
-                const prefix = fullVarName.split('-')[0];
-                if (prefix.length > 2) {
-                  n2 = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-                }
-              }
-
-              if (!structure[n1]) structure[n1] = {};
-              if (!structure[n1][n2]) structure[n1][n2] = [];
-              if (!structure[n1][n2].includes(camelCaseKey)) {
-                structure[n1][n2].push(camelCaseKey);
-              }
-            }
-
-            if (Object.keys(structure["🎨 Paramètres du Projet"]).length === 0) {
-              delete structure["🎨 Paramètres du Projet"];
-            }
-          } // Fermeture du if (data.success && data.content)
-
-          // --- NOUVEAU: Fetch de l'arbre indépendamment de design.css ---
+          // Fetch de l'arbre pour les fichiers du projet
           fetch(`http://localhost:5005/api/fs/tree?project=${targetProject}`)
               .then(resTree => resTree.json())
               .then(treeData => {
+                let newStructure: Record<string, any> = {};
                 if (treeData.success && treeData.tree) {
                   try {
-                    const newStructure: Record<string, any> = {};
-                    
                     const extractFolder = (node: any, targetFolder: string, outArr: string[]) => {
                       if (!node) return;
-                      
-                      // L'API bridge-server fournit déjà 'path' (ex: "src/pages/Dashboard.tsx")
                       if (node.type === 'file' && node.name && node.name.endsWith('.tsx') && node.path && node.path.startsWith(targetFolder)) {
                         outArr.push(node.path);
                       }
-                      
                       if (node.children && Array.isArray(node.children)) {
                         node.children.forEach((child: any) => extractFolder(child, targetFolder, outArr));
                       }
@@ -1310,61 +1234,36 @@ const AdminDesignApp = () => {
                       }
                     };
                     findAppTsx(treeData.tree);
-
-                    if (Object.keys(newStructure).length > 0) {
-                      setDesign(parsedDesign);
-                      setDynamicStructure(newStructure);
-                      const firstCat = Object.keys(newStructure)[0];
-                      setActiveCategory(firstCat);
-                      setActiveSubCategory(Object.keys(newStructure[firstCat])[0] || "");
-                      return;
-                    }
                   } catch (err) {
                     console.error("Erreur lors de l'extraction de l'arbre:", err);
                   }
                 }
 
-                // Fallback si l'arbre est vide ou erreur
-                if (targetProject && !targetProject.includes("v0-interface-versel")) {
-                   const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
-                   setDesign(parsedDesign);
-                   setDynamicStructure(fallbackProj);
-                   setActiveCategory("📁 Application");
-                   setActiveSubCategory("App");
-                } else {
-                   setDesign(parsedDesign);
-                   setDynamicStructure(structure);
-                   const firstCat = Object.keys(structure)[0];
-                   if (firstCat) {
-                     setActiveCategory(firstCat);
-                     setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
-                   }
+                // Fallback si l'arbre est vide
+                if (Object.keys(newStructure).length === 0) {
+                   newStructure = { "📁 Application": { "App": ["src/App.tsx"] } };
                 }
+
+                setDesign(prev => ({ ...prev, ...parsedDesign }));
+                setDynamicStructure(newStructure);
+                const firstCat = Object.keys(newStructure)[0];
+                setActiveCategory(firstCat);
+                setActiveSubCategory(Object.keys(newStructure[firstCat])[0] || "");
               }).catch((err) => {
                 console.error("Erreur réseau fetch tree:", err);
-                // Fallback si l'arbre ne charge pas
-                if (targetProject && !targetProject.includes("v0-interface-versel")) {
-                   const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
-                   setDesign(parsedDesign);
-                   setDynamicStructure(fallbackProj);
-                   setActiveCategory("📁 Application");
-                   setActiveSubCategory("App");
-                } else {
-                   setDesign(parsedDesign);
-                   setDynamicStructure(structure);
-                   const firstCat = Object.keys(structure)[0];
-                   if (firstCat) {
-                     setActiveCategory(firstCat);
-                     setActiveSubCategory(Object.keys(structure[firstCat])[0] || "");
-                   }
-                }
+                const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
+                setDesign(prev => ({ ...prev, ...parsedDesign }));
+                setDynamicStructure(fallbackProj);
+                setActiveCategory("📁 Application");
+                setActiveSubCategory("App");
               });
         })
         .finally(() => setIsLoaded(true));
     }
   }, []);
 
-  const currentStructure = dynamicStructure || designStructure;
+  // Merge the IDE design parameters with the project's file explorer
+  const currentStructure = dynamicStructure ? { ...designStructure, ...dynamicStructure } : designStructure;
 
   const formatKeyToCSSVar = (key: string) => {
     return '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();

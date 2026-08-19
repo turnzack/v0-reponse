@@ -208,6 +208,41 @@ const WidgetSettings = ({
     }
   };
 
+  // --- PICKER NATIF PACK PRD ZIP ---
+  const triggerNativePrdZipPicker = async () => {
+    const btn = document.getElementById("btn-joindre-prd");
+    if (btn) {
+      btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
+      (btn as HTMLButtonElement).disabled = true;
+    }
+
+    try {
+      const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
+
+      const res = await fetch("http://localhost:5005/api/fs/pick-prd-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: designProjectId })
+      });
+
+      const data = await res.json();
+      if (data.canceled) {
+        // L'utilisateur a annulé, on ne fait rien
+      } else if (data.success) {
+        alert("✅ Pack PRD copié dans le projet : " + designProjectId + "\n\nFichier : " + data.filename + "\n\nLe moteur Kirov5 l'injectera automatiquement lors du lancement du pipeline !");
+      } else {
+        alert("❌ Erreur : " + (data.message || "Impossible de copier le Pack PRD"));
+      }
+    } catch (err) {
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
+    } finally {
+      if (btn) {
+        btn.innerHTML = '<span>💎</span>Pack PRD';
+        (btn as HTMLButtonElement).disabled = false;
+      }
+    }
+  };
+
 
   const tabs = [
     { id: "home", label: "TIGER IA", icon: "🐯" },
@@ -2493,6 +2528,36 @@ export default function Dashboard() {
   const [apkLogs, setApkLogs] = useState<string[]>([]);
   const [selectedApkTarget, setSelectedApkTarget] = useState<string>("");
   const [apkOutputUrl, setApkOutputUrl] = useState<string | null>(null);
+
+  // --- POLLING LOGS APK ---
+  useEffect(() => {
+    let interval: any;
+    if (apkBuildStatus === 'building') {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch("http://localhost:5005/api/mobile/build-logs");
+          const data = await res.json();
+          if (data.logs && data.logs.length > 0) {
+            setApkLogs(data.logs);
+          }
+          if (data.isBuilding === false && data.result) {
+            if (data.result.success) {
+              setApkBuildStatus("success");
+              setApkOutputUrl(data.result.apkUrl);
+            } else {
+              setApkBuildStatus("error");
+            }
+            clearInterval(interval);
+          }
+        } catch (e) {
+          console.warn("Polling APK error", e);
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [apkBuildStatus]);
 
 
   // --- WIDGET NEWS (LIVE API & FALLBACK RAPIDE) ---
@@ -4795,20 +4860,12 @@ Format attendu:
                                 setApkBuildStatus("building");
                                 setApkLogs([`> Initialisation build APK pour [${target}]...`]);
                                 try {
-                                  const res = await fetch("http://localhost:5005/api/mobile/build-apk", {
+                                  await fetch("http://localhost:5005/api/mobile/build-apk", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ project: target })
                                   });
-                                  const data = await res.json();
-                                  if (data.success) {
-                                    setApkBuildStatus("success");
-                                    setApkOutputUrl(data.apkUrl || `http://localhost:5005/downloads/${target}.apk`);
-                                    setApkLogs(l => [...l, "✅ APK généré avec succès !"]);
-                                  } else {
-                                    setApkBuildStatus("error");
-                                    setApkLogs(l => [...l, `❌ Erreur build: ${data.error || 'Échec'}`]);
-                                  }
+                                  // Le useEffect de polling prend le relais pour afficher la suite !
                                 } catch (e: any) {
                                   setApkBuildStatus("error");
                                   setApkLogs(l => [...l, `❌ Erreur réseau: ${e.message}`]);
@@ -5004,22 +5061,23 @@ Format attendu:
               <span className="design-app-texte z-10 drop-shadow-md">Projets</span>
             </button>
 
-            {/* 💎 Packs PRD */}
+            {/* 📎 Packs PRD (Bouton Principal) */}
             <button
-              onClick={() => {
-                setActiveProject(null);
-                setActiveFile(null);
-                setShowPacksCarousel(prev => !prev);
+              id="btn-joindre-prd-main"
+              onClick={async () => {
+                // 1. On ouvre la boîte de dialogue native pour joindre le ZIP PRD
+                await triggerNativePrdZipPicker();
+                // 2. On peut optionnellement ouvrir le carrousel si besoin, mais ici la priorité est le ZIP
               }}
               className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
-              title="Packs PRD"
+              title="Joindre Packs PRD (ZIP)"
             >
               {selectedPacks.length > 0 && (
                 <span className="absolute -top-0 -right-0 bg-indigo-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md z-20">
                   {selectedPacks.length}
                 </span>
               )}
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">💎</span>
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform text-xl">📎</span>
               <span className="design-app-texte z-10 drop-shadow-md">Packs PRD</span>
             </button>
 
@@ -5421,20 +5479,18 @@ Format attendu:
                     <span>{reuseActiveTab ? '✓ Injecter dans l\'onglet déjà ouvert' : 'Ouvrir un nouvel onglet'}</span>
                   </button>
 
-                  {/* PACKS PRD */}
+                  {/* PACKS PRD - Double action : picker ZIP natif pour le dossier projet */}
                   <button
+                    id="btn-joindre-prd"
                     type="button"
-                    onClick={() => setShowPacksCarousel(prev => !prev)}
-                    className={`mt-4 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 relative ${selectedPacks.length > 0
-                        ? 'bg-indigo-600/50 border-indigo-400 text-indigo-100 shadow-[0_0_15px_rgba(99,102,241,0.5)]'
-                        : 'bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-500/40'
-                      }`}
+                    onClick={triggerNativePrdZipPicker}
+                    className={`mt-4 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 relative ${
+                      'bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-500/40 hover:border-indigo-400 hover:shadow-[0_0_12px_rgba(99,102,241,0.4)]'
+                    }`}
+                    title="Joindre le Pack PRD (ZIP) — Sera injecté automatiquement dans le contexte IA"
                   >
                     <span>💎</span>
-                    <span>Packs PRD ({selectedPacks.length})</span>
-                    {selectedPacks.length > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-cyan animate-pulse absolute -top-1 -right-1 shadow-[0_0_8px_#08b3c9]"></span>
-                    )}
+                    <span>Pack PRD (ZIP)</span>
                   </button>
 
                   {/* JOINDRE ZIP (STITCH) */}
