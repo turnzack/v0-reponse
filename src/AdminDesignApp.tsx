@@ -345,6 +345,11 @@ const AdminDesignApp = () => {
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [isSavedButton, setIsSavedButton] = useState<boolean>(false);
 
+  // Strict UI Update State
+  const [showUiUpdateModal, setShowUiUpdateModal] = useState<boolean>(false);
+  const [isUiUpdateLoading, setIsUiUpdateLoading] = useState<boolean>(false);
+  const [newV0Html, setNewV0Html] = useState<string>("");
+
   // Thèmes et DESIGN.md Modal State
   const DEFAULT_PRESETS = [
     {
@@ -541,6 +546,77 @@ const AdminDesignApp = () => {
         setSaveSuccessMessage(null);
         setIsSavedButton(false);
       }, 1800);
+    }
+  };
+
+  const handleStrictUiUpdate = async () => {
+    if (!newV0Html.trim() || !activePagePath) return;
+    
+    setIsUiUpdateLoading(true);
+    setSaveSuccessMessage("🚀 Proposition UI envoyée... (Mise en file d'attente)");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetProject = urlParams.get('project') || "PASS";
+
+    try {
+      const payload = {
+        projectId: targetProject,
+        targetFile: activePagePath,
+        zipFileName: newV0Html.trim(), // On envoie le nom du zip
+        baseVersionId: "v1-current", // Simulé pour le vertical slice
+        mode: "strict-ui",
+        targetRoute: "/", // Route par défaut
+        source: "vercel-interface",
+        promotionMode: "disabled",
+        idempotencyKey: `push-${targetProject}-${Date.now()}`
+      };
+
+      const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Erreur lors de la requête");
+      }
+
+      setSaveSuccessMessage(`⏳ Push ${data.pushId} en cours d'analyse...`);
+      setShowUiUpdateModal(false);
+
+      // Polling de l'état
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${data.pushId}?projectId=${targetProject}`);
+          const statusData = await statusRes.json();
+          
+          if (statusData.success) {
+            setSaveSuccessMessage(`⏳ État: ${statusData.state} ...`);
+            
+            if (statusData.state === "preview_ready") {
+              clearInterval(pollInterval);
+              setIsUiUpdateLoading(false);
+              setNewV0Html("");
+              setSaveSuccessMessage(`✅ Preview prête ! (Gates: ${Object.keys(statusData.gates).join(', ')})`);
+              
+              // Optionnel: Recharger la page ou iframe de preview
+              setTimeout(() => setSaveSuccessMessage(null), 5000);
+            } else if (statusData.state === "failed" || statusData.state === "rejected") {
+              clearInterval(pollInterval);
+              setIsUiUpdateLoading(false);
+              setSaveSuccessMessage(`❌ Échec du Push: ${statusData.error || "Raison inconnue"}`);
+            }
+          }
+        } catch (e) {
+          console.error("Polling error", e);
+        }
+      }, 3000);
+
+    } catch (e: any) {
+      setIsUiUpdateLoading(false);
+      setSaveSuccessMessage(`❌ Erreur réseau: ${e.message}`);
+      setTimeout(() => setSaveSuccessMessage(null), 5000);
     }
   };
 
@@ -2119,6 +2195,13 @@ body {
 
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => setShowUiUpdateModal(true)}
+                          className="px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 flex items-center gap-2"
+                          title="Injecter un nouveau code V0 sans écraser la logique React"
+                        >
+                          🪄 Push Design (Strict)
+                        </button>
+                        <button
                           onClick={handleManualSave}
                           className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg cursor-pointer active:scale-95 ${
                             isSavedButton
@@ -2131,6 +2214,49 @@ body {
                         </button>
                       </div>
                     </div>
+
+                    {/* MODAL STRICT UI UPDATE */}
+                    {showUiUpdateModal && (
+                      <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4">
+                        <div className="bg-[#121215] border border-blue-500/30 rounded-2xl p-6 w-full max-w-2xl shadow-2xl flex flex-col gap-4">
+                          <h3 className="text-xl font-black text-blue-400 flex items-center gap-2">
+                            <span>🪄</span> Push Design (Mise à jour Stricte)
+                          </h3>
+                          <p className="text-sm text-gray-400">
+                            Indiquez le nom du fichier ZIP téléchargé depuis V0 et copié dans la racine de votre projet (ex: <strong>v0-design.zip</strong>). L'IA va extraire le ZIP, analyser le HTML, et injecter le nouveau style visuel dans <strong>{activePagePath}</strong> tout en préservant 100% de la logique React.
+                          </p>
+                          <input 
+                            type="text"
+                            value={newV0Html}
+                            onChange={(e) => setNewV0Html(e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-sm font-mono text-cyan outline-none focus:border-blue-500 transition-colors"
+                            placeholder="v0-design.zip"
+                          />
+                          <div className="flex items-center justify-end gap-3 mt-2">
+                            <button 
+                              onClick={() => setShowUiUpdateModal(false)}
+                              disabled={isUiUpdateLoading}
+                              className="px-4 py-2 rounded-lg text-sm font-bold text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                            >
+                              Annuler
+                            </button>
+                            <button 
+                              onClick={handleStrictUiUpdate}
+                              disabled={isUiUpdateLoading || !newV0Html.trim()}
+                              className="px-6 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                              {isUiUpdateLoading ? (
+                                <>
+                                  <span className="animate-spin text-lg">⏳</span> Fusion en cours (15-30s)...
+                                </>
+                              ) : (
+                                "🚀 Déployer la Mise à Jour"
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {saveSuccessMessage && (
                       <div className="w-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 p-2.5 rounded-xl text-xs font-bold text-center animate-pulse">

@@ -191,6 +191,10 @@ const WidgetSettings = ({
         // User cancelled the dialog, just do nothing silently
       } else if (data.success) {
         alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\nLe fichier est prêt dans votre projet !");
+        // Si le backend renvoie le nom du fichier copié, on pré-remplit le champ du Push UI/UX
+        if (data.fileName || data.filename) {
+           setUiZipName(data.fileName || data.filename);
+        }
       } else {
         alert("❌ Erreur lors de l'extraction: " + data.error || data.message);
       }
@@ -215,7 +219,36 @@ const WidgetSettings = ({
     { id: "suture", label: "Suture V2", icon: "🩺" },
   ];
 
-  const [bridgeQueueData, setBridgeQueueData] = useState<{current: any, queue: any[]}>({current: null, queue: []});
+  const [bridgeQueueData, setBridgeQueueData] = useState<any>({ current: null, queue: [] });
+  
+  // --- Push UI/UX State ---
+  const [uiTargetFile, setUiTargetFile] = useState("src/pages/ShoppingCartDrawer.tsx");
+  const [uiSelectedPages, setUiSelectedPages] = useState<string[]>([]);
+  const [uiAllPages, setUiAllPages] = useState(false);
+  const [uiZipName, setUiZipName] = useState("v0-design.zip");
+  const [isUiPushLoading, setIsUiPushLoading] = useState(false);
+  const [uiPushMessage, setUiPushMessage] = useState<string | null>(null);
+  const [uiPushId, setUiPushId] = useState<string | null>(null);
+  const [isUiPromoting, setIsUiPromoting] = useState(false);
+  const [uiPromotionReady, setUiPromotionReady] = useState(false);
+  const [projectPages, setProjectPages] = useState<string[]>([]);
+
+  // Charge automatiquement la liste des pages dès que le projet est connu
+  const fetchProjectPages = useCallback(async (proj: string) => {
+    if (!proj) { setProjectPages([]); return; }
+    try {
+      const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+      const data = await res.json();
+      if (data.pages) setProjectPages(data.pages);
+    } catch(e) {}
+  }, []);
+
+  useEffect(() => {
+    const proj = selectedLaunchProject || newProjectName;
+    fetchProjectPages(proj);
+  }, [selectedLaunchProject, newProjectName, fetchProjectPages]);
+
+  const bridgeQueueDataRef = useRef<any>({ current: null, queue: [] });
 
   // États Suture V2
   const [sutureDryRunMode, setSutureDryRunMode] = useState<string>(localStorage.getItem("suture_dryrun") || "none");
@@ -869,6 +902,7 @@ const WidgetSettings = ({
                       <option value={1}>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
                       <option value={2}>⚙️ Phase 2 : Logique G5</option>
                       <option value={4}>🎨 Phase 3/4 : Câblage Métier (Business Wiring)</option>
+                      <option value={5}>🪄 M.A.J UI : Pipeline Push UI/UX (One-Shot)</option>
                     </select>
                   </div>
 
@@ -898,66 +932,280 @@ const WidgetSettings = ({
                     </button>
                   </div>
 
-                  <button 
-                    onClick={() => {
-                      const proj = selectedLaunchProject || newProjectName;
-                      if (!proj) {
-                        alert("Veuillez sélectionner ou créer un projet !");
-                        return;
-                      }
-                      
-                      if (Number(selectedStartPhase) === 0) {
-                        // Lancer la pipeline complète (Trombone)
-                        fetch("http://localhost:5005/api/bridge/trombone", {
+                  {Number(selectedStartPhase) !== 5 && (
+                    <button 
+                      onClick={() => {
+                        const proj = selectedLaunchProject || newProjectName;
+                        if (!proj) {
+                          alert("Veuillez sélectionner ou créer un projet !");
+                          return;
+                        }
+                        
+                        if (Number(selectedStartPhase) === 0) {
+                          // Lancer la pipeline complète (Trombone)
+                          fetch("http://localhost:5005/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              target_project: proj, 
+                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              start_index: 1, 
+                              zip_mode: true,
+                              start_phase: 0
+                            })
+                          }).then(r => r.json()).then(tData => {
+                            alert("✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4.");
+                          }).catch(e => {
+                            console.error(e);
+                            alert("Erreur: Le moteur :5005 est-il lancé ?");
+                          });
+                          return;
+                        }
+                        
+                        // Phase 1 : Forcer la cible sur Stitch pour la génération UI initiale
+                        const aiTarget = "stitch";
+                        
+                        fetch("http://localhost:5005/bridge/prompt", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ 
-                            target_project: proj, 
-                            target_ai: window.KIROV_TARGET_AI || "deepseek", 
-                            start_index: 1, 
-                            zip_mode: true,
-                            start_phase: 0
+                          body: JSON.stringify({
+                            target_ai: aiTarget,
+                            user_prompt: newProjectInstructions || "Génère l'application avec ces packs et directives.",
+                            packs: ((window as any).KIROV_SELECTED_PACKS || []),
+                            target_project: proj,
+                            phase_num: 1
                           })
-                        }).then(r => r.json()).then(tData => {
-                          alert("✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4.");
+                        }).then(() => {
+                          alert("✅ Méga-Prompt généré avec succès ! Il a été envoyé à l'orchestrateur.");
+                          // Force toujours l'ouverture de Google Stitch pour la Phase 1
+                          window.open("https://stitch.withgoogle.com/", "_blank");
                         }).catch(e => {
                           console.error(e);
                           alert("Erreur: Le moteur :5005 est-il lancé ?");
                         });
-                        return;
-                      }
+                      }}
+                      className={`w-full mt-4 py-4 rounded-lg border transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${
+                        Number(selectedStartPhase) === 0 
+                          ? "bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-500/70 hover:to-pink-500/70 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+                          : "bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                      }`}
+                    >
+                      <span>{Number(selectedStartPhase) === 0 ? "🚀" : "✨"}</span> 
+                      {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
+                    </button>
+                  )}
+
+                  {Number(selectedStartPhase) === 5 && (
+                    <div className="mt-2 p-4 border border-cyan/30 bg-[#0f2a2a]/40 rounded-xl">
+                      <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">CIBLE ET SOURCE DU DESIGN</label>
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[9px] text-cyan/70 font-bold uppercase tracking-wider">
+                            PAGES CIBLES
+                            {uiSelectedPages.length > 0 && !uiAllPages && (
+                              <span className="ml-2 text-cyan bg-cyan/20 px-1.5 py-0.5 rounded">{uiSelectedPages.length} sélectionnée{uiSelectedPages.length > 1 ? 's' : ''}</span>
+                            )}
+                          </label>
+                          <button
+                            onClick={async () => {
+                              const proj = selectedLaunchProject || newProjectName;
+                              if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
+                              try {
+                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+                                const data = await res.json();
+                                if (data.pages) setProjectPages(data.pages);
+                              } catch(e) {}
+                            }}
+                            className="text-[9px] text-cyan bg-cyan/10 border border-cyan/30 px-2 py-0.5 rounded hover:bg-cyan/20 transition-all"
+                          >↻ Rafraîchir</button>
+                        </div>
+
+                        {/* ALL_PAGES toggle */}
+                        <div
+                          onClick={() => { setUiAllPages(!uiAllPages); setUiSelectedPages([]); }}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-1 cursor-pointer border transition-all ${uiAllPages ? "bg-cyan/20 border-cyan/50 text-cyan" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"}`}
+                        >
+                          <div className={`w-3 h-3 rounded border flex items-center justify-center shrink-0 ${uiAllPages ? "border-cyan bg-cyan" : "border-gray-500"}`}>
+                            {uiAllPages && <span className="text-white text-[8px] font-black leading-none">✓</span>}
+                          </div>
+                          <span className="text-[10px] font-black">🚀 TOUTES LES PAGES (Auto-Mapping ZIP)</span>
+                        </div>
+
+                        {/* Liste des pages avec cases à cocher */}
+                        {projectPages.length === 0 ? (
+                          <div
+                            onClick={async () => {
+                              const proj = selectedLaunchProject || newProjectName;
+                              if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
+                              try {
+                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+                                const data = await res.json();
+                                if (data.pages) setProjectPages(data.pages);
+                              } catch(e) {}
+                            }}
+                            className="text-[10px] text-gray-500 italic text-center py-3 border border-dashed border-white/10 rounded-lg cursor-pointer hover:border-cyan/30 hover:text-cyan/50 transition-all"
+                          >
+                            ⏳ Cliquez pour charger les pages de « {selectedLaunchProject || newProjectName || '?'} »
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto">
+                            {/* Boutons tout sél / tout désel */}
+                            {!uiAllPages && (
+                              <div className="flex gap-1 mb-1">
+                                <button onClick={() => setUiSelectedPages([...projectPages])} className="flex-1 text-[9px] text-cyan/70 border border-white/10 rounded px-2 py-1 hover:bg-white/5">✔ Tout sélectionner</button>
+                                <button onClick={() => setUiSelectedPages([])} className="flex-1 text-[9px] text-gray-500 border border-white/10 rounded px-2 py-1 hover:bg-white/5">✕ Tout désélectionner</button>
+                              </div>
+                            )}
+                            {projectPages.map(p => {
+                              const label = p.replace('src/pages/', '').replace('.tsx', '').replace('.jsx', '');
+                              const isChecked = uiAllPages || uiSelectedPages.includes(p);
+                              return (
+                                <div key={p}
+                                  onClick={() => {
+                                    if (uiAllPages) return;
+                                    setUiSelectedPages(prev =>
+                                      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+                                    );
+                                  }}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer border transition-all ${
+                                    uiAllPages ? "opacity-50 bg-white/5 border-white/10" :
+                                    isChecked ? "bg-cyan/15 border-cyan/50 text-cyan" : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                                  }`}
+                                >
+                                  <div className={`w-3 h-3 rounded border flex items-center justify-center shrink-0 ${isChecked ? "border-cyan bg-cyan" : "border-gray-500"}`}>
+                                    {isChecked && <span className="text-white text-[8px] font-black leading-none">✓</span>}
+                                  </div>
+                                  <span className="text-[10px] font-bold">{label}</span>
+                                  <span className="text-[9px] text-gray-600 ml-auto">.tsx</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Résumé sélection */}
+                        {(uiAllPages || uiSelectedPages.length > 0) && (
+                          <div className="mt-2 text-[9px] text-cyan/80 bg-cyan/5 border border-cyan/20 rounded px-2 py-1 font-mono">
+                            {uiAllPages
+                              ? `✅ TOUTES LES PAGES seront traitées`
+                              : `✅ ${uiSelectedPages.length} page(s) : ${uiSelectedPages.map(p => p.replace('src/pages/','').replace('.tsx','')).join(', ')}`
+                            }
+                          </div>
+                        )}
+                      </div>
+                      <input 
+                        type="text" 
+                        value={uiZipName} 
+                        onChange={e => setUiZipName(e.target.value)} 
+                        placeholder="Fichier ZIP (ex: v0-design.zip)" 
+                        className="w-full mb-3 bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-cyan text-xs" 
+                      />
                       
-                      // Phase 1 : Forcer la cible sur Stitch pour la génération UI initiale
-                      const aiTarget = "stitch";
-                      
-                      fetch("http://localhost:5005/bridge/prompt", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          target_ai: aiTarget,
-                          user_prompt: newProjectInstructions || "Génère l'application avec ces packs et directives.",
-                          packs: ((window as any).KIROV_SELECTED_PACKS || []),
-                          target_project: proj,
-                          phase_num: 1
-                        })
-                      }).then(() => {
-                        alert("✅ Méga-Prompt généré avec succès ! Il a été envoyé à l'orchestrateur.");
-                        // Force toujours l'ouverture de Google Stitch pour la Phase 1
-                        window.open("https://stitch.withgoogle.com/", "_blank");
-                      }).catch(e => {
-                        console.error(e);
-                        alert("Erreur: Le moteur :5005 est-il lancé ?");
-                      });
-                    }}
-                    className={`w-full mt-4 py-4 rounded-lg border transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${
-                      Number(selectedStartPhase) === 0 
-                        ? "bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-500/70 hover:to-pink-500/70 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
-                        : "bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                    }`}
-                  >
-                    <span>{Number(selectedStartPhase) === 0 ? "🚀" : "✨"}</span> 
-                    {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
-                  </button>
+                      {uiPushMessage && (
+                        <div className="mb-3 text-[10px] text-cyan font-bold p-2 bg-cyan/10 border border-cyan/20 rounded">
+                          {uiPushMessage}
+                        </div>
+                      )}
+
+                      <button 
+                        disabled={isUiPushLoading}
+                        onClick={async () => {
+                          const proj = selectedLaunchProject || newProjectName;
+                          if (!proj) { alert("Sélectionnez un projet d'abord."); return; }
+                          if (!uiAllPages && uiSelectedPages.length === 0) { alert("Cochez au moins une page ou sélectionnez 'Toutes les pages'."); return; }
+                          if (!uiZipName) { alert("Indiquez le nom du fichier ZIP."); return; }
+
+                          const pagesToProcess = uiAllPages ? ["ALL_PAGES"] : uiSelectedPages;
+
+                          setIsUiPushLoading(true);
+                          setUiPushMessage(`🚀 Démarrage du push pour ${pagesToProcess.length === 1 && pagesToProcess[0] === 'ALL_PAGES' ? 'TOUTES LES PAGES' : `${pagesToProcess.length} page(s)`}...`);
+
+                          try {
+                            for (let i = 0; i < pagesToProcess.length; i++) {
+                              const targetFile = pagesToProcess[i];
+                              const label = targetFile === 'ALL_PAGES' ? 'ALL_PAGES' : targetFile.replace('src/pages/','').replace('.tsx','');
+                              setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] Traitement de ${label}...`);
+                              const payload = {
+                                projectId: proj,
+                                targetFile,
+                                zipFileName: uiZipName,
+                                baseVersionId: "v1-current",
+                                mode: "strict-ui",
+                                targetRoute: "/",
+                                source: "vercel-interface",
+                                promotionMode: "disabled",
+                                idempotencyKey: `push-${proj}-${targetFile}-${Date.now()}`
+                              };
+
+                              const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                              });
+                              const data = await res.json();
+                              if (!res.ok || !data.success) throw new Error(data.message || "Erreur");
+
+                              const pushId = data.pushId;
+                              setUiPushId(pushId);
+
+                              // Polling jusqu'à la fin pour CETTE page
+                              await new Promise<void>((resolve, reject) => {
+                                const poll = setInterval(async () => {
+                                  try {
+                                    const sr = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
+                                    const sd = await sr.json();
+                                    setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
+                                    if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
+                                    else if (['failed','rejected','promotion_rejected'].includes(sd.state)) { clearInterval(poll); reject(new Error(`${label}: ${sd.error || sd.state}`)); }
+                                  } catch(e) { /* continuer */ }
+                                }, 3000);
+                              });
+                            }
+                            setUiPushMessage(`✅ Toutes les pages traitées avec succès !`);
+                          } catch (e: any) {
+                            setUiPushMessage(`❌ ${e.message}`);
+                          } finally {
+                            setIsUiPushLoading(false);
+                          }
+                        }}
+                        className={`w-full py-4 rounded-lg transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${isUiPushLoading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600/60 to-cyan-600/60 hover:from-blue-500/70 hover:to-cyan-500/70 border-cyan/50 shadow-[0_0_15px_rgba(8,179,201,0.4)]'}`}
+                      >
+                        <span>🚀</span> LANCER PIPELINE PUSH UIUX (ONE-SHOT)
+                      </button>
+
+                      {uiPromotionReady && uiPushId && (
+                        <button 
+                          disabled={isUiPromoting}
+                          onClick={async () => {
+                            const proj = selectedLaunchProject || newProjectName;
+                            setIsUiPromoting(true);
+                            setUiPushMessage("🚀 Promotion en cours vers la Production...");
+                            try {
+                              const res = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${uiPushId}/promote`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ projectId: proj, promotionMode: "hybrid", confirm: true })
+                              });
+                              const data = await res.json();
+                              if (res.ok && data.success) {
+                                setUiPushMessage(`✅ Promotion Atomique Réussie ! Version: ${data.versionId}`);
+                                setUiPromotionReady(false);
+                              } else {
+                                setUiPushMessage(`❌ Échec de la promotion: ${data.message || data.error}`);
+                              }
+                            } catch(e: any) {
+                              setUiPushMessage(`❌ Erreur de promotion: ${e.message}`);
+                            } finally {
+                              setIsUiPromoting(false);
+                            }
+                          }}
+                          className={`w-full mt-3 py-4 rounded-lg transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${isUiPromoting ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-green-600/60 to-emerald-600/60 hover:from-green-500/70 hover:to-emerald-500/70 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.4)]'}`}
+                        >
+                          <span>🟢</span> PROMOUVOIR EN PRODUCTION (MERGE)
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* PANEL 3 (DROITE) : WORKFLOW & FILE D'ATTENTE */}
