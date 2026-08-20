@@ -71,7 +71,8 @@ const WidgetSettings = ({
   reuseActiveTab,
   setReuseActiveTab,
   selectedStartPhase = "UNDEF",
-  setSelectedStartPhase = () => console.error("MISSING SETTER")
+  setSelectedStartPhase = () => console.error("MISSING SETTER"),
+  selectedPacks = []
 }: any) => {
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -88,7 +89,7 @@ const WidgetSettings = ({
   const [customAiUrl, setCustomAiUrl] = useState("");
   const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
   const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
-  const [defaultPreviewUrl, setDefaultPreviewUrl] = useState("http://127.0.0.1:5173");
+  const [defaultPreviewUrl, setDefaultPreviewUrl] = useState("http://127.0.0.1:5175");
   const [apiKey, setApiKey] = useState("");
   const [apiProvider, setApiProvider] = useState("deepseek");
   const [apiKeyStatus, setApiKeyStatus] = useState<"idle" | "sending" | "ok" | "error">("idle");
@@ -106,7 +107,7 @@ const WidgetSettings = ({
     setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
     setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
-    setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5173");
+    setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5175");
     setApiKey(localStorage.getItem("tiger_apiKey") || "");
     setApiProvider(localStorage.getItem("tiger_apiProvider") || "deepseek");
 
@@ -937,7 +938,8 @@ const WidgetSettings = ({
                       <option value={1}>🎨 Phase 1 : Le Frontend (Stitch/v0)</option>
                       <option value={2}>⚙️ Phase 2 : Logique G5</option>
                       <option value={4}>🎨 Phase 3/4 : Câblage Métier (Business Wiring)</option>
-                      <option value={5}>🪄 M.A.J UI : Pipeline Push UI/UX (One-Shot)</option>
+                      <option value={5}>🔌 Phase 5 : Industrialisation & Backend</option>
+                      <option value={9}>🪄 M.A.J UI : Pipeline Push UI/UX (One-Shot)</option>
                     </select>
                   </div>
 
@@ -953,10 +955,22 @@ const WidgetSettings = ({
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3 mt-4">
-                    <button className="py-6 bg-[#2a1b3d] hover:bg-[#3d2757] text-white text-[10px] font-bold rounded-lg border border-purple-500/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
+                    <div 
+                      id="btn-joindre-prd"
+                      className={`py-6 text-white text-[10px] font-bold rounded-lg border flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
+                        selectedPacks.length > 0
+                          ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
+                          : 'bg-[#2a1b3d] border-purple-500/30'
+                      }`}
+                      title="Pack PRD sélectionné — Sera injecté automatiquement dans le contexte IA"
+                    >
                       <span className="text-xl">💎</span>
-                      Packs PRD ({((window as any).KIROV_SELECTED_PACKS || []).length})
-                    </button>
+                      <span>
+                        {selectedPacks.length > 0
+                          ? `Packs PRD ${selectedPacks.length} ${selectedPacks[0]}`
+                          : 'Aucun Pack PRD'}
+                      </span>
+                    </div>
                     <button 
                       id="btn-joindre-zip"
                       onClick={triggerNativeZipPicker}
@@ -976,8 +990,8 @@ const WidgetSettings = ({
                           return;
                         }
                         
-                        if (Number(selectedStartPhase) === 0) {
-                          // Lancer la pipeline complète (Trombone)
+                        if (Number(selectedStartPhase) === 0 || Number(selectedStartPhase) === 5) {
+                          // Lancer la pipeline complète (Trombone) ou la Phase 5 (Backend)
                           fetch("http://localhost:5005/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -986,10 +1000,11 @@ const WidgetSettings = ({
                               target_ai: window.KIROV_TARGET_AI || "deepseek", 
                               start_index: 1, 
                               zip_mode: true,
-                              start_phase: 0
+                              start_phase: Number(selectedStartPhase),
+                              auto_pilot: isAutoPilot
                             })
                           }).then(r => r.json()).then(tData => {
-                            alert("✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4.");
+                            alert(Number(selectedStartPhase) === 0 ? "✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4." : "✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
                           }).catch(e => {
                             console.error(e);
                             alert("Erreur: Le moteur :5005 est-il lancé ?");
@@ -1025,12 +1040,12 @@ const WidgetSettings = ({
                           : "bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                       }`}
                     >
-                      <span>{Number(selectedStartPhase) === 0 ? "🚀" : "✨"}</span> 
-                      {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
+                      <span>{(Number(selectedStartPhase) === 0 || Number(selectedStartPhase) === 5) ? "🚀" : "✨"}</span> 
+                      {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : Number(selectedStartPhase) === 5 ? "LANCER PHASE 5 (INDUSTRIALISATION)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
                     </button>
                   )}
 
-                  {Number(selectedStartPhase) === 5 && (
+                  {Number(selectedStartPhase) === 9 && (
                     <div className="mt-2 p-4 border border-cyan/30 bg-[#0f2a2a]/40 rounded-xl">
                       <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">CIBLE ET SOURCE DU DESIGN</label>
                       <div className="mb-3">
@@ -1467,12 +1482,15 @@ const WidgetSettings = ({
                         </button>
                       </div>
                       
-                      {bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0 ? Object.entries(bridgeQueueData.current).map(([ai, task]: [string, any]) => (
-                        <div key={ai} className="bg-[#111] p-3 rounded-lg text-[9px] text-gray-400 font-mono">
-                          <div className="text-pink font-bold mb-1">[{ai.toUpperCase()}] {task.phase_name || 'Tâche'}</div>
-                          <div className="truncate opacity-80">{task.prompt.substring(0, 80)}...</div>
-                        </div>
-                      )) : (
+                      {bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0 ? Object.entries(bridgeQueueData.current).map(([ai, task]: [string, any]) => {
+                        const promptStr = typeof task.prompt === 'string' ? task.prompt : JSON.stringify(task.prompt);
+                        return (
+                          <div key={ai} className="bg-[#111] p-3 rounded-lg text-[9px] text-gray-400 font-mono">
+                            <div className="text-pink font-bold mb-1">[{ai.toUpperCase()}] {task.phase_name || 'Tâche'}</div>
+                            <div className="truncate opacity-80">{promptStr ? promptStr.substring(0, 80) : ''}...</div>
+                          </div>
+                        );
+                      }) : (
                         <div className="text-[10px] text-gray-500 italic pl-3">Aucune tâche en cours.</div>
                       )}
                     </div>
@@ -1500,15 +1518,18 @@ const WidgetSettings = ({
                        </div>
 
                        <div className="flex-1 overflow-y-auto pr-1 space-y-2 hide-scrollbar">
-                         {bridgeQueueData.queue.length > 0 ? bridgeQueueData.queue.map((task, i) => (
-                           <div key={i} className="bg-[#111] border border-white/5 p-2 rounded flex flex-col gap-1">
-                             <div className="text-[9px] font-bold text-gray-400 flex justify-between">
-                               <span>[{i+1}] {task.phase_name || 'Action'}</span>
-                               <span className="text-purple-400">{task.target_ai?.toUpperCase()}</span>
+                         {bridgeQueueData.queue.length > 0 ? bridgeQueueData.queue.map((task: any, i: number) => {
+                           const promptStr = typeof task.prompt === 'string' ? task.prompt : JSON.stringify(task.prompt);
+                           return (
+                             <div key={i} className="bg-[#111] border border-white/5 p-2 rounded flex flex-col gap-1">
+                               <div className="text-[9px] font-bold text-gray-400 flex justify-between">
+                                 <span>[{i+1}] {task.phase_name || 'Action'}</span>
+                                 <span className="text-purple-400">{task.target_ai?.toUpperCase()}</span>
+                               </div>
+                               <div className="text-[8px] text-gray-600 font-mono truncate">{promptStr ? promptStr.substring(0, 60) : ''}...</div>
                              </div>
-                             <div className="text-[8px] text-gray-600 font-mono truncate">{task.prompt.substring(0, 60)}...</div>
-                           </div>
-                         )) : (
+                           );
+                         }) : (
                            <div className="text-[10px] text-gray-600 italic p-2 text-center border border-dashed border-white/5 rounded">File vide.</div>
                          )}
                        </div>
@@ -2243,7 +2264,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
       "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
     ];
-    fetch("http://localhost:5005/api/projects-v2")
+    fetch("http://localhost:5005/api/projects")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.projects) {
@@ -2312,10 +2333,11 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       };
 
       const handleDeleteProject = async (e: React.MouseEvent) => {
+        e.preventDefault();
         e.stopPropagation();
         if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${p.name}" de l'interface ET de votre disque dur ?`)) {
           try {
-            const res = await fetch("http://localhost:5005/api/projects/delete", {
+            const res = await fetch("http://localhost:5005/api/projects/remove-project", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ project_id: p.name })
@@ -2771,7 +2793,7 @@ export default function Dashboard() {
     } else if (activeProject) {
       setIsIdeFullscreen(true);
       const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
-      const defaultUrl = isNextJs ? "http://localhost:3000" : "http://127.0.0.1:5173";
+      const defaultUrl = isNextJs ? "http://localhost:3000" : "http://127.0.0.1:5175";
       setPreviewUrl(defaultUrl);
       setPreviewInput(defaultUrl);
       lastPreviewUrlRef.current = defaultUrl;
@@ -2787,7 +2809,7 @@ export default function Dashboard() {
         const route = event.data.route;
         const hashRoute = route === '/' ? '' : `#${route}`;
         setPreviewUrl(currentUrl => {
-          const baseUrl = currentUrl ? currentUrl.split('#')[0] : 'http://127.0.0.1:5173/';
+          const baseUrl = currentUrl ? currentUrl.split('#')[0] : 'http://127.0.0.1:5175/';
           const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
           return `${cleanBase}${hashRoute}`;
         });
@@ -4075,6 +4097,7 @@ Format attendu:
             setReuseActiveTab={setReuseActiveTab}
             selectedStartPhase={selectedStartPhase}
             setSelectedStartPhase={setSelectedStartPhase}
+            selectedPacks={selectedPacks}
           />
         </div>
       )}
@@ -4272,7 +4295,7 @@ Format attendu:
                   setIsDesignMode(nextState);
                   if (nextState && !previewUrl) {
                     const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
-                    setPreviewUrl(isNextJs ? "http://localhost:3000" : "http://localhost:5173");
+                    setPreviewUrl(isNextJs ? "http://localhost:3000" : "http://localhost:5175");
                   }
                 }}
                 className={`design-ide-btn-action w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isDesignMode ? 'bg-pink-500 text-white border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 hover:bg-pink-500/20 text-pink-500 border-white/10 hover:border-pink-500'}`}
@@ -4498,14 +4521,14 @@ Format attendu:
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
                           <span className="text-xs font-mono font-bold text-green-400">
-                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : "LOCALHOST:5173-5174"})
+                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : "LOCALHOST:5175"})
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5173")}
+                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5175")}
                             onChange={(e) => setPreviewInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') setPreviewUrl(previewInput);
@@ -4532,7 +4555,7 @@ Format attendu:
                       {/* IFRAME APPLICATION ACTIVE */}
                       <div className="flex-1 relative overflow-hidden" style={{ background: 'var(--preview-bg)' }}>
                         <iframe
-                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5173")}
+                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5175")}
                           className="w-full h-full border-none"
                           title="Application Preview Live"
                         />
@@ -4894,7 +4917,7 @@ Format attendu:
                             >
                               {msg.content}
                             </div>
-                            {index === lastWidgetIndex && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} isAutoPilot={isAutoPilot} setIsAutoPilot={setIsAutoPilot} reuseActiveTab={reuseActiveTab} setReuseActiveTab={setReuseActiveTab} selectedStartPhase={selectedStartPhase} setSelectedStartPhase={setSelectedStartPhase} />}
+                            {index === lastWidgetIndex && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} isAutoPilot={isAutoPilot} setIsAutoPilot={setIsAutoPilot} reuseActiveTab={reuseActiveTab} setReuseActiveTab={setReuseActiveTab} selectedStartPhase={selectedStartPhase} setSelectedStartPhase={setSelectedStartPhase} selectedPacks={selectedPacks} />}
                             {index === lastWidgetIndex && msg.widget === "phases" && WidgetPhases()}
                           </div>
                         );
@@ -5064,13 +5087,12 @@ Format attendu:
             {/* 📎 Packs PRD (Bouton Principal) */}
             <button
               id="btn-joindre-prd-main"
-              onClick={async () => {
-                // 1. On ouvre la boîte de dialogue native pour joindre le ZIP PRD
-                await triggerNativePrdZipPicker();
-                // 2. On peut optionnellement ouvrir le carrousel si besoin, mais ici la priorité est le ZIP
+              onClick={() => {
+                setIsCreationMode(true);
+                setShowPacksCarousel(true);
               }}
               className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
-              title="Joindre Packs PRD (ZIP)"
+              title="Ouvrir le carrousel des Packs PRD"
             >
               {selectedPacks.length > 0 && (
                 <span className="absolute -top-0 -right-0 bg-indigo-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white/20 shadow-md z-20">
@@ -5479,19 +5501,23 @@ Format attendu:
                     <span>{reuseActiveTab ? '✓ Injecter dans l\'onglet déjà ouvert' : 'Ouvrir un nouvel onglet'}</span>
                   </button>
 
-                  {/* PACKS PRD - Double action : picker ZIP natif pour le dossier projet */}
-                  <button
+                  {/* PACKS PRD - Affiche le pack sélectionné */}
+                  <div
                     id="btn-joindre-prd"
-                    type="button"
-                    onClick={triggerNativePrdZipPicker}
-                    className={`mt-4 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 relative ${
-                      'bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-500/40 hover:border-indigo-400 hover:shadow-[0_0_12px_rgba(99,102,241,0.4)]'
+                    className={`mt-4 px-3 py-1.5 border rounded-xl text-xs font-bold flex items-center gap-1.5 relative ${
+                      selectedPacks.length > 0
+                        ? 'bg-indigo-600 text-white border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
+                        : 'bg-indigo-900/40 text-indigo-200 border-indigo-500/40'
                     }`}
-                    title="Joindre le Pack PRD (ZIP) — Sera injecté automatiquement dans le contexte IA"
+                    title="Pack PRD sélectionné — Sera injecté automatiquement dans le contexte IA"
                   >
                     <span>💎</span>
-                    <span>Pack PRD (ZIP)</span>
-                  </button>
+                    <span>
+                      {selectedPacks.length > 0
+                        ? `Packs PRD ${selectedPacks.length} ${selectedPacks[0]}`
+                        : 'Aucun Pack PRD sélectionné'}
+                    </span>
+                  </div>
 
                   {/* JOINDRE ZIP (STITCH) */}
                   <button
@@ -5584,7 +5610,14 @@ Format attendu:
                   <div className="pt-2 border-t border-indigo-500/20 flex justify-end">
                     <button
                       type="button"
-                      onClick={() => setShowPacksCarousel(false)}
+                      onClick={() => {
+                        setShowPacksCarousel(false);
+                        if (selectedPacks.length > 0) {
+                          setIsCreationMode(true);
+                          setSettingsInitialTab("creation");
+                          setIsSettingsOpen(true);
+                        }
+                      }}
                       className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl shadow-lg transition-all"
                     >
                       ✓ Valider la sélection ({selectedPacks.length})
