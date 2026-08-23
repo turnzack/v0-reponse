@@ -7,6 +7,8 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Diamond, X, CheckCircle2, Box, Zap } from 'lucide-react';
 import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
+import { ProjectConfigurator } from './components/ProjectConfigurator';
+import { GuestIdeaPanel } from './components/GuestIdeaPanel';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -87,7 +89,7 @@ const WidgetSettings = ({
   const [targetUiAi, setTargetUiAi] = useState("stitch");
   const [customAiName, setCustomAiName] = useState("");
   const [customAiUrl, setCustomAiUrl] = useState("");
-  const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5005");
+  const [bridgeUrl, setBridgeUrl] = useState("http://127.0.0.1:5006");
   const [vercelUrl, setVercelUrl] = useState("https://v0-reponse-git-main-v01-e951.vercel.app");
   const [defaultPreviewUrl, setDefaultPreviewUrl] = useState("http://127.0.0.1:5175");
   const [apiKey, setApiKey] = useState("");
@@ -98,6 +100,28 @@ const WidgetSettings = ({
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectInstructions, setNewProjectInstructions] = useState("");
   const [isExtConnected, setIsExtConnected] = useState(true);
+  const [creationView, setCreationView] = useState<"classic" | "forge">("forge");
+  const [packUpdateTrigger, setPackUpdateTrigger] = useState(0);
+  const [techStack, setTechStack] = useState("vite");
+  const [isPipelineRunning, setIsPipelineRunning] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('tiger_isPipelineRunning') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tiger_isPipelineRunning', String(isPipelineRunning));
+    }
+  }, [isPipelineRunning]);
+
+  // Tâche 1 : Auto-Pilot Link
+  useEffect(() => {
+    if (Number(selectedStartPhase) === 0) {
+      if (setIsAutoPilot) setIsAutoPilot(true);
+    }
+  }, [selectedStartPhase]);
 
   useEffect(() => {
     setExecMode(localStorage.getItem("tiger_execMode") || "web");
@@ -105,14 +129,14 @@ const WidgetSettings = ({
     setTargetUiAi(localStorage.getItem("tiger_targetUiAi") || "stitch");
     setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
     setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
-    setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005");
+    setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006");
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
     setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5175");
     setApiKey(localStorage.getItem("tiger_apiKey") || "");
     setApiProvider(localStorage.getItem("tiger_apiProvider") || "deepseek");
 
     // Vérifier si une clé est déjà configurée côté moteur
-    const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5005";
+    const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006";
     fetch(`${currentBridge}/api/config/apikey`)
       .then(r => r.json())
       .then(d => { if (d.hasAnyKey) setApiKeyStatus("ok"); })
@@ -179,7 +203,7 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5005/api/fs/pick-zip", {
+      const res = await fetch("http://localhost:5006/api/fs/pick-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -191,16 +215,40 @@ const WidgetSettings = ({
       if (data.canceled) {
         // User cancelled the dialog, just do nothing silently
       } else if (data.success) {
-        alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\nLe fichier est prêt dans votre projet !");
+        alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\\nLe fichier est prêt dans votre projet !");
+        
+        // Mettre à jour la phase de départ sur 2 (Le Backend) pour ne pas relancer Stitch
+        setSelectedStartPhase(2);
+        
         // Si le backend renvoie le nom du fichier copié, on pré-remplit le champ du Push UI/UX
         if (data.fileName || data.filename) {
            setUiZipName(data.fileName || data.filename);
+        }
+        
+        // Reprise automatique de la Pipeline Zero-Touch (Phase 2)
+        const isRunningNow = isPipelineRunning || (typeof window !== 'undefined' && sessionStorage.getItem('tiger_isPipelineRunning') === 'true');
+        if (isRunningNow) {
+          alert("🚀 Reprise automatique de la Pipeline (Phase 2) ! L'orchestrateur prend le relais pour l'intégration.");
+          fetch("http://localhost:5006/api/bridge/trombone", {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({
+               target_project: designProjectId,
+               target_ai: window.KIROV_TARGET_AI || "deepseek",
+               start_index: 1,
+               zip_mode: true,
+               start_phase: 200, 
+               force_restart: true,
+               auto_submit: true,
+               packs: typeof selectedPacks !== 'undefined' ? selectedPacks : []
+             })
+          }).catch(e => console.error("[TROMBONE] Erreur reprise:", e));
         }
       } else {
         alert("❌ Erreur lors de l'extraction: " + data.error || data.message);
       }
     } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5006.");
     } finally {
       if (btn) {
         btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
@@ -220,7 +268,7 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5005/api/fs/pick-prd-zip", {
+      const res = await fetch("http://localhost:5006/api/fs/pick-prd-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: designProjectId })
@@ -235,7 +283,7 @@ const WidgetSettings = ({
         alert("❌ Erreur : " + (data.message || "Impossible de copier le Pack PRD"));
       }
     } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5006.");
     } finally {
       if (btn) {
         btn.innerHTML = '<span>💎</span>Pack PRD';
@@ -247,6 +295,7 @@ const WidgetSettings = ({
 
   const tabs = [
     { id: "home", label: "TIGER IA", icon: "🐯" },
+    { id: "creation", label: "⚙️ Création Projet", icon: "🚀" },
     { id: "electron", label: "Electron", icon: "💻" },
     { id: "vercel", label: "Vercel", icon: "▲" },
     { id: "deepseek", label: "DeepSeek", icon: "🐋" },
@@ -273,7 +322,7 @@ const WidgetSettings = ({
   const fetchProjectPages = useCallback(async (proj: string) => {
     if (!proj) { setProjectPages([]); return; }
     try {
-      const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+      const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
       const data = await res.json();
       if (data.pages) setProjectPages(data.pages);
     } catch(e) {}
@@ -303,7 +352,7 @@ const WidgetSettings = ({
     localStorage.setItem("suture_single_file", String(sutureSingleFileOnly));
     localStorage.setItem("suture_auto_promote", String(sutureAutoPromote));
     // Envoyer au moteur
-    fetch("http://localhost:5005/api/suture/config", {
+    fetch("http://localhost:5006/api/suture/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -321,8 +370,8 @@ const WidgetSettings = ({
     setSutureHistoryLoading(true);
     try {
       const url = projectId
-        ? `http://localhost:5005/api/suture/history?projectId=${projectId}`
-        : "http://localhost:5005/api/suture/history";
+        ? `http://localhost:5006/api/suture/history?projectId=${projectId}`
+        : "http://localhost:5006/api/suture/history";
       const res = await fetch(url);
       const data = await res.json();
       setSutureHistory(data.repairs || []);
@@ -337,7 +386,7 @@ const WidgetSettings = ({
     let interval: any;
     if (activeTab === "deploiement" || activeTab === "creation") {
       const fetchQueue = () => {
-        fetch("http://localhost:5005/api/bridge/queue")
+        fetch("http://localhost:5006/api/bridge/queue")
           .then(res => res.json())
           .then(data => {
             if (data.success) {
@@ -407,6 +456,8 @@ const WidgetSettings = ({
         <div className="flex-1 overflow-y-auto p-6 md:p-8 relative z-10 hide-scrollbar">
 
           {/* TABS CONTENT */}
+
+
 
           {activeTab === "connexion" && (
             <div className="space-y-6 animate-fadeIn">
@@ -583,7 +634,7 @@ const WidgetSettings = ({
                 ) : (
                   <>
                     <h3 className="text-cyan font-bold flex items-center gap-2 text-sm mb-4">
-                      🔗 Bridge (:5005 / Vercel)
+                      🔗 Bridge (:5006 / Vercel)
                       <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full border border-green-500/30">Bridge polling actif</span>
                     </h3>
                     <div className="space-y-4">
@@ -740,7 +791,7 @@ const WidgetSettings = ({
                 </span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => fetch("http://localhost:5005/api/suture/purge-workspaces", { method: "POST" }).then(() => alert("✅ Bac à sable vidé !")).catch(() => alert("❌ Moteur inaccessible"))}
+                    onClick={() => fetch("http://localhost:5006/api/suture/purge-workspaces", { method: "POST" }).then(() => alert("✅ Bac à sable vidé !")).catch(() => alert("❌ Moteur inaccessible"))}
                     className="py-3 bg-orange-900/20 hover:bg-orange-900/40 border border-orange-500/30 text-orange-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     🗑️ Vider le Bac à Sable
@@ -752,7 +803,7 @@ const WidgetSettings = ({
                     🔄 Rafraîchir Historique
                   </button>
                   <button
-                    onClick={() => fetch("http://localhost:5005/api/suture/rollback-last", { method: "POST" }).then(r => r.json()).then(d => alert(d.success ? `✅ Rollback : ${d.message}` : `❌ ${d.error}`)).catch(() => alert("❌ Moteur inaccessible"))}
+                    onClick={() => fetch("http://localhost:5006/api/suture/rollback-last", { method: "POST" }).then(r => r.json()).then(d => alert(d.success ? `✅ Rollback : ${d.message}` : `❌ ${d.error}`)).catch(() => alert("❌ Moteur inaccessible"))}
                     className="py-3 bg-purple-900/20 hover:bg-purple-900/40 border border-purple-500/30 text-purple-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     ↩️ Rollback Dernier Patch
@@ -803,7 +854,7 @@ const WidgetSettings = ({
           )}
 
           {activeTab === "creation" && (
-            <div className="space-y-6 animate-fadeIn h-full flex flex-col overflow-y-auto pr-2 hide-scrollbar">
+            <div className="space-y-6 animate-fadeIn flex flex-col mt-8 border-t border-white/10 pt-8 pr-2">
               <div className="flex flex-col border-b border-white/5 pb-4">
                 <h2 className="text-2xl font-black text-white flex items-center gap-2 tracking-wide uppercase">
                   <span>⚙️</span> CONFIGURATION DU PROJET
@@ -811,11 +862,12 @@ const WidgetSettings = ({
                 <p className="text-[10px] text-gray-400 mt-1">Générez et paramétrez votre projet de A à Z.</p>
               </div>
 
-              {/* 3 PANELS LAYOUT */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+              {/* 2 PANELS LAYOUT — CONFIG + GUEST PRD */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
                 
                 {/* PANEL 1 (GAUCHE) : INFO PROJET */}
-                <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5">
+                <div className="transition-opacity duration-1000">
+                  <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5 mb-6">
                   <h3 className="text-white font-bold text-xs mb-2 flex items-center gap-2">
                     <span className="text-yellow-500">📁</span> Création & Ciblage
                   </h3>
@@ -828,7 +880,7 @@ const WidgetSettings = ({
                       onClick={async () => {
                         if (availableProjects.length === 0) {
                           try {
-                            const res = await fetch("http://localhost:5005/api/projects");
+                            const res = await fetch("http://localhost:5006/api/projects");
                             const data = await res.json();
                             if (data.projects) setAvailableProjects(data.projects);
                           } catch (e) {}
@@ -841,6 +893,30 @@ const WidgetSettings = ({
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
+                    {selectedLaunchProject && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch("http://localhost:5006/api/bridge/export-notebooklm", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ projectId: selectedLaunchProject })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              alert(`✅ Export NotebookLM réussi dans :\n${data.exportDir}`);
+                            } else {
+                              alert("❌ Erreur: " + data.message);
+                            }
+                          } catch (e) {
+                            alert("❌ Erreur de connexion avec Kirov5.");
+                          }
+                        }}
+                        className="mt-2 w-full bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-500/30 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                      >
+                        📓 Exporter vers NotebookLM
+                      </button>
+                    )}
                   </div>
 
                   <div>
@@ -858,7 +934,7 @@ const WidgetSettings = ({
                           if (!newProjectName) { alert("Entrez un nom de projet"); return; }
                           
                           try {
-                            const res = await fetch("http://localhost:5005/api/projects/set-active", {
+                            const res = await fetch("http://localhost:5006/api/projects/set-active", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ name: newProjectName.trim() })
@@ -868,7 +944,7 @@ const WidgetSettings = ({
                               alert(`✅ Projet "${newProjectName}" créé avec succès !\nChemin : ${data.projectDir}`);
                               // Refresh projects list if needed
                               if (setAvailableProjects) {
-                                const pRes = await fetch("http://localhost:5005/api/projects").then(r => r.json()).catch(() => ({}));
+                                const pRes = await fetch("http://localhost:5006/api/projects").then(r => r.json()).catch(() => ({}));
                                 if (pRes.projects) setAvailableProjects(pRes.projects);
                               }
                             } else {
@@ -887,9 +963,13 @@ const WidgetSettings = ({
 
                   <div>
                     <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">STACK TECHNIQUE</label>
-                    <select className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan">
-                      <option>⭐ 1er Choix (Prioritaire) : Vite + React + Tailwind + TS</option>
-                      <option>Next.js 16 + Tailwind</option>
+                    <select 
+                      value={techStack}
+                      onChange={(e) => setTechStack(e.target.value)}
+                      className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
+                    >
+                      <option value="vite">⭐ 1er Choix (Prioritaire) : Vite + React + Tailwind + TS</option>
+                      <option value="nextjs">Next.js 16 + Tailwind</option>
                     </select>
                   </div>
 
@@ -907,7 +987,7 @@ const WidgetSettings = ({
                 </div>
 
                 {/* PANEL 2 (CENTRE) : PARAMÈTRES & CIBLES */}
-                <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5">
+                <div className="bg-[#050505] border border-white/5 rounded-xl flex flex-col gap-4 overflow-y-auto hide-scrollbar p-5 transition-opacity duration-1000">
                   <h3 className="text-white font-bold text-xs mb-2 flex items-center gap-2">
                     <span className="text-yellow-500">⚡</span> Paramètres & IA
                   </h3>
@@ -958,7 +1038,7 @@ const WidgetSettings = ({
                     <div 
                       id="btn-joindre-prd"
                       className={`py-6 text-white text-[10px] font-bold rounded-lg border flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
-                        selectedPacks.length > 0
+                        ((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
                           ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
                           : 'bg-[#2a1b3d] border-purple-500/30'
                       }`}
@@ -966,23 +1046,48 @@ const WidgetSettings = ({
                     >
                       <span className="text-xl">💎</span>
                       <span>
-                        {selectedPacks.length > 0
-                          ? `Packs PRD ${selectedPacks.length} ${selectedPacks[0]}`
+                        {((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
+                          ? `Packs PRD ${((window as any).KIROV_SELECTED_PACKS || selectedPacks).length} ${((window as any).KIROV_SELECTED_PACKS || selectedPacks)[0]}`
                           : 'Aucun Pack PRD'}
                       </span>
                     </div>
                     <button 
                       id="btn-joindre-zip"
-                      onClick={triggerNativeZipPicker}
-                      className="py-6 bg-[#1a2f3a] hover:bg-[#254250] text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-colors flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
+                      onClick={() => {
+                        // Si on est en Mode 0 (Pipeline Complète), on force l'état "en cours" pour enchaîner automatiquement la Phase 2 après l'upload
+                        if (Number(selectedStartPhase) === 0) {
+                          setIsPipelineRunning(true);
+                          if (typeof window !== 'undefined') sessionStorage.setItem('tiger_isPipelineRunning', 'true');
+                        }
+                        triggerNativeZipPicker();
+                      }}
+                      className={`py-6 text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-all flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
+                        isPipelineRunning 
+                          ? 'bg-[#1a3a40] hover:bg-[#204a50] pointer-events-auto shadow-[0_0_30px_rgba(8,179,201,0.6)] border-cyan scale-105 z-50 relative animate-pulse'
+                          : 'bg-[#1a2f3a] hover:bg-[#254250]'
+                      }`}
                     >
                       <span className="text-xl">📎</span>
                       Joindre ZIP (Stitch)
                     </button>
                   </div>
 
-                  {Number(selectedStartPhase) !== 5 && (
-                    <button 
+                  {(() => {
+                    const PHASE_ACTIONS: Record<number, string> = {
+                      0: "🚀 LANCER PIPELINE COMPLÈTE (ONE-SHOT)",
+                      1: "✨ LANCER PHASE 1 (Prompt vers l'IA)",
+                      2: "⚙️ LANCER PHASE 2 (MULTI-BATCH)",
+                      3: "🔗 LANCER PHASE 3/4",
+                      5: "🔌 LANCER PHASE 5 (INDUSTRIALISATION)",
+                      9: "🛡️ LANCER PUSH UI"
+                    };
+                    const actionLabel = PHASE_ACTIONS[Number(selectedStartPhase)];
+                    
+                    if (!actionLabel) return null;
+
+                    return (
+                      <button 
+
                       onClick={() => {
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) {
@@ -990,9 +1095,17 @@ const WidgetSettings = ({
                           return;
                         }
                         
-                        if (Number(selectedStartPhase) === 0 || Number(selectedStartPhase) === 5) {
-                          // Lancer la pipeline complète (Trombone) ou la Phase 5 (Backend)
-                          fetch("http://localhost:5005/api/bridge/trombone", {
+                        // Tâche 4 : Mode Cinéma
+                        setIsPipelineRunning(true);
+                        if (typeof window !== 'undefined') sessionStorage.setItem('tiger_isPipelineRunning', 'true');
+                        // Auto-scroll to radar (Queue)
+                        setTimeout(() => {
+                          document.getElementById("kirov-radar-queue")?.scrollIntoView({ behavior: 'smooth' });
+                        }, 500);
+
+                        if (Number(selectedStartPhase) === 5) {
+                          // Lancer la Phase 5 (Backend)
+                          fetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
@@ -1000,22 +1113,65 @@ const WidgetSettings = ({
                               target_ai: window.KIROV_TARGET_AI || "deepseek", 
                               start_index: 1, 
                               zip_mode: true,
-                              start_phase: Number(selectedStartPhase),
+                              start_phase: 5,
                               auto_pilot: isAutoPilot
                             })
                           }).then(r => r.json()).then(tData => {
-                            alert(Number(selectedStartPhase) === 0 ? "✅ PIPELINE COMPLÈTE LANCÉE !\nL'orchestrateur va gérer toutes les phases de 1 à 4." : "✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
+                            alert("✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
                           }).catch(e => {
                             console.error(e);
-                            alert("Erreur: Le moteur :5005 est-il lancé ?");
+                            alert("Erreur: Le moteur :5006 est-il lancé ?");
                           });
                           return;
                         }
                         
-                        // Phase 1 : Forcer la cible sur Stitch pour la génération UI initiale
+                        if (Number(selectedStartPhase) === 0) {
+                          // Lancer la pipeline complète (Trombone en écoute du ZIP)
+                          fetch("http://localhost:5006/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              target_project: proj, 
+                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              start_index: 1, 
+                              zip_mode: true,
+                              start_phase: 0,
+                              auto_pilot: isAutoPilot
+                            })
+                          }).then(r => r.json()).then(tData => {
+                            console.log("Trombone initialisé pour le Zero-Touch.");
+                          }).catch(e => console.error(e));
+                          
+                          // Pas de 'return' ici ! On continue pour générer le méga-prompt Stitch (Phase 1)
+                        }
+                        
+                        if (Number(selectedStartPhase) === 2) {
+                          // Lancer la Phase 2 (Backend / Multi-batch)
+                          fetch("http://localhost:5006/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              target_project: proj, 
+                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              start_index: 1, 
+                              zip_mode: true,
+                              start_phase: 200,
+                              auto_pilot: isAutoPilot,
+                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                            })
+                          }).then(r => r.json()).then(tData => {
+                            alert("✅ PHASE 2 LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
+                          }).catch(e => {
+                            console.error(e);
+                            alert("Erreur: Le moteur :5006 est-il lancé ?");
+                          });
+                          return;
+                        }
+                        
+                        // Phase 1 / Phase 0 : Forcer la cible sur Stitch pour la génération UI initiale
                         const aiTarget = "stitch";
                         
-                        fetch("http://localhost:5005/bridge/prompt", {
+                        fetch("http://localhost:5006/bridge/prompt", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
@@ -1031,7 +1187,7 @@ const WidgetSettings = ({
                           window.open("https://stitch.withgoogle.com/", "_blank");
                         }).catch(e => {
                           console.error(e);
-                          alert("Erreur: Le moteur :5005 est-il lancé ?");
+                          alert("Erreur: Le moteur :5006 est-il lancé ?");
                         });
                       }}
                       className={`w-full mt-4 py-4 rounded-lg border transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${
@@ -1040,10 +1196,10 @@ const WidgetSettings = ({
                           : "bg-gradient-to-r from-emerald-600/40 to-cyan-600/40 hover:from-emerald-500/50 hover:to-cyan-500/50 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                       }`}
                     >
-                      <span>{(Number(selectedStartPhase) === 0 || Number(selectedStartPhase) === 5) ? "🚀" : "✨"}</span> 
-                      {Number(selectedStartPhase) === 0 ? "LANCER PIPELINE COMPLÈTE (ONE-SHOT)" : Number(selectedStartPhase) === 5 ? "LANCER PHASE 5 (INDUSTRIALISATION)" : "LANCER PHASE 1 (Prompt vers l'IA)"}
+                      {actionLabel}
                     </button>
-                  )}
+                    );
+                  })()}
 
                   {Number(selectedStartPhase) === 9 && (
                     <div className="mt-2 p-4 border border-cyan/30 bg-[#0f2a2a]/40 rounded-xl">
@@ -1061,7 +1217,7 @@ const WidgetSettings = ({
                               const proj = selectedLaunchProject || newProjectName;
                               if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
                               try {
-                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+                                const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
                                 const data = await res.json();
                                 if (data.pages) setProjectPages(data.pages);
                               } catch(e) {}
@@ -1088,7 +1244,7 @@ const WidgetSettings = ({
                               const proj = selectedLaunchProject || newProjectName;
                               if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
                               try {
-                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
+                                const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
                                 const data = await res.json();
                                 if (data.pages) setProjectPages(data.pages);
                               } catch(e) {}
@@ -1187,7 +1343,7 @@ const WidgetSettings = ({
                                 idempotencyKey: `push-${proj}-${targetFile}-${Date.now()}`
                               };
 
-                              const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
+                              const res = await fetch("http://localhost:5006/api/bridge/strict-ui-update", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
@@ -1202,7 +1358,7 @@ const WidgetSettings = ({
                               await new Promise<void>((resolve, reject) => {
                                 const poll = setInterval(async () => {
                                   try {
-                                    const sr = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
+                                    const sr = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
                                     const sd = await sr.json();
                                     setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
                                     if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
@@ -1235,7 +1391,7 @@ const WidgetSettings = ({
                             setIsUiPromoting(true);
                             setUiPushMessage("🚀 Promotion en cours vers la Production...");
                             try {
-                              const res = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${uiPushId}/promote`, {
+                              const res = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${uiPushId}/promote`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ projectId: proj, promotionMode: "hybrid", confirm: true })
@@ -1261,15 +1417,49 @@ const WidgetSettings = ({
                     </div>
                   )}
                 </div>
+                </div>
 
-                {/* PANEL 3 (DROITE) : WORKFLOW & FILE D'ATTENTE */}
+                {/* PANEL 2 (DROITE) : GUEST PRD + WORKFLOW + QUEUE */}
                 <div className="flex flex-col gap-4 overflow-y-auto hide-scrollbar">
-                  
-                  {/* Roadmap Visual */}
+
+                  {/* === GUEST IDEA PANEL (V0-Guest PRD) === */}
                   <div className="bg-[#050505] border border-white/5 rounded-xl p-5">
+                    <GuestIdeaPanel 
+                      activeProjectName={selectedLaunchProject || newProjectName} 
+                      selectedStartPhase={Number(selectedStartPhase)}
+                      onPhaseChange={(phase) => setSelectedStartPhase(phase)}
+                      onPackGenerated={(pack, description, category) => {
+                        window.dispatchEvent(new CustomEvent('update_kirov_packs', { detail: [pack] }));
+                        if (description) {
+                          setNewProjectInstructions(prev => prev ? `${prev}\n\n[INJECTION PRD] : ${description}` : description);
+                        }
+                        // Tâche 3 : Smart Stack Selection
+                        if (category === 'ecommerce' || category === 'social') {
+                           setTechStack("nextjs");
+                        } else {
+                           setTechStack("vite");
+                        }
+
+                        alert(`💎 Le Pack PRD '${pack}' a été généré et lié automatiquement au projet !`);
+                      }}
+                    />
+                  </div>
+
+                  {/* Roadmap Visual */}
+                  <div className={`bg-[#050505] border border-white/5 rounded-xl p-5 transition-all duration-500 ${isPipelineRunning ? 'shadow-[0_0_30px_rgba(8,179,201,0.3)] border-cyan/40' : ''}`}>
                      <h2 className="text-white font-bold text-[11px] mb-5 tracking-wide">Workflow "Design-First" (Hybride)</h2>
                      <div className="flex flex-col gap-3 text-[10px] font-mono text-gray-400 relative">
                         <div className="absolute left-[11px] top-6 bottom-6 w-px bg-white/5 z-0"></div>
+
+                        {/* Tâche 1 : Visual Auto-Pilot Lock (Pause indicators) */}
+                        {Number(selectedStartPhase) === 0 && !isAutoPilot && (
+                          <>
+                            <div className="absolute left-[5px] top-[32px] bg-red-900/80 border border-red-500 rounded text-[8px] px-1 text-white z-20">🛑 Pause</div>
+                            <div className="absolute left-[5px] top-[64px] bg-red-900/80 border border-red-500 rounded text-[8px] px-1 text-white z-20">🛑 Pause</div>
+                            <div className="absolute left-[5px] top-[96px] bg-red-900/80 border border-red-500 rounded text-[8px] px-1 text-white z-20">🛑 Pause</div>
+                            <div className="absolute left-[5px] top-[128px] bg-red-900/80 border border-red-500 rounded text-[8px] px-1 text-white z-20">🛑 Pause</div>
+                          </>
+                        )}
 
                         <div className="flex items-center gap-4 relative z-10">
                           <div className="w-6 h-6 rounded-full bg-[#051505] border border-green-500/50 flex items-center justify-center text-green-400 shrink-0 text-[10px]">0</div>
@@ -1299,70 +1489,68 @@ const WidgetSettings = ({
                   </div>
 
                   {/* Trombone Actions */}
-                  {Number(selectedStartPhase) === 4 && (
-                    <div className="flex flex-col gap-2 mb-2">
-                      <button 
-                        onClick={async () => {
-                          const proj = selectedLaunchProject || newProjectName;
-                          if (!proj) return;
-                          const aiTarget = window.KIROV_TARGET_AI || "deepseek";
-                          try {
-                            alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
-                            const res = await fetch("http://localhost:5005/api/bridge/generate-wiring-pack", {
+                  <div className="flex flex-col gap-2 mb-2">
+                    <button 
+                      onClick={async () => {
+                        const proj = selectedLaunchProject || newProjectName;
+                        if (!proj) return;
+                        const aiTarget = window.KIROV_TARGET_AI || "deepseek";
+                        try {
+                          alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
+                          const res = await fetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              projectId: proj,
+                              baseVersionId: "version-active",
+                              request: "Audite la coquille vide et propose le câblage métier.",
+                              targetFiles: [],
+                              targetRoutes: [],
+                              source: "phase-4-ui"
+                            })
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            const wiringPackId = data.data?.wiringPackId || data.wiringPackId || 'Inconnu';
+                            alert("✅ Pack PRD Métier (Logic Wiring) généré avec l'ID : " + wiringPackId + "\\nL'IA va maintenant être injectée automatiquement dans la file d'attente...");
+                            
+                            // FUSION: Auto-injection dans la file d'attente
+                            const trombonePayload = {
+                              target_project: proj,
+                              target_ai: aiTarget,
+                              start_phase: 4,
+                              wiringPackId: wiringPackId,
+                              zip_mode: true
+                            };
+                            
+                            fetch("http://localhost:5006/api/bridge/trombone", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ 
-                                projectId: proj,
-                                baseVersionId: "version-active",
-                                request: "Audite la coquille vide et propose le câblage métier.",
-                                targetFiles: [],
-                                targetRoutes: [],
-                                source: "phase-4-ui"
-                              })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                              const wiringPackId = data.data?.wiringPackId || data.wiringPackId || 'Inconnu';
-                              alert("✅ Pack PRD Métier (Logic Wiring) généré avec l'ID : " + wiringPackId + "\\nL'IA va maintenant être injectée automatiquement dans la file d'attente...");
-                              
-                              // FUSION: Auto-injection dans la file d'attente
-                              const trombonePayload = {
-                                target_project: proj,
-                                target_ai: aiTarget,
-                                start_phase: 4,
-                                wiringPackId: wiringPackId,
-                                zip_mode: true
-                              };
-                              
-                              fetch("http://localhost:5005/api/bridge/trombone", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(trombonePayload)
-                              })
-                              .then(r => r.json())
-                              .then(tData => {
-                                if (tData.mode === 'multi_batch') {
-                                  alert("✅ " + tData.message);
-                                } else if (tData.error) {
-                                  alert("❌ Erreur lors de l'injection : " + tData.error);
-                                }
-                              })
-                              .catch(e => console.error("Trombone error", e));
+                              body: JSON.stringify(trombonePayload)
+                            })
+                            .then(r => r.json())
+                            .then(tData => {
+                              if (tData.mode === 'multi_batch') {
+                                alert("✅ " + tData.message);
+                              } else if (tData.error) {
+                                alert("❌ Erreur lors de l'injection : " + tData.error);
+                              }
+                            })
+                            .catch(e => console.error("Trombone error", e));
 
-                            } else {
-                              const errorMsg = data.error && data.error.message ? data.error.message : JSON.stringify(data.error);
-                              alert("❌ Erreur lors de l'audit: " + errorMsg);
-                            }
-                          } catch (e: any) {
-                            alert("❌ Erreur lors de l'audit: " + (e.message || e));
+                          } else {
+                            const errorMsg = data.error && data.error.message ? data.error.message : JSON.stringify(data.error);
+                            alert("❌ Erreur lors de l'audit: " + errorMsg);
                           }
-                        }}
-                        className="w-full bg-[#051a20] hover:bg-[#083040] border border-cyan/40 text-cyan px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(8,179,201,0.2)]"
-                      >
-                        <span>🔍</span> AUDITER LA COQUILLE VIDE (Générer Pack Métier)
-                      </button>
-                    </div>
-                  )}
+                        } catch (e: any) {
+                          alert("❌ Erreur lors de l'audit: " + (e.message || e));
+                        }
+                      }}
+                      className="w-full bg-[#051a20] hover:bg-[#083040] border border-cyan/40 text-cyan px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(8,179,201,0.2)]"
+                    >
+                      <span>🔍</span> AUDITER LA COQUILLE VIDE (Générer Pack Métier)
+                    </button>
+                  </div>
                     <div className="flex flex-col gap-2 mb-2">
                       <button 
                         onClick={() => {
@@ -1387,7 +1575,7 @@ const WidgetSettings = ({
                                 start_phase: selectedStartPhase
                               };
 
-                          fetch("http://localhost:5005/api/bridge/trombone", {
+                          fetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(payload)
@@ -1395,16 +1583,15 @@ const WidgetSettings = ({
                         }}
                         className="w-full bg-[#0a1025] hover:bg-[#101a35] border border-indigo-500/30 text-indigo-200 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
                       >
-                        <span>🔄</span> Reconstruire la file
+                        <span>🚀</span> LANCER PIPELINE PUSH UIUX (ONE-SHOT)
                       </button>
-                    </div>
 
                     <button
                       onClick={async () => {
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) { alert("Sélectionnez un projet d'abord."); return; }
                         try {
-                          const res = await fetch("http://localhost:5005/api/bridge/reset-session", {
+                          const res = await fetch("http://localhost:5006/api/bridge/reset-session", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ project_id: proj })
@@ -1412,7 +1599,7 @@ const WidgetSettings = ({
                           const data = await res.json();
                           alert(data.success ? `🔓 ${data.message}` : `❌ ${data.error}`);
                         } catch (e) {
-                          alert("❌ Moteur :5005 inaccessible.");
+                          alert("❌ Moteur :5006 inaccessible.");
                         }
                       }}
                       className="w-full bg-[#2a0a0a] hover:bg-[#3d1010] border border-red-500/40 text-red-300 px-4 py-3 rounded-lg text-[10px] font-bold transition-all flex justify-center items-center gap-2"
@@ -1427,14 +1614,14 @@ const WidgetSettings = ({
                           // Si aucune tâche n'est en cours (elle a été consommée ou bloquée), on force l'avancement (SKIP)
                           const proj = selectedLaunchProject || newProjectName;
                           if (!proj) return;
-                          fetch("http://localhost:5005/api/debug/advance-batch", { 
+                          fetch("http://localhost:5006/api/debug/advance-batch", { 
                             method: "POST", headers: { "Content-Type": "application/json" }, 
                             body: JSON.stringify({ project_id: proj }) 
                           }).catch(() => null);
                           return;
                         }
                         const targetAi = Object.keys(bridgeQueueData.current)[0];
-                        fetch("http://localhost:5005/api/bridge/prompt", {
+                        fetch("http://localhost:5006/api/bridge/prompt", {
                            method: "POST", headers: { "Content-Type": "application/json" },
                            body: JSON.stringify({ 
                              prompt: bridgeQueueData.current[targetAi].prompt, 
@@ -1452,7 +1639,7 @@ const WidgetSettings = ({
                   </div>
                   
                   {/* Queue List */}
-                  <div className="flex-1 bg-[#050505] border border-white/5 rounded-xl p-4 flex flex-col gap-4 min-h-[150px]">
+                  <div id="kirov-radar-queue" className={`flex-1 bg-[#050505] rounded-xl p-4 flex flex-col gap-4 min-h-[150px] transition-all duration-1000 ${isPipelineRunning ? 'border-2 border-cyan shadow-[0_0_30px_rgba(8,179,201,0.2)]' : 'border border-white/5'}`}>
                     {/* Tâche Actuelle */}
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
@@ -1464,7 +1651,7 @@ const WidgetSettings = ({
                             if (!bridgeQueueData.current) { alert("Aucune tâche active."); return; }
                             const targetAi = Object.keys(bridgeQueueData.current)[0];
                             if (!targetAi || !bridgeQueueData.current[targetAi]) { alert("Aucune tâche active."); return; }
-                            fetch("http://localhost:5005/api/bridge/prompt", {
+                            fetch("http://localhost:5006/api/bridge/prompt", {
                                method: "POST", headers: { "Content-Type": "application/json" },
                                body: JSON.stringify({ 
                                  prompt: bridgeQueueData.current[targetAi].prompt, 
@@ -1506,7 +1693,7 @@ const WidgetSettings = ({
                            onClick={() => {
                              const proj = selectedLaunchProject || newProjectName;
                              if (!proj) return;
-                             fetch("http://localhost:5005/api/debug/advance-batch", { 
+                             fetch("http://localhost:5006/api/debug/advance-batch", { 
                                method: "POST", headers: { "Content-Type": "application/json" }, 
                                body: JSON.stringify({ project_id: proj }) 
                              }).catch(() => null);
@@ -1536,6 +1723,7 @@ const WidgetSettings = ({
                     </div>
                   </div>
                 </div>
+              </div>
             </div>
           )}
 
@@ -1581,7 +1769,7 @@ const WidgetSettings = ({
 
                 <div className="text-yellow-400">[09:24:30] ⚠️ Bridge local non joignable (Failed to fetch (Bridge hors ligne) - Failed to fetch). Polling Vercel actif.</div>
                 <div className="text-green-400">[09:24:30] KIROV5 Orchestrator v5.1.1 prêt — structure React (.tsx/.ts/.css) préservée.</div>
-                <div className="text-cyan">[09:24:30] Onglets: Projets · Projet · Injection · Capture · GitHub + Bridge :5005.</div>
+                <div className="text-cyan">[09:24:30] Onglets: Projets · Projet · Injection · Capture · GitHub + Bridge :5006.</div>
               </div>
             </div>
           )}
@@ -1606,7 +1794,7 @@ const WidgetSettings = ({
                   <div className="text-cyan text-xs font-bold uppercase tracking-wider mb-1">Moteur Local</div>
                   <div className="text-2xl font-black text-white">v5.0.0</div>
                   <div className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-cyan"></span> Bridge 5005 Opérationnel
+                    <span className="w-2 h-2 rounded-full bg-cyan"></span> Bridge 5006 Opérationnel
                   </div>
                 </div>
 
@@ -1632,12 +1820,12 @@ const WidgetSettings = ({
                 <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider">🚀 Actions Système Rapides</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
-                    onClick={() => window.open('http://localhost:3005', '_blank')}
+                    onClick={() => window.open('http://localhost:3006', '_blank')}
                     className="p-4 bg-gradient-to-r from-cyan/20 to-blue-500/20 hover:from-cyan/30 hover:to-blue-500/30 border border-cyan/40 rounded-xl text-left transition-all flex items-center justify-between group"
                   >
                     <div>
                       <div className="text-white font-bold text-sm group-hover:text-cyan transition-colors">🌐 Ouvrir l'Interface Studio (Vercel)</div>
-                      <div className="text-xs text-gray-400">Accès direct au tableau de bord localhost:3005</div>
+                      <div className="text-xs text-gray-400">Accès direct au tableau de bord localhost:3006</div>
                     </div>
                     <span className="text-xl">➔</span>
                   </button>
@@ -1645,18 +1833,18 @@ const WidgetSettings = ({
                   <button
                     onClick={async () => {
                       try {
-                        const res = await fetch("http://localhost:5005/api/theme");
+                        const res = await fetch("http://localhost:5006/api/theme");
                         const data = await res.json();
                         alert("Thème synchronisé : " + (data.activeTheme?.nom || "Thème par défaut"));
                       } catch (e) {
-                        alert("Vérifiez que le serveur Electron :5005 est démarré.");
+                        alert("Vérifiez que le serveur Electron :5006 est démarré.");
                       }
                     }}
                     className="p-4 bg-gradient-to-r from-purple-500/20 to-pink/20 hover:from-purple-500/30 hover:to-pink/30 border border-purple-500/40 rounded-xl text-left transition-all flex items-center justify-between group"
                   >
                     <div>
                       <div className="text-white font-bold text-sm group-hover:text-purple-300 transition-colors">🎨 Tester la Synchronisation Thème</div>
-                      <div className="text-xs text-gray-400">Interroge l'API bridge :5005/api/theme</div>
+                      <div className="text-xs text-gray-400">Interroge l'API bridge :5006/api/theme</div>
                     </div>
                     <span className="text-xl">🔄</span>
                   </button>
@@ -1675,7 +1863,7 @@ const WidgetSettings = ({
                   <p className="text-xs text-gray-400 mt-1">Gestion du pont d'exécution et du système de fichiers local.</p>
                 </div>
                 <span className="px-3 py-1 bg-cyan/20 text-cyan border border-cyan/40 rounded-full text-xs font-bold">
-                  Port :5005
+                  Port :5006
                 </span>
               </div>
 
@@ -1703,11 +1891,11 @@ const WidgetSettings = ({
                   <button
                     onClick={async () => {
                       try {
-                        const res = await fetch("http://localhost:5005/api/projects");
+                        const res = await fetch("http://localhost:5006/api/projects");
                         const data = await res.json();
                         alert(`Projets détectés (${data.projects?.length || 0}) : \n` + (data.projects?.join('\n') || 'Aucun'));
                       } catch (e) {
-                        alert("Erreur de connexion au bridge Express :5005");
+                        alert("Erreur de connexion au bridge Express :5006");
                       }
                     }}
                     className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
@@ -1746,7 +1934,7 @@ const WidgetSettings = ({
                 <div className="bg-black/50 p-4 rounded-xl border border-white/10 space-y-3 text-xs text-gray-300">
                   <div className="flex justify-between border-b border-white/10 pb-2">
                     <span className="text-gray-400">URL Dev Local :</span>
-                    <span className="text-cyan font-mono font-bold">http://localhost:3005</span>
+                    <span className="text-cyan font-mono font-bold">http://localhost:3006</span>
                   </div>
                   <div className="flex justify-between border-b border-white/10 pb-2">
                     <span className="text-gray-400">Design System CSS :</span>
@@ -1764,7 +1952,7 @@ const WidgetSettings = ({
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => window.open('http://localhost:3005/admin-design', '_blank')}
+                    onClick={() => window.open('http://localhost:3006/admin-design', '_blank')}
                     className="flex-1 py-3 bg-gradient-to-r from-pink/30 to-purple-500/30 hover:from-pink/40 hover:to-purple-500/40 border border-pink/50 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
                   >
                     🎨 Ouvrir le Studio Admin Design
@@ -1957,7 +2145,7 @@ const WidgetPrdPacks = ({
 
   const fetchGuestPacks = async () => {
     try {
-      const res = await fetch(`http://localhost:5005/api/bridge/list-guest-packs?t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`http://localhost:5006/api/bridge/list-guest-packs?t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const payload = await res.json();
         const data = payload.data || payload;
@@ -2132,7 +2320,7 @@ const WidgetPrdPacks = ({
                       <button
                         onClick={async () => {
                           try {
-                            const res = await fetch(`http://localhost:5005/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
+                            const res = await fetch(`http://localhost:5006/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
                             let content = "";
                             if (res.ok) {
                               const data = await res.json();
@@ -2214,7 +2402,7 @@ const WidgetPrdPacks = ({
                       onClick={async () => {
                         let content = packReadmes[packId] || getLocalPackReadme(packId) || "";
                         try {
-                          const res = await fetch(`http://localhost:5005/api/bridge/read-file?packId=${encodeURIComponent(packId)}`);
+                          const res = await fetch(`http://localhost:5006/api/bridge/read-file?packId=${encodeURIComponent(packId)}`);
                           if (res.ok) {
                             const data = await res.json();
                             const fetched = data.content || data.data?.content;
@@ -2264,7 +2452,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
       "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
     ];
-    fetch("http://localhost:5005/api/projects")
+    fetch("http://localhost:5006/api/projects")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.projects) {
@@ -2320,7 +2508,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         setActiveProject(p.name);
         try {
           window.dispatchEvent(new CustomEvent('open-mouchard'));
-          await fetch(`http://localhost:5005/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
+          await fetch(`http://localhost:5006/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ project_id: p.name, open_explorer: false })
@@ -2337,7 +2525,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         e.stopPropagation();
         if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${p.name}" de l'interface ET de votre disque dur ?`)) {
           try {
-            const res = await fetch("http://localhost:5005/api/projects/remove-project", {
+            const res = await fetch("http://localhost:5006/api/projects/remove-project", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ project_id: p.name })
@@ -2386,7 +2574,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                 
                 if (p.installed === false) {
                   setLaunchingProject(p.name);
-                  fetch("http://localhost:5005/api/bridge/install-dependencies", {
+                  fetch("http://localhost:5006/api/bridge/install-dependencies", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: p.name })
@@ -2422,7 +2610,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   onClick={(e) => {
                     e.stopPropagation();
                     setLaunchingProject(p.name);
-                    fetch("http://localhost:5005/api/bridge/install-dependencies", {
+                    fetch("http://localhost:5006/api/bridge/install-dependencies", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ project_id: p.name })
@@ -2440,7 +2628,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      const res = await fetch("http://localhost:5005/api/bridge/manual-pnpm-run", {
+                      const res = await fetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ project_id: p.name })
@@ -2524,6 +2712,11 @@ export default function Dashboard() {
   // --- ETAT : PACKS PRD SELECTIONNES & VISIBILITE CARROUSEL ---
   const [selectedPacks, setSelectedPacks] = useState<string[]>([]);
   useEffect(() => {
+    const handler = (e: any) => setSelectedPacks(e.detail);
+    window.addEventListener('update_kirov_packs', handler);
+    return () => window.removeEventListener('update_kirov_packs', handler);
+  }, []);
+  useEffect(() => {
     (window as any).KIROV_SELECTED_PACKS = selectedPacks;
   }, [selectedPacks]);
   const [showPacksCarousel, setShowPacksCarousel] = useState(false);
@@ -2557,7 +2750,7 @@ export default function Dashboard() {
     if (apkBuildStatus === 'building') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch("http://localhost:5005/api/mobile/build-logs");
+          const res = await fetch("http://localhost:5006/api/mobile/build-logs");
           const data = await res.json();
           if (data.logs && data.logs.length > 0) {
             setApkLogs(data.logs);
@@ -2601,7 +2794,7 @@ export default function Dashboard() {
         id: "sovereign-ide-2026",
         tag: "🚀 SOUVEREIGN OS",
         title: "IDE Code 2026 : Passerelle Electron Local & Mobile Native",
-        desc: "Nouvelle mise à jour du bridge local :5005 et support Android Capacitor.",
+        desc: "Nouvelle mise à jour du bridge local :5006 et support Android Capacitor.",
         content: "La version v0.1.0 de l'OS Souverain intègre une passerelle universelle Electron & Capacitor.\n\nPoints forts :\n- Exécution en arrière-plan des pipelines Trombone\n- Sauvegarde directe dans le workspace local\n- Studio de retouche visuelle en Split-View instantané."
       },
       {
@@ -2755,7 +2948,19 @@ export default function Dashboard() {
   const togglePack = (packId: string) => {
     setSelectedPacks(prev => prev.includes(packId) ? prev.filter(id => id !== packId) : [...prev, packId]);
   };
-  const [selectedStartPhase, setSelectedStartPhase] = useState<number>(0); // 0 = TOUT
+  const [selectedStartPhase, setSelectedStartPhase] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('tiger_selectedStartPhase');
+      return saved ? Number(saved) : 0;
+    }
+    return 0;
+  }); // 0 = TOUT
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tiger_selectedStartPhase', String(selectedStartPhase));
+    }
+  }, [selectedStartPhase]);
   const [isAutoPilot, setIsAutoPilot] = useState<boolean>(true);
   const [reuseActiveTab, setReuseActiveTab] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<string | null>(null);
@@ -2767,7 +2972,7 @@ export default function Dashboard() {
 
   // Fetch initial project list
   useEffect(() => {
-    fetch("http://localhost:5005/api/projects")
+    fetch("http://localhost:5006/api/projects")
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.projects)) {
@@ -2830,7 +3035,7 @@ export default function Dashboard() {
   // Chargement de l'arborescence quand un projet est actif
   useEffect(() => {
     if (activeProject) {
-      fetch(`http://localhost:5005/api/fs/tree?project=${activeProject}`)
+      fetch(`http://localhost:5006/api/fs/tree?project=${activeProject}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setFsTree(data.tree);
@@ -2841,7 +3046,7 @@ export default function Dashboard() {
   // Chargement du contenu du fichier sélectionné
   useEffect(() => {
     if (activeProject && activeFile) {
-      fetch(`http://localhost:5005/api/fs/read?project=${activeProject}&file=${encodeURIComponent(activeFile)}`)
+      fetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(activeFile)}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) setFileContent(data.content);
@@ -2872,7 +3077,7 @@ export default function Dashboard() {
       }
     } else {
       // 💻 MOTEUR ELECTRON (PC)
-      fetch("http://localhost:5005/api/fs/write", {
+      fetch("http://localhost:5006/api/fs/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: activeProject, file: activeFile, content })
@@ -2883,7 +3088,7 @@ export default function Dashboard() {
   // Attacher au trombone
   const attachToTrombone = (filePath: string) => {
     if (!activeProject) return;
-    fetch(`http://localhost:5005/api/fs/read?project=${activeProject}&file=${encodeURIComponent(filePath)}`)
+    fetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(filePath)}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -2925,7 +3130,7 @@ export default function Dashboard() {
           console.log("Aucun projet mobile trouvé ou dossier inexistant.");
         }
       } else {
-        fetch("http://localhost:5005/api/projects-v2")
+        fetch("http://localhost:5006/api/projects-v2")
           .then(res => res.json())
           .then(data => {
             if (data.success && data.projects) {
@@ -2990,7 +3195,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isClient) return;
     const interval = setInterval(() => {
-      fetch("http://localhost:5005/api/bridge/logs")
+      fetch("http://localhost:5006/api/bridge/logs")
         .then(res => res.json())
         .then(data => {
           if (data.success && data.logs) {
@@ -3010,7 +3215,7 @@ export default function Dashboard() {
         .catch(() => { });
 
       // Polling dynamique READ-ONLY de l'Orchestrateur Autonome (Zero-Touch)
-      fetch("http://localhost:5005/api/bridge/autonomous-status")
+      fetch("http://localhost:5006/api/bridge/autonomous-status")
         .then(res => res.json())
         .then(autoData => {
           if (autoData.success && (autoData.data || autoData.status)) {
@@ -3025,7 +3230,7 @@ export default function Dashboard() {
             } else if (st === 'ready') {
               setSutureBtnState('clean');
             } else if (activeProject) {
-              fetch(`http://localhost:5005/api/suture/status?project=${activeProject}`)
+              fetch(`http://localhost:5006/api/suture/status?project=${activeProject}`)
                 .then(res => res.json())
                 .then(data => {
                   if (data.success && data.status) {
@@ -3036,7 +3241,7 @@ export default function Dashboard() {
           }
         }).catch(() => {
           if (activeProject) {
-            fetch(`http://localhost:5005/api/suture/status?project=${activeProject}`)
+            fetch(`http://localhost:5006/api/suture/status?project=${activeProject}`)
               .then(res => res.json())
               .then(data => {
                 if (data.success && data.status) setSutureBtnState(data.status);
@@ -3091,7 +3296,7 @@ export default function Dashboard() {
         responseMsg.widget = null;
 
         // On envoie le prompt directement au Bridge local sans ouvrir de nouvel onglet
-        fetch("http://localhost:5005/bridge/prompt", {
+        fetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3145,7 +3350,7 @@ export default function Dashboard() {
 
             // On envoie le prompt UI au Bridge
             const sendUiPrompt = () => {
-              return fetch("http://localhost:5005/bridge/prompt", {
+              return fetch("http://localhost:5006/bridge/prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -3185,7 +3390,7 @@ export default function Dashboard() {
               window.open(getUrl(logicAi), "_blank");
 
               // Envoi systématique au Bridge pour l'extension et le moteur local
-              fetch("http://localhost:5005/bridge/prompt", {
+              fetch("http://localhost:5006/bridge/prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -3200,7 +3405,7 @@ export default function Dashboard() {
 
               if (selectedPacks && selectedPacks.length > 0) {
                 // TROMBONE PIPELINE (PRD)
-                fetch("http://localhost:5005/api/bridge/trombone", {
+                fetch("http://localhost:5006/api/bridge/trombone", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -3216,7 +3421,7 @@ export default function Dashboard() {
                 });
               } else {
                 // STANDARD PIPELINE
-                fetch("http://localhost:5005/bridge/prompt", {
+                fetch("http://localhost:5006/bridge/prompt", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -3306,7 +3511,7 @@ Description : ${newProjectDesc}.`;
     if (!activeProject) {
       setActiveProject(newProjectId);
       // Création automatique si non validé manuellement (Astuce SOUVERAINE)
-      fetch("http://localhost:5005/api/fs/write", {
+      fetch("http://localhost:5006/api/fs/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3333,7 +3538,7 @@ Description : ${newProjectDesc}.`;
 
     const sendUiPrompt = () => {
       if (selectedPacks && selectedPacks.length > 0) {
-        return fetch("http://localhost:5005/api/bridge/trombone", {
+        return fetch("http://localhost:5006/api/bridge/trombone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3344,7 +3549,7 @@ Description : ${newProjectDesc}.`;
           })
         });
       } else {
-        return fetch("http://localhost:5005/bridge/prompt", {
+        return fetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3382,7 +3587,7 @@ Description : ${newProjectDesc}.`;
       setActiveProject(designProjectId);
     }
 
-    fetch("http://localhost:5005/api/bridge/trombone", {
+    fetch("http://localhost:5006/api/bridge/trombone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3566,7 +3771,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
         zipBase64 = await zip.generateAsync({ type: "base64" });
       }
 
-      fetch("http://localhost:5005/api/bridge/trombone", {
+      fetch("http://localhost:5006/api/bridge/trombone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3628,7 +3833,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
     if (!activeProject) {
       setActiveProject(designProjectId);
       try {
-        await fetch("http://localhost:5005/api/fs/write", {
+        await fetch("http://localhost:5006/api/fs/write", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3722,7 +3927,7 @@ Format attendu:
         bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
         if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
       } else {
-        fetch("http://localhost:5005/bridge/prompt", {
+        fetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3835,7 +4040,7 @@ Format attendu:
 
     // 2. Envoi direct au Bridge local pour que l'extension le capte immédiatement
     try {
-      await fetch("http://localhost:5005/bridge/prompt", {
+      await fetch("http://localhost:5006/bridge/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3849,7 +4054,7 @@ Format attendu:
 
       // Si c'est une Suture, déclencher le moteur Suture V2 Zero-Touch en arrière-plan
       if (action === "suture") {
-        fetch("http://localhost:5005/v1/suture/start", {
+        fetch("http://localhost:5006/v1/suture/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3883,7 +4088,7 @@ Format attendu:
           setMessages(prev => [...prev, {
             id: Date.now().toString() + "_suture_err",
             role: "assistant",
-            content: `❌ Impossible de joindre le moteur Suture V2. Vérifiez que l'Orchestrateur Electron tourne sur le port 5005.`
+            content: `❌ Impossible de joindre le moteur Suture V2. Vérifiez que l'Orchestrateur Electron tourne sur le port 5006.`
           }]);
         });
         return; // On s'arrête : Suture V2 est autonome, pas besoin d'ouvrir un onglet IA.
@@ -3903,7 +4108,7 @@ Format attendu:
       }
     } catch (err: any) {
       console.error("[IDE] Erreur Suture:", err);
-      alert(`🩺 Action ${action} transmise. Assurez-vous que le Moteur Electron tourne sur port 5005.`);
+      alert(`🩺 Action ${action} transmise. Assurez-vous que le Moteur Electron tourne sur port 5006.`);
     }
   };
 
@@ -4187,7 +4392,7 @@ Format attendu:
                 title="Immortaliser le projet (Sauvegarde)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5005/api/bridge/backup", {
+                  fetch("http://localhost:5006/api/bridge/backup", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: activeProject })
@@ -4211,7 +4416,7 @@ Format attendu:
                 title="Restaurer le projet (Time Machine)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5005/api/bridge/backups?project_id=" + activeProject)
+                  fetch("http://localhost:5006/api/bridge/backups?project_id=" + activeProject)
                   .then(res => res.json())
                   .then(data => {
                     if (!data.success || !data.backups || data.backups.length === 0) {
@@ -4244,7 +4449,7 @@ Format attendu:
                 title="Corriger Arborescence (Fix Extensions)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5005/api/fix-extensions", {
+                  fetch("http://localhost:5006/api/fix-extensions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: activeProject })
@@ -4269,7 +4474,7 @@ Format attendu:
                 onClick={() => {
                   setActiveProject("v0-guest");
                   setPreviewUrl("http://localhost:3007");
-                  fetch("http://localhost:5005/api/bridge/launch-project", {
+                  fetch("http://localhost:5006/api/bridge/launch-project", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
@@ -4338,7 +4543,7 @@ Format attendu:
                         // Si Suture est vert (le moteur a arrêté de surveiller les erreurs), 
                         // on force un redémarrage de l'analyse (Preview) pour qu'il détecte la nouvelle erreur !
                         if (sutureBtnState !== "error") {
-                          fetch("http://localhost:5005/api/bridge/launch-project", {
+                          fetch("http://localhost:5006/api/bridge/launch-project", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ project_id: activeProject })
@@ -4346,7 +4551,7 @@ Format attendu:
                         }
 
                         // Déclenchement de la réparation manuelle (Lock file)
-                        fetch("http://localhost:5005/api/suture/launch", {
+                        fetch("http://localhost:5006/api/suture/launch", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ projectId: activeProject })
@@ -4366,7 +4571,7 @@ Format attendu:
                     </button>
                     <button
                       onClick={() => {
-                        fetch("http://localhost:5005/api/projects")
+                        fetch("http://localhost:5006/api/projects")
                           .then(r => r.json())
                           .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
                           .catch(() => { });
@@ -4383,7 +4588,7 @@ Format attendu:
                 <select
                   value={activeProject || ""}
                   onFocus={() => {
-                    fetch("http://localhost:5005/api/projects")
+                    fetch("http://localhost:5006/api/projects")
                       .then(r => r.json())
                       .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
                       .catch(() => { });
@@ -4394,7 +4599,7 @@ Format attendu:
                       setActiveProject(selected);
                       setActiveFile(null);
                       setFileContent("");
-                      fetch("http://localhost:5005/api/bridge/launch-project", {
+                      fetch("http://localhost:5006/api/bridge/launch-project", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ project_id: selected, open_explorer: false })
@@ -4538,7 +4743,7 @@ Format attendu:
                           <button
                             onClick={() => {
                               if (!activeProject) return;
-                              fetch("http://localhost:5005/api/bridge/launch-project", {
+                              fetch("http://localhost:5006/api/bridge/launch-project", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ project_id: activeProject, open_explorer: false })
@@ -4723,7 +4928,7 @@ Format attendu:
                                 setActiveTheme("fold");
                                 document.body.style.background = defaultBg;
                                 document.body.style.backgroundAttachment = "fixed";
-                                fetch("http://localhost:5005/api/theme", {
+                                fetch("http://localhost:5006/api/theme", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ activeTheme: "fold", bgApp: defaultBg })
@@ -4883,7 +5088,7 @@ Format attendu:
                                 setApkBuildStatus("building");
                                 setApkLogs([`> Initialisation build APK pour [${target}]...`]);
                                 try {
-                                  await fetch("http://localhost:5005/api/mobile/build-apk", {
+                                  await fetch("http://localhost:5006/api/mobile/build-apk", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ project: target })
@@ -4919,6 +5124,7 @@ Format attendu:
                             </div>
                             {index === lastWidgetIndex && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} isAutoPilot={isAutoPilot} setIsAutoPilot={setIsAutoPilot} reuseActiveTab={reuseActiveTab} setReuseActiveTab={setReuseActiveTab} selectedStartPhase={selectedStartPhase} setSelectedStartPhase={setSelectedStartPhase} selectedPacks={selectedPacks} />}
                             {index === lastWidgetIndex && msg.widget === "phases" && WidgetPhases()}
+                            {index === lastWidgetIndex && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
                           </div>
                         );
                       })}
@@ -4980,7 +5186,7 @@ Format attendu:
                   onClick={async () => {
                     setMouchardLogs(["> Arrêt des processus en cours... (Historique conservé dans la console noire)"]);
                     try {
-                      const res = await fetch("http://localhost:5005/api/bridge/stop-launch", { method: "POST" });
+                      const res = await fetch("http://localhost:5006/api/bridge/stop-launch", { method: "POST" });
                       if (!res.ok) {
                         setMouchardLogs([
                           "> ⚠️ ERREUR : La commande n'existe pas !",
@@ -5088,7 +5294,6 @@ Format attendu:
             <button
               id="btn-joindre-prd-main"
               onClick={() => {
-                setIsCreationMode(true);
                 setShowPacksCarousel(true);
               }}
               className="design-app-icone design-icone-packs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden"
@@ -5108,7 +5313,7 @@ Format attendu:
               onClick={async () => {
                 window.dispatchEvent(new CustomEvent('open-mouchard'));
                 try {
-                  await fetch("http://localhost:5005/api/bridge/launch-project", {
+                  await fetch("http://localhost:5006/api/bridge/launch-project", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
@@ -5180,7 +5385,7 @@ Format attendu:
                     }
                   }, 50);
 
-                  const res = await fetch("http://localhost:5005/api/design/intent", {
+                  const res = await fetch("http://localhost:5006/api/design/intent", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -5222,7 +5427,7 @@ Format attendu:
               type="button"
               onClick={async () => {
                 try {
-                  const res = await fetch("http://localhost:5005/bridge/flush", { method: "POST" });
+                  const res = await fetch("http://localhost:5006/bridge/flush", { method: "POST" });
                   const data = await res.json();
                   setMessages(prev => [...prev, {
                     id: Date.now().toString() + "_flush",
@@ -5373,9 +5578,8 @@ Format attendu:
                         type="text"
                         value={newProjectName}
                         onChange={e => setNewProjectName(e.target.value)}
-                        disabled={!!selectedTargetProject}
                         placeholder="Ex: MonSuperProjet"
-                        className="flex-1 bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs disabled:opacity-50"
+                        className="flex-1 bg-[#11161d] text-white border border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs"
                       />
                       <button
                         type="button"
@@ -5385,7 +5589,7 @@ Format attendu:
                             const genId = cleanName;
                             setActiveProject(genId);
                             try {
-                              const API_BASE = 'http://localhost:5005';
+                              const API_BASE = 'http://localhost:5006';
                               await fetch(`${API_BASE}/v1/projects/set-active`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -5612,11 +5816,6 @@ Format attendu:
                       type="button"
                       onClick={() => {
                         setShowPacksCarousel(false);
-                        if (selectedPacks.length > 0) {
-                          setIsCreationMode(true);
-                          setSettingsInitialTab("creation");
-                          setIsSettingsOpen(true);
-                        }
                       }}
                       className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl shadow-lg transition-all"
                     >
@@ -5648,7 +5847,7 @@ Format attendu:
                     btn.disabled = true;
 
                     try {
-                      const API_BASE = 'http://localhost:5005';
+                      const API_BASE = 'http://localhost:5006';
                       const isNativeMobile = typeof window !== 'undefined' && (window as any).Capacitor && (window as any).Capacitor.isNativePlatform();
 
                       if (isNativeMobile) {
@@ -5773,6 +5972,13 @@ Format attendu:
                             body: JSON.stringify({ project_id: genId, prompt: megaPrompt, target_ai: finalTargetAi, phase_num: selectedStartPhase, packs: selectedPacks })
                           }).catch(() => null);
 
+                          // NOUVEAU: Activer le Watcher de Téléchargements pour la Reprise Automatique (Zero-Touch total)
+                          await fetch(`${API_BASE}/api/bridge/expect-zip`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ project_id: genId, target_ai: finalTargetAi, auto_submit: isAutoPilotOn })
+                          }).catch(() => null);
+
                           if (!reuseActiveTab) {
                             const logicAiUrl = getTargetAiUrl(finalTargetAi);
                             window.open(logicAiUrl, '_blank');
@@ -5872,7 +6078,7 @@ Format attendu:
                   <button
                     onClick={() => {
                       if (window.confirm(`Confirmer la restauration de ${bName} ?\nTout le travail actuel non sauvegardé sera perdu.`)) {
-                        fetch("http://localhost:5005/api/bridge/restore-backup", {
+                        fetch("http://localhost:5006/api/bridge/restore-backup", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ project_id: activeProject, backup_name: bName })

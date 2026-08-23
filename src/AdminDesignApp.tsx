@@ -453,7 +453,7 @@ const AdminDesignApp = () => {
 
 
   const fetchThemes = () => {
-    fetch('http://localhost:5005/api/themes')
+    fetch('http://localhost:5006/api/themes')
       .then(res => res.json())
       .then(data => {
         if (data.success && Array.isArray(data.themes) && data.themes.length > 0) {
@@ -477,7 +477,7 @@ const AdminDesignApp = () => {
     const targetProject = urlParams.get('project') || 'Obsidian Flux';
     
     try {
-      const res = await fetch('http://localhost:5005/api/themes/apply', {
+      const res = await fetch('http://localhost:5006/api/themes/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -499,7 +499,7 @@ const AdminDesignApp = () => {
     } catch (e) { }
 
     // Fallback de secours direct en écriture fs
-    fetch('http://localhost:5005/api/fs/write', {
+    fetch('http://localhost:5006/api/fs/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project: targetProject, file: 'src/app/globals.css', content: theme.content })
@@ -516,7 +516,7 @@ const AdminDesignApp = () => {
   const sendDesignMode = (enabled: boolean) => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project');
-    fetch('http://localhost:5005/api/design-mode', {
+    fetch('http://localhost:5006/api/design-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled, project: targetProject, file: activePagePath })
@@ -571,7 +571,7 @@ const AdminDesignApp = () => {
         idempotencyKey: `push-${targetProject}-${Date.now()}`
       };
 
-      const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
+      const res = await fetch("http://localhost:5006/api/bridge/strict-ui-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -588,7 +588,7 @@ const AdminDesignApp = () => {
       // Polling de l'état
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${data.pushId}?projectId=${targetProject}`);
+          const statusRes = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${data.pushId}?projectId=${targetProject}`);
           const statusData = await statusRes.json();
           
           if (statusData.success) {
@@ -714,7 +714,7 @@ const AdminDesignApp = () => {
     if (activePagePath) {
       const urlParams = new URLSearchParams(window.location.search);
       const targetProject = urlParams.get('project');
-      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
+      fetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
         .then(res => res.json())
         .then(data => {
            if (data.success) {
@@ -733,7 +733,7 @@ const AdminDesignApp = () => {
     }
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project');
-    fetch("http://localhost:5005/api/fs/write", {
+    fetch("http://localhost:5006/api/fs/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: activePagePath, content })
@@ -1161,7 +1161,7 @@ const AdminDesignApp = () => {
 
     if (!targetProject || targetProject === "../../v0-interface-versel") {
       // Cas 1 : Interface Admin V0 (L'IDE lui-même)
-      fetch(`http://localhost:5005/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
+      fetch(`http://localhost:5006/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.content) {
@@ -1173,7 +1173,7 @@ const AdminDesignApp = () => {
         .finally(() => setIsLoaded(true));
     } else {
       // Cas 2 : Projet Utilisateur (Lire le design-tokens.json du projet)
-      fetch(`http://localhost:5005/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
+      fetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
         .then(res => res.json())
         .then(data => {
           let parsedDesign: Record<string, string> = {};
@@ -1184,7 +1184,7 @@ const AdminDesignApp = () => {
           }
 
           // Fetch de l'arbre pour les fichiers du projet
-          fetch(`http://localhost:5005/api/fs/tree?project=${targetProject}`)
+          fetch(`http://localhost:5006/api/fs/tree?project=${targetProject}`)
               .then(resTree => resTree.json())
               .then(treeData => {
                 let newStructure: Record<string, any> = {};
@@ -1664,14 +1664,14 @@ body {
     const targetProject = urlParams.get('project') || "../../v0-interface-versel";
 
     const timer = setTimeout(() => {
-      fetch("http://localhost:5005/api/fs/write", {
+      fetch("http://localhost:5006/api/fs/write", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: targetProject, file: "src/design.css", content: generateCSS(design) })
       }).catch(console.error);
 
       // Si projet externe, sauvegarder aussi les tokens
       if (targetProject !== "../../v0-interface-versel") {
-        fetch("http://localhost:5005/api/fs/write", {
+        fetch("http://localhost:5006/api/fs/write", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
         }).catch(console.error);
@@ -1693,7 +1693,7 @@ body {
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project') || "../../v0-interface-versel";
 
-    fetch("http://localhost:5005/api/fs/write", {
+    fetch("http://localhost:5006/api/fs/write", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
     })
