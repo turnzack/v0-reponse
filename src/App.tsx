@@ -103,6 +103,8 @@ const WidgetSettings = ({
   const [creationView, setCreationView] = useState<"classic" | "forge">("forge");
   const [packUpdateTrigger, setPackUpdateTrigger] = useState(0);
   const [techStack, setTechStack] = useState("vite");
+  const [notebookExportStatus, setNotebookExportStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [notebookExportContent, setNotebookExportContent] = useState("");
   const [isPipelineRunning, setIsPipelineRunning] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('tiger_isPipelineRunning') === 'true';
@@ -893,10 +895,10 @@ const WidgetSettings = ({
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
-                    {selectedLaunchProject && (
+                    {selectedLaunchProject && notebookExportStatus === "idle" && (
                       <button
                         onClick={async () => {
-                          const newTab = window.open("about:blank", "_blank");
+                          setNotebookExportStatus("loading");
                           try {
                             const res = await fetch("http://localhost:5006/api/bridge/export-notebooklm", {
                               method: "POST",
@@ -905,35 +907,41 @@ const WidgetSettings = ({
                             });
                             const data = await res.json();
                             if (data.success) {
-                              let copySuccess = true;
-                              try {
-                                await navigator.clipboard.writeText(data.combinedContent || "");
-                              } catch(err) {
-                                copySuccess = false;
-                                console.error("Clipboard API error", err);
-                              }
-                              
-                              if (newTab) {
-                                newTab.location.href = "https://notebook.google.com/notebook/6cd96956-200e-4260-ae7d-6c1446de284a";
-                              }
-                              
-                              if (copySuccess) {
-                                alert(`✅ Export NotebookLM généré !\n\nL'intégralité du projet a été COPIÉE dans votre presse-papiers.\n\nNotebookLM s'ouvre dans un nouvel onglet.\n👉 Cliquez sur "Ajouter une source" -> "Texte copié" et COLLEZ (Ctrl+V) !`);
-                              } else {
-                                alert(`✅ Export NotebookLM généré dans :\n${data.exportDir}\n\n⚠️ Votre navigateur a bloqué la copie automatique. Ouvrez les fichiers texte générés et copiez-les manuellement dans NotebookLM.`);
-                              }
+                              setNotebookExportContent(data.combinedContent || "");
+                              setNotebookExportStatus("ready");
                             } else {
-                              if (newTab) newTab.close();
+                              setNotebookExportStatus("idle");
                               alert("❌ Erreur: " + data.message);
                             }
                           } catch (e) {
-                            if (newTab) newTab.close();
+                            setNotebookExportStatus("idle");
                             alert("❌ Erreur de connexion avec Kirov5.");
                           }
                         }}
                         className="mt-2 w-full bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-500/30 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
                       >
-                        📓 Exporter vers NotebookLM
+                        📓 Préparer l'export NotebookLM
+                      </button>
+                    )}
+                    {selectedLaunchProject && notebookExportStatus === "loading" && (
+                      <button disabled className="mt-2 w-full bg-gray-900/50 text-gray-400 border border-gray-700/50 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2">
+                        ⏳ Extraction de l'expertise...
+                      </button>
+                    )}
+                    {selectedLaunchProject && notebookExportStatus === "ready" && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(notebookExportContent);
+                            window.open("https://notebook.google.com/notebook/6cd96956-200e-4260-ae7d-6c1446de284a", "_blank");
+                            setNotebookExportStatus("idle");
+                          } catch (err) {
+                            alert("❌ Copie échouée. Essayez sur HTTPS ou utilisez Ctrl+C manuellement.");
+                          }
+                        }}
+                        className="mt-2 w-full bg-green-900/40 hover:bg-green-800/60 text-green-300 border border-green-500/50 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                      >
+                        ✅ Copier & Ouvrir NotebookLM
                       </button>
                     )}
                   </div>
