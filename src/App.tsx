@@ -973,6 +973,10 @@ const WidgetSettings = ({
                             if (data.success) {
                               setNotebookExportContent(data.combinedContent || "");
                               setNotebookExportStatus("ready");
+                              
+                              if (data.pushLog && data.pushLog.includes("Failed:")) {
+                                alert(`⚠️ Le script Python d'upload automatique a échoué.\n\nErreur détaillée :\n${data.pushLog}\n\nPas d'inquiétude, vous pouvez utiliser le bouton 'Copier & Ouvrir' pour le faire manuellement !`);
+                              }
                             } else {
                               setNotebookExportStatus("idle");
                               alert("❌ Erreur: " + data.message);
