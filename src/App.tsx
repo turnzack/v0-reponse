@@ -896,6 +896,7 @@ const WidgetSettings = ({
                     {selectedLaunchProject && (
                       <button
                         onClick={async () => {
+                          const newTab = window.open("about:blank", "_blank");
                           try {
                             const res = await fetch("http://localhost:5006/api/bridge/export-notebooklm", {
                               method: "POST",
@@ -904,11 +905,29 @@ const WidgetSettings = ({
                             });
                             const data = await res.json();
                             if (data.success) {
-                              alert(`✅ Export NotebookLM réussi dans :\n${data.exportDir}`);
+                              let copySuccess = true;
+                              try {
+                                await navigator.clipboard.writeText(data.combinedContent || "");
+                              } catch(err) {
+                                copySuccess = false;
+                                console.error("Clipboard API error", err);
+                              }
+                              
+                              if (newTab) {
+                                newTab.location.href = "https://notebook.google.com/notebook/6cd96956-200e-4260-ae7d-6c1446de284a";
+                              }
+                              
+                              if (copySuccess) {
+                                alert(`✅ Export NotebookLM généré !\n\nL'intégralité du projet a été COPIÉE dans votre presse-papiers.\n\nNotebookLM s'ouvre dans un nouvel onglet.\n👉 Cliquez sur "Ajouter une source" -> "Texte copié" et COLLEZ (Ctrl+V) !`);
+                              } else {
+                                alert(`✅ Export NotebookLM généré dans :\n${data.exportDir}\n\n⚠️ Votre navigateur a bloqué la copie automatique. Ouvrez les fichiers texte générés et copiez-les manuellement dans NotebookLM.`);
+                              }
                             } else {
+                              if (newTab) newTab.close();
                               alert("❌ Erreur: " + data.message);
                             }
                           } catch (e) {
+                            if (newTab) newTab.close();
                             alert("❌ Erreur de connexion avec Kirov5.");
                           }
                         }}
