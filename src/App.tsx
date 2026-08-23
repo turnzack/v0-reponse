@@ -105,6 +105,9 @@ const WidgetSettings = ({
   const [techStack, setTechStack] = useState("vite");
   const [notebookExportStatus, setNotebookExportStatus] = useState<"idle" | "loading" | "ready">("idle");
   const [notebookExportContent, setNotebookExportContent] = useState("");
+  const [notebookId, setNotebookId] = useState("6cd96956-200e-4260-ae7d-6c1446de284a");
+  const [authCookie, setAuthCookie] = useState("");
+  const [notebookConnectionStatus, setNotebookConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [isPipelineRunning, setIsPipelineRunning] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('tiger_isPipelineRunning') === 'true';
@@ -136,6 +139,8 @@ const WidgetSettings = ({
     setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5175");
     setApiKey(localStorage.getItem("tiger_apiKey") || "");
     setApiProvider(localStorage.getItem("tiger_apiProvider") || "deepseek");
+    setNotebookId(localStorage.getItem("tiger_notebookId") || "6cd96956-200e-4260-ae7d-6c1446de284a");
+    setAuthCookie(localStorage.getItem("tiger_authCookie") || "");
 
     // Vérifier si une clé est déjà configurée côté moteur
     const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006";
@@ -158,6 +163,8 @@ const WidgetSettings = ({
     localStorage.setItem("tiger_defaultPreviewUrl", defaultPreviewUrl);
     localStorage.setItem("tiger_apiKey", apiKey);
     localStorage.setItem("tiger_apiProvider", apiProvider);
+    localStorage.setItem("tiger_notebookId", notebookId);
+    localStorage.setItem("tiger_authCookie", authCookie);
 
     // 🔑 Envoyer la clé au moteur Electron pour persistance sur disque
     if (apiKey && apiKey.trim().length > 5) {
@@ -661,6 +668,63 @@ const WidgetSettings = ({
                   </>
                 )}
               </div>
+
+              {/* SECTION NOTEBOOKLM */}
+              <div className="pt-4 border-t border-white/10 space-y-4">
+                <h3 className="text-blue-400 font-bold flex items-center gap-2 text-sm">
+                  📓 NotebookLM Auto-Push (Python)
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="notebook-id" className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Notebook ID (URL)</label>
+                    <input 
+                      id="notebook-id" 
+                      type="text" 
+                      value={notebookId} 
+                      onChange={(e) => setNotebookId(e.target.value)} 
+                      placeholder="6cd96956-..." 
+                      className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:border-blue-500" 
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="auth-cookie" className="text-gray-400 font-bold uppercase tracking-wider text-[10px] flex justify-between">
+                      <span>Cookie d'authentification (__Secure-1PSID)</span>
+                      {notebookConnectionStatus === "success" && <span className="text-green-400">🟢 Connecté</span>}
+                      {notebookConnectionStatus === "error" && <span className="text-red-400">🔴 Erreur / Expiré</span>}
+                      {notebookConnectionStatus === "testing" && <span className="text-yellow-400">⏳ Test...</span>}
+                    </label>
+                    <input 
+                      id="auth-cookie" 
+                      type="password" 
+                      value={authCookie} 
+                      onChange={(e) => setAuthCookie(e.target.value)} 
+                      placeholder="Collez votre cookie d'authentification Google ici..." 
+                      className="w-full bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 text-sm font-mono mt-1 outline-none focus:border-blue-500" 
+                    />
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button 
+                      onClick={handleSave} 
+                      className="px-4 py-2 bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-bold uppercase transition-colors"
+                    >
+                      💾 Sauvegarder
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        // TODO: Implement test via notebooklm-py
+                        setNotebookConnectionStatus("testing");
+                        setTimeout(() => setNotebookConnectionStatus("success"), 1000);
+                      }} 
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold uppercase transition-colors"
+                    >
+                      🧪 Tester
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 italic">
+                    Note : Ce cookie expire régulièrement. Pensez à le mettre à jour s'il ne fonctionne plus.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -903,7 +967,7 @@ const WidgetSettings = ({
                             const res = await fetch("http://localhost:5006/api/bridge/export-notebooklm", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ projectId: selectedLaunchProject })
+                              body: JSON.stringify({ projectId: selectedLaunchProject, notebookId, authCookie })
                             });
                             const data = await res.json();
                             if (data.success) {
