@@ -103,8 +103,9 @@ const WidgetSettings = ({
   const [creationView, setCreationView] = useState<"classic" | "forge">("forge");
   const [packUpdateTrigger, setPackUpdateTrigger] = useState(0);
   const [techStack, setTechStack] = useState("vite");
-  const [notebookExportStatus, setNotebookExportStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [notebookExportStatus, setNotebookExportStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [notebookExportContent, setNotebookExportContent] = useState("");
+  const [notebookExportError, setNotebookExportError] = useState("");
   const [notebookId, setNotebookId] = useState("6cd96956-200e-4260-ae7d-6c1446de284a");
   const [authCookie, setAuthCookie] = useState("");
   const [notebookConnectionStatus, setNotebookConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
@@ -972,18 +973,20 @@ const WidgetSettings = ({
                             const data = await res.json();
                             if (data.success) {
                               setNotebookExportContent(data.combinedContent || "");
-                              setNotebookExportStatus("ready");
                               
                               if (data.pushLog && data.pushLog.includes("Failed:")) {
-                                alert(`⚠️ Le script Python d'upload automatique a échoué.\n\nErreur détaillée :\n${data.pushLog}\n\nPas d'inquiétude, vous pouvez utiliser le bouton 'Copier & Ouvrir' pour le faire manuellement !`);
+                                setNotebookExportError(data.pushLog);
+                                setNotebookExportStatus("error");
+                              } else {
+                                setNotebookExportStatus("ready");
                               }
                             } else {
-                              setNotebookExportStatus("idle");
-                              alert("❌ Erreur: " + data.message);
+                              setNotebookExportError(data.message);
+                              setNotebookExportStatus("error");
                             }
                           } catch (e) {
-                            setNotebookExportStatus("idle");
-                            alert("❌ Erreur de connexion avec Kirov5.");
+                            setNotebookExportError("Erreur de connexion avec Kirov5.");
+                            setNotebookExportStatus("error");
                           }
                         }}
                         className="mt-2 w-full bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-500/30 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
@@ -1011,6 +1014,38 @@ const WidgetSettings = ({
                       >
                         ✅ Copier & Ouvrir NotebookLM
                       </button>
+                    )}
+                    {selectedLaunchProject && notebookExportStatus === "error" && (
+                      <div className="mt-2 p-3 bg-red-900/30 border border-red-500/50 rounded-lg">
+                        <div className="text-red-400 text-[10px] font-bold mb-2">⚠️ Échec du script Python (Copiez l'erreur ci-dessous) :</div>
+                        <textarea 
+                          readOnly 
+                          value={notebookExportError} 
+                          className="w-full h-24 bg-black/50 text-red-300 text-[10px] font-mono p-2 rounded border border-red-500/20 outline-none"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button 
+                            onClick={() => setNotebookExportStatus("idle")}
+                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-[10px] py-2 rounded font-bold"
+                          >
+                            🔄 Réessayer
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(notebookExportContent);
+                                window.open("https://notebook.google.com/notebook/6cd96956-200e-4260-ae7d-6c1446de284a", "_blank");
+                                setNotebookExportStatus("idle");
+                              } catch (err) {
+                                alert("❌ Copie échouée.");
+                              }
+                            }}
+                            className="flex-1 bg-green-900/50 hover:bg-green-800/70 text-green-300 border border-green-500/50 text-[10px] py-2 rounded font-bold"
+                          >
+                            ✅ Fallback Manuel
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
 
