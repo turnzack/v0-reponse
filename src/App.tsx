@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 "use client";
 
+// Trigger new Vercel build (port 5006)
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
