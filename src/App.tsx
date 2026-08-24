@@ -506,6 +506,7 @@ const WidgetSettings = ({
                           value={targetAi} onChange={(e) => setTargetAi(e.target.value)}
                           className="flex-1 bg-gradient-to-r from-black/40 to-black/60 text-white border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-cyan text-sm"
                         >
+                          <option value="notebooklm">📓 NotebookLM (Google)</option>
                           <option value="deepseek">🐋 DeepSeek Web</option>
                           <option value="chatgpt">🟢 ChatGPT Web</option>
                           <option value="gemini">✨ Gemini Web</option>
