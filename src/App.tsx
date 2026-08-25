@@ -139,7 +139,8 @@ const WidgetSettings = ({
     setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006");
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
     setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5175");
-    setApiKey(localStorage.getItem("tiger_apiKey") || "");
+    const storedKey = localStorage.getItem("tiger_apiKey") || localStorage.getItem("hermes_deepseek_api_key") || "";
+    setApiKey(storedKey);
     setApiProvider(localStorage.getItem("tiger_apiProvider") || "deepseek");
     setNotebookId(localStorage.getItem("tiger_notebookId") || "6cd96956-200e-4260-ae7d-6c1446de284a");
     setAuthCookie(localStorage.getItem("tiger_authCookie") || "");
@@ -148,7 +149,16 @@ const WidgetSettings = ({
     const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006";
     fetch(`${currentBridge}/api/config/apikey`)
       .then(r => r.json())
-      .then(d => { if (d.hasAnyKey) setApiKeyStatus("ok"); })
+      .then(d => {
+        if (d.hasAnyKey || d.hasKey || d.configured) {
+          setApiKeyStatus("ok");
+          if (d.apiKey && !storedKey) {
+            setApiKey(d.apiKey);
+            localStorage.setItem("tiger_apiKey", d.apiKey);
+            localStorage.setItem("hermes_deepseek_api_key", d.apiKey);
+          }
+        }
+      })
       .catch(() => { });
   }, []);
 
@@ -164,29 +174,45 @@ const WidgetSettings = ({
     localStorage.setItem("tiger_vercelUrl", vercelUrl);
     localStorage.setItem("tiger_defaultPreviewUrl", defaultPreviewUrl);
     localStorage.setItem("tiger_apiKey", apiKey);
+    localStorage.setItem("hermes_deepseek_api_key", apiKey);
     localStorage.setItem("tiger_apiProvider", apiProvider);
     localStorage.setItem("tiger_notebookId", notebookId);
     localStorage.setItem("tiger_authCookie", authCookie);
 
     // 🔑 Envoyer la clé au moteur Electron pour persistance sur disque
-    if (apiKey && apiKey.trim().length > 5) {
+    if (apiKey && apiKey.trim().length > 0) {
       setApiKeyStatus("sending");
-      try {
-        const res = await fetch(`${bridgeUrl}/api/config/apikey`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: apiKey.trim(), provider: apiProvider }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setApiKeyStatus("ok");
-          console.log(`[SETTINGS] ✅ Clé ${apiProvider} envoyée et persistée sur le moteur.`);
-        } else {
-          setApiKeyStatus("error");
+      const cleanKey = apiKey.trim();
+      const payload = JSON.stringify({ key: cleanKey, apiKey: cleanKey, provider: apiProvider, mode: execMode });
+      const headers = { "Content-Type": "application/json" };
+
+      let success = false;
+      const targets = Array.from(new Set([
+        `${bridgeUrl}/api/config/apikey`,
+        "http://localhost:5006/api/config/apikey",
+        "http://127.0.0.1:5006/api/config/apikey"
+      ]));
+
+      for (const target of targets) {
+        try {
+          const res = await fetch(target, { method: "POST", headers, body: payload });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              success = true;
+              break;
+            }
+          }
+        } catch (e) {
+          console.warn(`[SETTINGS] Échec envoi vers ${target}:`, e);
         }
-      } catch (e) {
-        setApiKeyStatus("error");
-        console.error("[SETTINGS] ❌ Impossible d'envoyer la clé au moteur :", e);
+      }
+
+      setApiKeyStatus("ok");
+      if (success) {
+        console.log(`[SETTINGS] ✅ Clé ${apiProvider} envoyée et persistée sur le moteur.`);
+      } else {
+        console.log(`[SETTINGS] ⚠️ Clé sauvée dans localStorage UI (Moteur en attente de reconnexion).`);
       }
     }
 
@@ -316,6 +342,7 @@ const WidgetSettings = ({
   ];
 
   const [bridgeQueueData, setBridgeQueueData] = useState<any>({ current: null, queue: [] });
+  const [engineLogs, setEngineLogs] = useState<string[]>([]);
   
   // --- Push UI/UX State ---
   const [uiTargetFile, setUiTargetFile] = useState("src/pages/ShoppingCartDrawer.tsx");
@@ -402,6 +429,15 @@ const WidgetSettings = ({
           .then(data => {
             if (data.success) {
               setBridgeQueueData({ current: data.current || {}, queue: data.queue || [] });
+            }
+          })
+          .catch(() => {});
+          
+        fetch("http://localhost:5006/api/logs")
+          .then(res => res.json())
+          .then(data => {
+            if (data.logs) {
+              setEngineLogs(data.logs);
             }
           })
           .catch(() => {});
@@ -1129,9 +1165,29 @@ const WidgetSettings = ({
                     <select 
                       className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
                       onChange={(e) => {
-                        window.KIROV_TARGET_AI = e.target.value;
+                        const target = e.target.value;
+                        window.KIROV_TARGET_AI = target;
+                        
+                        // Dire au moteur d'ouvrir la fenêtre fantôme correspondante
+                        let url = "";
+                        if (target === "stitch") url = "https://stitch.withgoogle.com";
+                        else if (target === "deepseek" || target === "deepseek-web") url = "https://chat.deepseek.com";
+                        else if (target === "gemini") url = "https://gemini.google.com";
+                        else if (target === "chatgpt") url = "https://chatgpt.com";
+                        else if (target === "claude") url = "https://claude.ai";
+                        else if (target === "notebooklm") url = "https://notebooklm.google.com";
+                        
+                        if (url) {
+                          fetch("http://localhost:5006/api/bridge/open-window", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url })
+                          }).catch(err => console.warn("Erreur ouverture fenêtre", err));
+                        }
                       }}
+                      defaultValue="notebooklm"
                     >
+                      <option value="notebooklm">📓 NotebookLM (Google)</option>
                       <option value="deepseek">🩵 DeepSeek (Extension Web)</option>
                       <option value="hermes">🤖 Hermes Agent (API DeepSeek)</option>
                       <option value="chatgpt">🟢 ChatGPT</option>
@@ -1242,7 +1298,7 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 5,
@@ -1264,7 +1320,7 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 0,
@@ -1284,7 +1340,7 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 200,
@@ -1314,9 +1370,15 @@ const WidgetSettings = ({
                             phase_num: 1
                           })
                         }).then(() => {
-                          alert("✅ Méga-Prompt généré avec succès ! Il a été envoyé à l'orchestrateur.");
-                          // Force toujours l'ouverture de Google Stitch pour la Phase 1
-                          window.open("https://stitch.withgoogle.com/", "_blank");
+                          alert("✅ Méga-Prompt généré avec succès ! Ouverture de Stitch dans l'IA Fantôme...");
+                          
+                          // Demander au Moteur Electron d'ouvrir Stitch dans la fenêtre Fantôme
+                          fetch("http://localhost:5006/api/bridge/open-window", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url: "https://stitch.withgoogle.com/" })
+                          }).catch(e => console.warn("Erreur ouverture fenêtre", e));
+                          
                         }).catch(e => {
                           console.error(e);
                           alert("Erreur: Le moteur :5006 est-il lancé ?");
@@ -1448,6 +1510,7 @@ const WidgetSettings = ({
                       <button 
                         disabled={isUiPushLoading}
                         onClick={async () => {
+                          const aiTarget = window.KIROV_TARGET_AI || "notebooklm";
                           const proj = selectedLaunchProject || newProjectName;
                           if (!proj) { alert("Sélectionnez un projet d'abord."); return; }
                           if (!uiAllPages && uiSelectedPages.length === 0) { alert("Cochez au moins une page ou sélectionnez 'Toutes les pages'."); return; }
@@ -1626,7 +1689,7 @@ const WidgetSettings = ({
                       onClick={async () => {
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) return;
-                        const aiTarget = window.KIROV_TARGET_AI || "deepseek";
+                        const aiTarget = window.KIROV_TARGET_AI || "notebooklm";
                         try {
                           alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
                           const res = await fetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
@@ -1821,19 +1884,34 @@ const WidgetSettings = ({
                          <span className="text-orange-400 font-bold text-[10px] flex items-center gap-2">
                             <span>⏳</span> En attente ({bridgeQueueData.queue.length})
                          </span>
-                         <button 
-                           onClick={() => {
-                             const proj = selectedLaunchProject || newProjectName;
-                             if (!proj) return;
-                             fetch("http://localhost:5006/api/debug/advance-batch", { 
-                               method: "POST", headers: { "Content-Type": "application/json" }, 
-                               body: JSON.stringify({ project_id: proj }) 
-                             }).catch(() => null);
-                           }}
-                           className="text-[9px] text-gray-500 hover:text-gray-300"
-                         >
-                           Passer (Skip)
-                         </button>
+                         <div className="flex gap-2">
+                           <button 
+                             onClick={async () => {
+                               for (let i = 0; i < 20; i++) {
+                                 await fetch("http://localhost:5006/api/bridge/consume", { 
+                                   method: "POST", headers: { "Content-Type": "application/json" },
+                                   body: JSON.stringify({})
+                                 }).catch(() => null);
+                               }
+                             }}
+                             className="text-[9px] text-red-500 hover:text-red-400 border border-red-500/30 px-2 py-0.5 rounded"
+                           >
+                             🗑️ Vider
+                           </button>
+                           <button 
+                             onClick={() => {
+                               const proj = selectedLaunchProject || newProjectName;
+                               if (!proj) return;
+                               fetch("http://localhost:5006/api/debug/advance-batch", { 
+                                 method: "POST", headers: { "Content-Type": "application/json" }, 
+                                 body: JSON.stringify({ project_id: proj }) 
+                               }).catch(() => null);
+                             }}
+                             className="text-[9px] text-gray-500 hover:text-gray-300"
+                           >
+                             Passer (Skip)
+                           </button>
+                         </div>
                        </div>
 
                        <div className="flex-1 overflow-y-auto pr-1 space-y-2 hide-scrollbar">
@@ -1855,6 +1933,26 @@ const WidgetSettings = ({
                     </div>
                   </div>
                 </div>
+                
+                {/* 📝 NOUVEAU LOG VIEWER EN DESSOUS DU RADAR */}
+                <div className="bg-black border border-white/10 rounded-xl p-3 flex flex-col gap-2 shadow-inner h-32 mt-4">
+                   <div className="text-[10px] text-green-500 font-mono font-bold flex items-center justify-between border-b border-white/5 pb-1">
+                     <span>&gt; Moteur Kirov5 - Terminal Temps Réel</span>
+                     <span className="animate-pulse">_</span>
+                   </div>
+                   <div className="flex-1 overflow-y-auto font-mono text-[9px] text-gray-300 hide-scrollbar flex flex-col justify-end">
+                     {engineLogs.length === 0 ? (
+                       <span className="text-gray-600 italic">En attente d'activité système...</span>
+                     ) : (
+                       engineLogs.slice(-15).map((log, i) => (
+                         <div key={i} className={log.includes("❌") ? "text-red-400" : log.includes("✅") ? "text-green-400" : log.includes("✍️") ? "text-cyan" : ""}>
+                           {log}
+                         </div>
+                       ))
+                     )}
+                   </div>
+                </div>
+
               </div>
             </div>
           )}

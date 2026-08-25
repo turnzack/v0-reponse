@@ -6,10 +6,11 @@ export interface BridgeConfigStatus {
 }
 
 const STORAGE_KEY = 'hermes_deepseek_api_key';
+const TIGER_STORAGE_KEY = 'tiger_apiKey';
 
 export function getApiKey(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(STORAGE_KEY) || localStorage.getItem(TIGER_STORAGE_KEY) || null;
   } catch {
     return null;
   }
@@ -17,12 +18,14 @@ export function getApiKey(): string | null {
 
 export function setApiKey(key: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, key.trim());
+    const trimmed = key.trim();
+    localStorage.setItem(STORAGE_KEY, trimmed);
+    localStorage.setItem(TIGER_STORAGE_KEY, trimmed);
     // Transmettre au serveur bridge local 5006
-    fetch('http://localhost:5006/api/bridge/config', {
+    fetch('http://localhost:5006/api/config/apikey', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey: key.trim() }),
+      body: JSON.stringify({ key: trimmed, apiKey: trimmed, provider: 'deepseek' }),
     }).catch(() => {});
   } catch {}
 }
@@ -30,26 +33,26 @@ export function setApiKey(key: string): void {
 export function clearApiKey(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TIGER_STORAGE_KEY);
   } catch {}
 }
 
 export function hasApiKey(): boolean {
   const key = getApiKey();
-  return !!key && key.length > 10;
+  return !!key && key.length > 5;
 }
 
 export async function checkBridgeConfigStatus(): Promise<BridgeConfigStatus> {
   try {
-    const res = await fetch('http://localhost:5006/api/bridge/config');
+    const res = await fetch('http://localhost:5006/api/config/apikey');
     if (res.ok) {
       const data = await res.json();
       
-      // Si la clé existe localement, on force configured: true même si le backend a oublié
       const localKeyExists = hasApiKey();
       
       return {
         provider: data.provider || 'deepseek',
-        configured: localKeyExists || !!data.hasKey || !!data.configured,
+        configured: localKeyExists || !!data.hasKey || !!data.configured || !!data.hasAnyKey,
         keyFingerprint: data.keyFingerprint || (data.apiKey ? data.apiKey.slice(-4) : (getApiKey()?.slice(-4))),
         source: localKeyExists ? 'local-and-bridge' : (data.source || 'bridge-5006')
       };
@@ -68,15 +71,15 @@ export async function checkBridgeConfigStatus(): Promise<BridgeConfigStatus> {
 
 export async function resolveApiKey(): Promise<string | null> {
   const localKey = getApiKey();
-  if (localKey && localKey.length > 10) {
+  if (localKey && localKey.length > 5) {
     return localKey;
   }
 
   try {
-    const res = await fetch('http://localhost:5006/api/bridge/config');
+    const res = await fetch('http://localhost:5006/api/config/apikey');
     if (res.ok) {
       const data = await res.json();
-      if (data.hasKey && data.apiKey) {
+      if ((data.hasKey || data.hasAnyKey || data.configured) && data.apiKey) {
         setApiKey(data.apiKey);
         return data.apiKey;
       }
@@ -85,3 +88,4 @@ export async function resolveApiKey(): Promise<string | null> {
 
   return null;
 }
+
