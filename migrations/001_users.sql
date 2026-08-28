@@ -1,12 +1,11 @@
--- Migration 001 : Table des utilisateurs
--- Kirov5 Sovereign Forge - Phase 1 Auth
--- Exécuter sur Neon PostgreSQL Dashboard ou via psql
+-- Migration 001 : Table des utilisateurs (Schéma Actif Kirov5 / Treecountry)
+-- Exécuté automatiquement par l'API ou sur Neon PostgreSQL Dashboard
 
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,  -- Haché Argon2id UNIQUEMENT — jamais en clair
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
