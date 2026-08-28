@@ -2,9 +2,33 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Admin Design Studio - Tiger IA</title>
     <script>
+      // Firewall réseau global Zero-Error pour mode Web Cloud SaaS
+      (function() {
+        var isElectron = Boolean(window.electron || window.electronAPI || (navigator.userAgent && navigator.userAgent.indexOf('Electron') !== -1));
+        var isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0';
+        var origFetch = window.fetch;
+        
+        window.fetch = function(input, init) {
+          var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+          if (url && (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1)) {
+            var enableBridge = false;
+            try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
+            if (!isElectron && !enableBridge && !isLocalHost) {
+              return Promise.resolve(new Response(JSON.stringify({ success: false, cloud_blocked: true }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+          }
+          return origFetch.apply(this, arguments);
+        };
+      })();
+
       document.addEventListener('wheel', function(e) { if (e.ctrlKey) { e.preventDefault(); } }, { passive: false });
       document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '0' || e.key === '+' || e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) {
