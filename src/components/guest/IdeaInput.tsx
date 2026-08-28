@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Send, Gamepad2, HeartPulse, ShoppingBag, Lightbulb, Zap, FolderOpen, Globe, FileCode, Youtube, Mic, Cpu } from 'lucide-react';
 import { PackCategory } from '../../types/pack';
+import { safeFetch } from '../../lib/bridgeClient';
 
 interface IdeaInputProps {
   onGenerate: (idea: string, category: PackCategory, sourceFolder?: string, webUrl?: string) => void;
@@ -189,8 +190,8 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await fetch('http://localhost:5006/api/bridge/select-folder');
-                    if (res.ok) {
+                    const res = await safeFetch('http://localhost:5006/api/bridge/select-folder');
+                    if (res && res.ok) {
                       const payload = await res.json();
                       const data = payload.data || payload; // Unwrap response-helper enveloppe
                       
@@ -323,8 +324,8 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await fetch('http://localhost:5006/api/bridge/select-folder');
-                    if (res.ok) {
+                    const res = await safeFetch('http://localhost:5006/api/bridge/select-folder');
+                    if (res && res.ok) {
                       const payload = await res.json();
                       const data = payload.data || payload;
                       if (data.success && data.path) setPhase5Folder(data.path);

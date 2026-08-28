@@ -5,6 +5,7 @@ import { PackViewer } from './guest/PackViewer';
 import { ProposalViewer } from './guest/ProposalViewer';
 import { IndustrialBrickSelector } from './guest/IndustrialBrickSelector';
 import { WorkflowState, ProjectType } from './ProjectConfigurator';
+import { safeFetch } from '../lib/bridgeClient';
 
 interface Props {
   existingProjects: string[];
@@ -177,7 +178,7 @@ export function ForgeDualPanel(p: Props) {
               </div>
               <button
                 onClick={() => {
-                  fetch("http://localhost:5006/api/debug/advance-batch", {
+                  safeFetch("http://localhost:5006/api/debug/advance-batch", {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: workflowState.projectId })
                   }).catch(() => null);

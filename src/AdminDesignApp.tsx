@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
 import defaultDesign from './design-tokens.json';
+import { safeFetch } from './lib/bridgeClient';
 
 const designStructure = {
   "🌍 Structure Globale": {
@@ -453,10 +454,10 @@ const AdminDesignApp = () => {
 
 
   const fetchThemes = () => {
-    fetch('http://localhost:5006/api/themes')
-      .then(res => res.json())
+    safeFetch('http://localhost:5006/api/themes')
+      .then(res => res ? res.json() : null)
       .then(data => {
-        if (data.success && Array.isArray(data.themes) && data.themes.length > 0) {
+        if (data && data.success && Array.isArray(data.themes) && data.themes.length > 0) {
           const merged = [...DEFAULT_PRESETS];
           data.themes.forEach((t: any) => {
             if (!merged.some(m => m.id === t.id)) {
@@ -477,7 +478,7 @@ const AdminDesignApp = () => {
     const targetProject = urlParams.get('project') || 'Obsidian Flux';
     
     try {
-      const res = await fetch('http://localhost:5006/api/themes/apply', {
+      const res = await safeFetch('http://localhost:5006/api/themes/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -488,18 +489,20 @@ const AdminDesignApp = () => {
           targetPage: selectedPageScope
         })
       });
-      const data = await res.json();
-      if (data.success) {
-        const scopeLabel = themeScope === 'page' ? `Page ${selectedPageScope}` : 'Tout le Projet';
-        setThemeApplyMessage(`✓ Thème "${theme.name}" appliqué sur ${targetProject} (${scopeLabel}) !`);
-        setTimeout(() => setThemeApplyMessage(null), 3500);
-        setShowThemeModal(false);
-        return;
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          const scopeLabel = themeScope === 'page' ? `Page ${selectedPageScope}` : 'Tout le Projet';
+          setThemeApplyMessage(`✓ Thème "${theme.name}" appliqué sur ${targetProject} (${scopeLabel}) !`);
+          setTimeout(() => setThemeApplyMessage(null), 3500);
+          setShowThemeModal(false);
+          return;
+        }
       }
     } catch (e) { }
 
     // Fallback de secours direct en écriture fs
-    fetch('http://localhost:5006/api/fs/write', {
+    safeFetch('http://localhost:5006/api/fs/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ project: targetProject, file: 'src/app/globals.css', content: theme.content })
@@ -516,7 +519,7 @@ const AdminDesignApp = () => {
   const sendDesignMode = (enabled: boolean) => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project');
-    fetch('http://localhost:5006/api/design-mode', {
+    safeFetch('http://localhost:5006/api/design-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled, project: targetProject, file: activePagePath })
@@ -571,14 +574,15 @@ const AdminDesignApp = () => {
         idempotencyKey: `push-${targetProject}-${Date.now()}`
       };
 
-      const res = await fetch("http://localhost:5006/api/bridge/strict-ui-update", {
+      const res = await safeFetch("http://localhost:5006/api/bridge/strict-ui-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
+      if (!res || !res.ok) throw new Error("Mode Cloud SaaS actif - Bridge Electron distant");
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Erreur lors de la requête");
       }
 
@@ -588,24 +592,22 @@ const AdminDesignApp = () => {
       // Polling de l'état
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${data.pushId}?projectId=${targetProject}`);
-          const statusData = await statusRes.json();
-          
-          if (statusData.success) {
-            setSaveSuccessMessage(`⏳ État: ${statusData.state} ...`);
-            
-            if (statusData.state === "preview_ready") {
-              clearInterval(pollInterval);
-              setIsUiUpdateLoading(false);
-              setNewV0Html("");
-              setSaveSuccessMessage(`✅ Preview prête ! (Gates: ${Object.keys(statusData.gates).join(', ')})`);
-              
-              // Optionnel: Recharger la page ou iframe de preview
-              setTimeout(() => setSaveSuccessMessage(null), 5000);
-            } else if (statusData.state === "failed" || statusData.state === "rejected") {
-              clearInterval(pollInterval);
-              setIsUiUpdateLoading(false);
-              setSaveSuccessMessage(`❌ Échec du Push: ${statusData.error || "Raison inconnue"}`);
+          const statusRes = await safeFetch(`http://localhost:5006/api/bridge/strict-ui-update/${data.pushId}?projectId=${targetProject}`);
+          if (statusRes && statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.success) {
+              setSaveSuccessMessage(`⏳ État: ${statusData.state} ...`);
+              if (statusData.state === "preview_ready") {
+                clearInterval(pollInterval);
+                setIsUiUpdateLoading(false);
+                setNewV0Html("");
+                setSaveSuccessMessage(`✅ Preview prête !`);
+                setTimeout(() => setSaveSuccessMessage(null), 5000);
+              } else if (statusData.state === "failed" || statusData.state === "rejected") {
+                clearInterval(pollInterval);
+                setIsUiUpdateLoading(false);
+                setSaveSuccessMessage(`❌ Échec du Push: ${statusData.error || "Raison inconnue"}`);
+              }
             }
           }
         } catch (e) {
@@ -714,10 +716,10 @@ const AdminDesignApp = () => {
     if (activePagePath) {
       const urlParams = new URLSearchParams(window.location.search);
       const targetProject = urlParams.get('project');
-      fetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
-        .then(res => res.json())
+      safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
+        .then(res => res ? res.json() : null)
         .then(data => {
-           if (data.success) {
+           if (data && data.success) {
              setPageContent(data.content);
              setHistoryStack([data.content]);
              setHistoryIndex(0);
@@ -733,7 +735,7 @@ const AdminDesignApp = () => {
     }
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project');
-    fetch("http://localhost:5006/api/fs/write", {
+    safeFetch("http://localhost:5006/api/fs/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: activePagePath, content })
@@ -1161,10 +1163,10 @@ const AdminDesignApp = () => {
 
     if (!targetProject || targetProject === "../../v0-interface-versel") {
       // Cas 1 : Interface Admin V0 (L'IDE lui-même)
-      fetch(`http://localhost:5006/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
-        .then(res => res.json())
+      safeFetch(`http://localhost:5006/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
+        .then(res => res ? res.json() : null)
         .then(data => {
-          if (data.success && data.content) {
+          if (data && data.success && data.content) {
             try {
               setDesign(prev => ({ ...prev, ...JSON.parse(data.content) }));
             } catch (e) { }
@@ -1173,19 +1175,19 @@ const AdminDesignApp = () => {
         .finally(() => setIsLoaded(true));
     } else {
       // Cas 2 : Projet Utilisateur (Lire le design-tokens.json du projet)
-      fetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
-        .then(res => res.json())
+      safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
+        .then(res => res ? res.json() : null)
         .then(data => {
           let parsedDesign: Record<string, string> = {};
-          if (data.success && data.content) {
+          if (data && data.success && data.content) {
              try {
                 parsedDesign = JSON.parse(data.content);
              } catch(e) {}
           }
 
           // Fetch de l'arbre pour les fichiers du projet
-          fetch(`http://localhost:5006/api/fs/tree?project=${targetProject}`)
-              .then(resTree => resTree.json())
+          safeFetch(`http://localhost:5006/api/fs/tree?project=${targetProject}`)
+              .then(resTree => resTree ? resTree.json() : null)
               .then(treeData => {
                 let newStructure: Record<string, any> = {};
                 if (treeData.success && treeData.tree) {

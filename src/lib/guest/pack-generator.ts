@@ -2,6 +2,7 @@ import { GeneratedPack, PackCategory, Phase5Audit } from '../../types/pack';
 import { AnalysisProposal } from '../../components/guest/ProposalViewer';
 import { callHermesAgent } from './ai-provider';
 import { resolveApiKey } from './api-key-storage';
+import { safeFetch } from '../bridgeClient';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { buildUserPrompt } from './user-prompt';
 import { ANALYZE_SYSTEM_PROMPT, buildAnalyzeUserPrompt, PHASE5_ANALYZE_SYSTEM_PROMPT, buildPhase5AuditPrompt } from './analyze-prompt';
@@ -11,8 +12,8 @@ export type IntelligenceMode = 'api' | 'extension-web';
 /** Récupère le transcript depuis le cache bridge (envoyé par l'extension KIROV5) */
 async function fetchYouTubeTranscriptFromBridge(webUrl: string) {
   try {
-    const res = await fetch(`http://localhost:5006/api/bridge/youtube-context?url=${encodeURIComponent(webUrl)}`);
-    if (!res.ok) return null;
+    const res = await safeFetch(`http://localhost:5006/api/bridge/youtube-context?url=${encodeURIComponent(webUrl)}`);
+    if (!res || !res.ok) return null;
     const payload = await res.json();
     const data = payload.data || payload;
     if (data.found && data.fullContext) return data;
@@ -26,7 +27,7 @@ async function fetchYouTubeTranscriptFromBridge(webUrl: string) {
 async function generateViaExtensionWeb(fullPrompt: string, timeoutMs = 180000): Promise<string> {
   const BRIDGE = 'http://localhost:5006';
 
-  const sendRes = await fetch(`${BRIDGE}/v1/bridge/inject`, {
+  const sendRes = await safeFetch(`${BRIDGE}/v1/bridge/inject`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -36,7 +37,7 @@ async function generateViaExtensionWeb(fullPrompt: string, timeoutMs = 180000): 
       project_id: 'guest_pack_generation'
     })
   });
-  if (!sendRes.ok) throw new Error(`Bridge inject failed: ${sendRes.status}`);
+  if (!sendRes || !sendRes.ok) throw new Error(`Bridge inject failed: ${sendRes ? sendRes.status : 'Offline'}`);
 
   const pollInterval = 3000;
   const startTime = Date.now();
@@ -69,7 +70,7 @@ export async function analyzeProposal(
 
   // 1. Tenter le bridge local s'il est actif
   try {
-    const res = await fetch('http://localhost:5006/api/bridge/analyze-proposal', {
+    const res = await safeFetch('http://localhost:5006/api/bridge/analyze-proposal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ export async function analyzeProposal(
       body: JSON.stringify({ idea, category, source_folder: sourceFolder, web_url: webUrl, apiKey: apiKey || undefined }),
     });
 
-    if (res.ok) {
+    if (res && res.ok) {
       const payload = await res.json();
       const data = payload.data || payload;
       if (data.success && data.proposal) return data.proposal;
@@ -125,7 +126,7 @@ export async function generateGuestPack(
   // 1. Tenter le bridge local 5006 s'il est en cours d'exécution
   const apiKey = await resolveApiKey();
   try {
-    const res = await fetch('http://localhost:5006/api/bridge/generate-guest-pack', {
+    const res = await safeFetch('http://localhost:5006/api/bridge/generate-guest-pack', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -140,7 +141,7 @@ export async function generateGuestPack(
       }),
     });
 
-    if (res.ok) {
+    if (res && res.ok) {
       const payload = await res.json();
       const data = payload.data || payload;
       if (data.success && data.pack) return data.pack;
@@ -189,7 +190,7 @@ export async function analyzePhase5Audit(
   const apiKey = await resolveApiKey();
 
   try {
-    const res = await fetch('http://localhost:5006/api/bridge/phase5-audit', {
+    const res = await safeFetch('http://localhost:5006/api/bridge/phase5-audit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ export async function analyzePhase5Audit(
       })
     });
 
-    if (res.ok) {
+    if (res && res.ok) {
       const payload = await res.json();
       const data = payload.data || payload;
       if (payload.success && data.audit) return data.audit as Phase5Audit;
@@ -242,12 +243,12 @@ export async function launchPhase5(
 ): Promise<{ jobId?: string; status?: string; message?: string }> {
   try {
     const KIRO_API_URL = (import.meta as any).env?.VITE_KIROV_API_URL || 'http://localhost:5006';
-    const res = await fetch(`${KIRO_API_URL}/api/bridge/phase5`, {
+    const res = await safeFetch(`${KIRO_API_URL}/api/bridge/phase5`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId: decision.projectId, decision })
     });
-    if (res.ok || res.status === 202) {
+    if (res && (res.ok || res.status === 202)) {
       const payload = await res.json().catch(() => ({}));
       return { status: 'accepted', jobId: payload?.data?.jobId || `cloud-${Date.now()}`, message: 'Job Phase 5 initié' };
     }

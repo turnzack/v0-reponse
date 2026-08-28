@@ -36,6 +36,7 @@ import { IdeaInput } from './guest/IdeaInput';
 import { IndustrialBrickSelector, IndustrialPack } from './guest/IndustrialBrickSelector';
 import { ForgeDualPanel } from './ForgeDualPanel';
 import { generateGuestPack, analyzeProposal } from '../lib/guest/pack-generator';
+import { safeFetch } from '../lib/bridgeClient';
 import { GeneratedPack, PackCategory } from '../types/pack';
 
 export type CreationStep =
@@ -143,10 +144,10 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
   
   // Charger les projets existants
   useEffect(() => {
-    fetch("http://localhost:5006/api/fs/projects")
-      .then(res => res.json())
+    safeFetch("http://localhost:5006/api/fs/projects")
+      .then(res => res ? res.json() : null)
       .then(data => {
-        if (data.projects) {
+        if (data && data.projects) {
           setExistingProjects(data.projects);
         }
       })
@@ -271,14 +272,15 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
     setLogs(prev => [...prev, `📁 [Étape 2] Vérification idempotente du boilerplate pour "${pid}"...`]);
 
     try {
-      const res = await fetch("http://localhost:5006/api/fs/create-boilerplate", {
+      const res = await safeFetch("http://localhost:5006/api/fs/create-boilerplate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: pid })
       });
-      const data = await res.json();
-      
-      setLogs(prev => [...prev, `✅ [Étape 2] Rapport d'idempotence : FilesCreated: ${data.filesCreated || 24}, Root: v0saveprojets/${pid}`]);
+      if (res && res.ok) {
+        const data = await res.json();
+        setLogs(prev => [...prev, `✅ [Étape 2] Rapport d'idempotence : FilesCreated: ${data.filesCreated || 24}, Root: v0saveprojets/${pid}`]);
+      }
       
       setWorkflowState(prev => ({
         ...prev,
@@ -475,7 +477,7 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
     setLogs(prev => [...prev, `🌐 [Étape 5] Envoi du Mega-Prompt UI/UX au Bridge 5006 (target_ai: stitch)...`]);
 
     try {
-      const res = await fetch("http://localhost:5006/v1/bridge/inject", {
+      const res = await safeFetch("http://localhost:5006/v1/bridge/inject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -485,8 +487,11 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
           phase_name: "Phase 1 : Frontend UI/UX Stitch"
         })
       });
-      const data = await res.json();
-      setLogs(prev => [...prev, `✅ [Étape 5] Mega-Prompt UI/UX transmis au Bridge 5006 ! L'extension KIROV5 active sur Stitch va consommer l'ordre.`]);
+      if (res && res.ok) {
+        setLogs(prev => [...prev, `✅ [Étape 5] Mega-Prompt UI/UX transmis au Bridge 5006 ! L'extension KIROV5 active sur Stitch va consommer l'ordre.`]);
+      } else {
+        setLogs(prev => [...prev, `🌐 [Étape 5] Mode Web Cloud : Prompt prêt pour Stitch.`]);
+      }
     } catch (err: any) {
       setLogs(prev => [...prev, `⚠️ [Étape 5 Error] ${err.message}. Vériﬁez que le Bridge 5006 tourne.`]);
     }
@@ -515,12 +520,12 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
             const base64 = (event.target?.result as string).split(',')[1];
             setLogs(prev => [...prev, `📎 [Étape 6] Contrôle de sécurité du ZIP Stitch (Vérification anti-Zip Slip & Quotas)...`]);
             
-            const res = await fetch("http://localhost:5006/api/bridge/trombone", {
+            const res = await safeFetch("http://localhost:5006/api/bridge/trombone", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                 target_project: workflowState.projectId, 
-                target_ai: window.KIROV_TARGET_AI || "deepseek", 
+                target_ai: (window as any).KIROV_TARGET_AI || "deepseek", 
                 start_index: 1, 
                 zip_mode: true,
                 start_phase: 0,
@@ -528,7 +533,7 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
               })
             });
 
-            if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
+            if (!res || !res.ok) throw new Error(`Bridge hors ligne ou indisponible`);
             
             setLogs(prev => [...prev, `📦 [Étape 6] Trombone ZIP déclenché avec succès ! L'orchestrateur extrait le ZIP et crée les lots (voir terminal).`]);
             setWorkflowState(prev => ({
@@ -574,7 +579,7 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
 
     try {
       // Sauvegarder les packs sur le Bridge 5006
-      await fetch('http://localhost:5006/api/bridge/save-industrial-pack', {
+      await safeFetch('http://localhost:5006/api/bridge/save-industrial-pack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: workflowState.projectId, pack })
@@ -602,7 +607,7 @@ export function ProjectConfigurator(props: { bridgeQueueData?: any }) {
 
     // On force le moteur à avancer la file au cas où elle serait bloquée
     try {
-      await fetch("http://localhost:5006/api/debug/advance-batch", { method: "POST" });
+      await safeFetch("http://localhost:5006/api/debug/advance-batch", { method: "POST" });
     } catch (e) {
       // Ignorer si pas joignable, l'autopilot gère peut-être déjà
     }

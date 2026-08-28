@@ -366,9 +366,11 @@ const WidgetSettings = ({
   const fetchProjectPages = useCallback(async (proj: string) => {
     if (!proj) { setProjectPages([]); return; }
     try {
-      const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
-      const data = await res.json();
-      if (data.pages) setProjectPages(data.pages);
+      const res = await safeFetch(`http://localhost:5006/api/projects/${proj}/pages`);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.pages) setProjectPages(data.pages);
+      }
     } catch(e) {}
   }, []);
 
@@ -396,7 +398,7 @@ const WidgetSettings = ({
     localStorage.setItem("suture_single_file", String(sutureSingleFileOnly));
     localStorage.setItem("suture_auto_promote", String(sutureAutoPromote));
     // Envoyer au moteur
-    fetch("http://localhost:5006/api/suture/config", {
+    safeFetch("http://localhost:5006/api/suture/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -416,9 +418,11 @@ const WidgetSettings = ({
       const url = projectId
         ? `http://localhost:5006/api/suture/history?projectId=${projectId}`
         : "http://localhost:5006/api/suture/history";
-      const res = await fetch(url);
-      const data = await res.json();
-      setSutureHistory(data.repairs || []);
+      const res = await safeFetch(url);
+      if (res && res.ok) {
+        const data = await res.json();
+        setSutureHistory(data.repairs || []);
+      }
     } catch {
       setSutureHistory([]);
     } finally {
@@ -1494,9 +1498,11 @@ const WidgetSettings = ({
                               const proj = selectedLaunchProject || newProjectName;
                               if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
                               try {
-                                const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
-                                const data = await res.json();
-                                if (data.pages) setProjectPages(data.pages);
+                                const res = await safeFetch(`http://localhost:5006/api/projects/${proj}/pages`);
+                                if (res && res.ok) {
+                                  const data = await res.json();
+                                  if (data.pages) setProjectPages(data.pages);
+                                }
                               } catch(e) {}
                             }}
                             className="text-[10px] text-gray-500 italic text-center py-3 border border-dashed border-white/10 rounded-lg cursor-pointer hover:border-cyan/30 hover:text-cyan/50 transition-all"
@@ -2440,8 +2446,8 @@ const WidgetPrdPacks = ({
 
   const fetchGuestPacks = async () => {
     try {
-      const res = await fetch(`http://localhost:5006/api/bridge/list-guest-packs?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) {
+      const res = await safeFetch(`http://localhost:5006/api/bridge/list-guest-packs?t=${Date.now()}`, { cache: 'no-store' });
+      if (res && res.ok) {
         const payload = await res.json();
         const data = payload.data || payload;
         if (data.success && data.packs) {
@@ -2615,9 +2621,9 @@ const WidgetPrdPacks = ({
                       <button
                         onClick={async () => {
                           try {
-                            const res = await fetch(`http://localhost:5006/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
+                            const res = await safeFetch(`http://localhost:5006/api/bridge/read-file?path=${encodeURIComponent(pack.path + '/README.md')}`);
                             let content = "";
-                            if (res.ok) {
+                            if (res && res.ok) {
                               const data = await res.json();
                               content = data.data?.content || data.content || "";
                             }
@@ -2697,8 +2703,8 @@ const WidgetPrdPacks = ({
                       onClick={async () => {
                         let content = packReadmes[packId] || getLocalPackReadme(packId) || "";
                         try {
-                          const res = await fetch(`http://localhost:5006/api/bridge/read-file?packId=${encodeURIComponent(packId)}`);
-                          if (res.ok) {
+                          const res = await safeFetch(`http://localhost:5006/api/bridge/read-file?packId=${encodeURIComponent(packId)}`);
+                          if (res && res.ok) {
                             const data = await res.json();
                             const fetched = data.content || data.data?.content;
                             if (fetched && fetched.trim().length > 5) {
@@ -2823,7 +2829,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         setActiveProject(p.name);
         try {
           window.dispatchEvent(new CustomEvent('open-mouchard'));
-          await fetch(`http://localhost:5006/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
+          await safeFetch(`http://localhost:5006/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ project_id: p.name, open_explorer: false })
@@ -3361,10 +3367,10 @@ export default function Dashboard() {
   // Chargement de l'arborescence quand un projet est actif
   useEffect(() => {
     if (activeProject) {
-      fetch(`http://localhost:5006/api/fs/tree?project=${activeProject}`)
-        .then(res => res.json())
+      safeFetch(`http://localhost:5006/api/fs/tree?project=${activeProject}`)
+        .then(res => res ? res.json() : null)
         .then(data => {
-          if (data.success) setFsTree(data.tree);
+          if (data && data.success) setFsTree(data.tree);
         }).catch(() => { });
     }
   }, [activeProject]);
@@ -3372,10 +3378,10 @@ export default function Dashboard() {
   // Chargement du contenu du fichier sélectionné
   useEffect(() => {
     if (activeProject && activeFile) {
-      fetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(activeFile)}`)
-        .then(res => res.json())
+      safeFetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(activeFile)}`)
+        .then(res => res ? res.json() : null)
         .then(data => {
-          if (data.success) setFileContent(data.content);
+          if (data && data.success) setFileContent(data.content);
         }).catch(() => { });
     }
   }, [activeProject, activeFile]);
@@ -3403,7 +3409,7 @@ export default function Dashboard() {
       }
     } else {
       // 💻 MOTEUR ELECTRON (PC)
-      fetch("http://localhost:5006/api/fs/write", {
+      safeFetch("http://localhost:5006/api/fs/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: activeProject, file: activeFile, content })
@@ -3414,10 +3420,10 @@ export default function Dashboard() {
   // Attacher au trombone
   const attachToTrombone = (filePath: string) => {
     if (!activeProject) return;
-    fetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(filePath)}`)
-      .then(res => res.json())
+    safeFetch(`http://localhost:5006/api/fs/read?project=${activeProject}&file=${encodeURIComponent(filePath)}`)
+      .then(res => res ? res.json() : null)
       .then(data => {
-        if (data.success) {
+        if (data && data.success) {
           setTromboneFiles(prev => {
             if (prev.find(f => f.path === filePath)) return prev;
             return [...prev, { path: filePath, content: data.content }];

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GeneratedPack, GeneratedFile } from '../../types/pack';
 import { Download, Rocket, FileText, FileCode, FileJson, Folder, CheckCircle, Layers } from 'lucide-react';
 import { downloadPackZip } from '../../lib/guest/pack-download';
+import { safeFetch } from '../../lib/bridgeClient';
 
 interface PackViewerProps {
   pack: GeneratedPack;
@@ -52,7 +53,7 @@ export const PackViewer: React.FC<PackViewerProps> = ({ pack }) => {
 
       setLaunchMessage("🚀 Transmission du Méga-Prompt Stitch au Moteur Electron...");
 
-      const res = await fetch("http://localhost:5006/v1/mission/start", {
+      const res = await safeFetch("http://localhost:5006/v1/mission/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -66,14 +67,18 @@ export const PackViewer: React.FC<PackViewerProps> = ({ pack }) => {
         })
       });
 
-      const data = await res.json();
-      if (data.success) {
-        setLaunchMessage(`✅ Mission "${pack.projectName}" transmise à Google Stitch ! L'onglet Stitch devrait s'ouvrir et recevoir le prompt automatiquement.`);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setLaunchMessage(`✅ Mission "${pack.projectName}" transmise à Google Stitch ! L'onglet Stitch devrait s'ouvrir et recevoir le prompt automatiquement.`);
+        } else {
+          setLaunchMessage(`⚠️ Réponse inattendue : ${data.message || 'Voir les logs du Moteur Electron.'}`);
+        }
       } else {
-        setLaunchMessage(`⚠️ Réponse inattendue : ${data.message || 'Voir les logs du Moteur Electron.'}`);
+        setLaunchMessage("🌐 Mode Web Cloud : Le pack PRD est prêt et sauvegardé localement.");
       }
     } catch (e: any) {
-      setLaunchMessage("⚠️ Moteur Electron hors ligne — Le pack est sauvegardé dans prd_packs/. Relancez COMMAND_MENU_TIGER.bat et réessayez.");
+      setLaunchMessage("⚠️ Pack conservé. Relancez COMMAND_MENU_TIGER.bat et réessayez si vous préférez le moteur local.");
     } finally {
       setTimeout(() => setIsLaunching(false), 5000);
     }

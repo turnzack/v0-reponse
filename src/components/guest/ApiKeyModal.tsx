@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Key, Eye, EyeOff, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
 import { getApiKey, setApiKey, clearApiKey, hasApiKey } from '../lib/api-key-storage';
+import { safeFetch } from '../../lib/bridgeClient';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSav
     
     // Synchronisation avec le pont Electron (backend)
     try {
-      await fetch('http://localhost:5006/api/bridge/config', {
+      await safeFetch('http://localhost:5006/api/bridge/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: inputKey.trim() })
