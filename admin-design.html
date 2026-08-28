@@ -18,7 +18,7 @@
           if (url && (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1)) {
             var enableBridge = false;
             try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
-            if (!isElectron && !enableBridge && !isLocalHost) {
+            if (!isElectron && !enableBridge) {
               return Promise.resolve(new Response(JSON.stringify({ success: false, cloud_blocked: true }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
