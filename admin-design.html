@@ -22,14 +22,22 @@
             else if (input) { url = String(input); }
           } catch(e) {}
           
-          if (url && (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1)) {
-            var enableBridge = false;
-            try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
-            if (!isElectron && !enableBridge) {
-              return Promise.resolve(new Response(JSON.stringify({ success: false, cloud_blocked: true }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-              }));
+          if (url) {
+            if (url.indexOf('turborepo-summary') !== -1) {
+              return Promise.resolve(new Response(JSON.stringify({ hasTurborepo: false }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+            }
+            if (url.indexOf('console.neon.tech') !== -1 || url.indexOf('ingest.sentry.io') !== -1) {
+              return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+            }
+            if (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1) {
+              var enableBridge = false;
+              try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
+              if (!isElectron && !enableBridge) {
+                return Promise.resolve(new Response(JSON.stringify({ success: false, cloud_blocked: true }), {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              }
             }
           }
           return origFetch.apply(this, arguments);
