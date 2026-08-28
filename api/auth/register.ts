@@ -3,16 +3,17 @@ import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-// Fonction helper pour les CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+function applyCors(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  applyCors(res);
+
   if (req.method === 'OPTIONS') {
-    return res.status(204).set(corsHeaders).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -26,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const sql = neon(process.env.DATABASE_URL);
 
-    // Auto-création de la table comme dans treecountry
+    // Auto-création de la table si elle n'existe pas
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -63,11 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Création du JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback_secret_key_kirov5_jwt',
+      process.env.JWT_SECRET || 'kirov5_sovereign_forge_secret_key_2026',
       { expiresIn: '7d' }
     );
 
-    return res.status(201).set(corsHeaders).json({
+    return res.status(201).json({
       success: true,
       message: 'Habilitation créée avec succès',
       token,
@@ -76,6 +77,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Erreur API Register:', error);
-    return res.status(500).json({ error: 'Erreur interne: ' + error.message });
+    return res.status(500).json({ error: 'Erreur interne: ' + (error?.message || error) });
   }
 }

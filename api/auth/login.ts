@@ -3,15 +3,17 @@ import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+function applyCors(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  applyCors(res);
+
   if (req.method === 'OPTIONS') {
-    return res.status(204).set(corsHeaders).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -25,7 +27,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const sql = neon(process.env.DATABASE_URL);
 
-    // Auto-création pour s'assurer que ça ne crash pas si la table n'est pas encore là
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -54,11 +55,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'fallback_secret_key_kirov5_jwt',
+      process.env.JWT_SECRET || 'kirov5_sovereign_forge_secret_key_2026',
       { expiresIn: '7d' }
     );
 
-    return res.status(200).set(corsHeaders).json({
+    return res.status(200).json({
       success: true,
       message: 'Connexion réussie',
       token,
@@ -67,6 +68,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Erreur API Login:', error);
-    return res.status(500).json({ error: 'Erreur interne: ' + error.message });
+    return res.status(500).json({ error: 'Erreur interne: ' + (error?.message || error) });
   }
 }
