@@ -1666,17 +1666,17 @@ body {
     const targetProject = urlParams.get('project') || "../../v0-interface-versel";
 
     const timer = setTimeout(() => {
-      fetch("http://localhost:5006/api/fs/write", {
+      safeFetch("http://localhost:5006/api/fs/write", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: targetProject, file: "src/design.css", content: generateCSS(design) })
-      }).catch(console.error);
+      }).catch(() => {});
 
       // Si projet externe, sauvegarder aussi les tokens
       if (targetProject !== "../../v0-interface-versel") {
-        fetch("http://localhost:5006/api/fs/write", {
+        safeFetch("http://localhost:5006/api/fs/write", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
-        }).catch(console.error);
+        }).catch(() => {});
       }
     }, 150); // Plus rapide pour une sensation temps-réel absolue
     return () => clearTimeout(timer);
@@ -1695,11 +1695,11 @@ body {
     const urlParams = new URLSearchParams(window.location.search);
     const targetProject = urlParams.get('project') || "../../v0-interface-versel";
 
-    fetch("http://localhost:5006/api/fs/write", {
+    safeFetch("http://localhost:5006/api/fs/write", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: targetProject, file: "src/design-tokens.json", content: JSON.stringify(design, null, 2) })
     })
-    .then(() => alert(`✅ Réglages GRAVÉS dans le projet ${targetProject} !`))
+    .then(res => res ? alert(`✅ Réglages GRAVÉS dans le projet ${targetProject} !`) : alert("⚠️ Mode SaaS Cloud : Pont local non connecté."))
     .catch(err => alert("❌ Erreur lors de la sauvegarde : " + err.message));
   };
 

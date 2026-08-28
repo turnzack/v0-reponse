@@ -21,17 +21,27 @@ export function isLocalEnvironment(): boolean {
 }
 
 /**
- * Teste rapidement si le bridge local 5006 est en écoute avec dédoublonnement (un seul ping en vol).
+ * Teste rapidement si le bridge local 5006 est en écoute avec dédoublonnement.
  */
 export async function probeLocalBridge(): Promise<boolean> {
   if (isLocalBridgeAvailable !== null) {
     if (isLocalBridgeAvailable === false) {
-      if (!isElectronEnvironment() && (Date.now() - lastFailureTimestamp < 60000)) {
+      if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+        return false;
+      }
+      if (Date.now() - lastFailureTimestamp < 60000) {
         return false;
       }
     } else {
       return true;
     }
+  }
+
+  // En navigateur Web standard (hors Electron), désactiver le pont local par défaut
+  // pour éviter tout ping réseau vers localhost et éliminer à 100% les erreurs console.
+  if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+    isLocalBridgeAvailable = false;
+    return false;
   }
 
   if (!isLocalEnvironment()) {
@@ -79,6 +89,12 @@ export async function safeFetch(url: string, init?: RequestInit): Promise<Respon
   const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500');
 
   if (isLocalTarget) {
+    // En navigateur web standard (hors Electron), sauf si le bridge local est explicitement activé par l'utilisateur,
+    // interdire l'émission de tout fetch vers localhost pour zéro bruit console.
+    if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+      return null;
+    }
+
     // En mode Cloud SaaS sur Vercel/Web distant (pas sur localhost/Electron), annuler immédiatement les appels local
     if (!isLocalEnvironment()) {
       return null;
@@ -86,8 +102,9 @@ export async function safeFetch(url: string, init?: RequestInit): Promise<Respon
 
     // Si le bridge local s'est avéré indisponible, ne pas émettre de fetch pour éviter ERR_CONNECTION_REFUSED
     if (isLocalBridgeAvailable === false) {
+      if (!isElectronEnvironment()) return null;
       const now = Date.now();
-      if (!isElectronEnvironment() && (now - lastFailureTimestamp < 60000)) {
+      if (now - lastFailureTimestamp < 60000) {
         return null;
       }
     }

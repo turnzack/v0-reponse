@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 "use client";
 
-// Trigger new Vercel build (port 5006)
+// Trigger new Vercel Zero-Error SaaS Cloud bundle (v5006-silent)
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
@@ -439,6 +439,7 @@ const WidgetSettings = ({
   };
 
   useEffect(() => {
+    if (!isElectronEnvironment()) return;
     let interval: any;
     if (activeTab === "deploiement" || activeTab === "creation") {
       const fetchQueue = () => {
@@ -1942,7 +1943,7 @@ const WidgetSettings = ({
                             }
                             if (!task) { alert("Aucune tâche active ni en attente."); return; }
                             const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
-                            fetch(`${targetBridge}/v1/bridge/inject`, {
+                            safeFetch(`${targetBridge}/v1/bridge/inject`, {
                                method: "POST", headers: { "Content-Type": "application/json" },
                                body: JSON.stringify({ 
                                  prompt: task.prompt, 
@@ -1985,7 +1986,7 @@ const WidgetSettings = ({
                              onClick={async () => {
                                const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
                                for (let i = 0; i < 20; i++) {
-                                 await fetch(`${targetBridge}/v1/bridge/consume`, { 
+                                 await safeFetch(`${targetBridge}/v1/bridge/consume`, { 
                                    method: "POST", headers: { "Content-Type": "application/json" },
                                    body: JSON.stringify({})
                                  }).catch(() => null);
@@ -1999,7 +2000,7 @@ const WidgetSettings = ({
                              onClick={() => {
                                const proj = selectedLaunchProject || newProjectName || 'GTASTICH';
                                const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
-                               fetch(`${targetBridge}/api/debug/advance-batch`, { 
+                               safeFetch(`${targetBridge}/api/debug/advance-batch`, { 
                                  method: "POST", headers: { "Content-Type": "application/json" }, 
                                  body: JSON.stringify({ project_id: proj }) 
                                }).catch(() => null);
@@ -3584,7 +3585,7 @@ export default function Dashboard() {
 
   // Polling des logs du Mouchard (Bridge Electron)
   useEffect(() => {
-    if (!isClient || !isLocalEnvironment()) return;
+    if (!isClient || !isElectronEnvironment()) return;
     const interval = setInterval(() => {
       safeFetch("http://localhost:5006/api/bridge/logs")
         .then(res => res ? res.json() : null)
@@ -3894,7 +3895,7 @@ Description : ${newProjectDesc}.`;
     if (!activeProject) {
       setActiveProject(newProjectId);
       // Création automatique si non validé manuellement (Astuce SOUVERAINE)
-      fetch("http://localhost:5006/api/fs/write", {
+      safeFetch("http://localhost:5006/api/fs/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3921,7 +3922,7 @@ Description : ${newProjectDesc}.`;
 
     const sendUiPrompt = () => {
       if (selectedPacks && selectedPacks.length > 0) {
-        return fetch("http://localhost:5006/api/bridge/trombone", {
+        return safeFetch("http://localhost:5006/api/bridge/trombone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3932,7 +3933,7 @@ Description : ${newProjectDesc}.`;
           })
         });
       } else {
-        return fetch("http://localhost:5006/bridge/prompt", {
+        return safeFetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3970,7 +3971,7 @@ Description : ${newProjectDesc}.`;
       setActiveProject(designProjectId);
     }
 
-    fetch("http://localhost:5006/api/bridge/trombone", {
+    safeFetch("http://localhost:5006/api/bridge/trombone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -4154,7 +4155,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
         zipBase64 = await zip.generateAsync({ type: "base64" });
       }
 
-      fetch("http://localhost:5006/api/bridge/trombone", {
+      safeFetch("http://localhost:5006/api/bridge/trombone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -4216,7 +4217,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
     if (!activeProject) {
       setActiveProject(designProjectId);
       try {
-        await fetch("http://localhost:5006/api/fs/write", {
+        await safeFetch("http://localhost:5006/api/fs/write", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4310,7 +4311,7 @@ Format attendu:
         bridge.openAIWithPrompt(logicAiUrl, finalPrompt);
         if (bridge.showToast) bridge.showToast("HTML injecté. Câblage sur " + logicAi.toUpperCase() + " !");
       } else {
-        fetch("http://localhost:5006/bridge/prompt", {
+        safeFetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4423,7 +4424,7 @@ Format attendu:
 
     // 2. Envoi direct au Bridge local pour que l'extension le capte immédiatement
     try {
-      await fetch("http://localhost:5006/bridge/prompt", {
+      await safeFetch("http://localhost:5006/bridge/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -4437,7 +4438,7 @@ Format attendu:
 
       // Si c'est une Suture, déclencher le moteur Suture V2 Zero-Touch en arrière-plan
       if (action === "suture") {
-        fetch("http://localhost:5006/v1/suture/start", {
+        safeFetch("http://localhost:5006/v1/suture/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4775,13 +4776,14 @@ Format attendu:
                 title="Immortaliser le projet (Sauvegarde)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5006/api/bridge/backup", {
+                  safeFetch("http://localhost:5006/api/bridge/backup", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: activeProject })
                   })
-                  .then(res => res.json())
+                  .then(res => res ? res.json() : null)
                   .then(data => {
+                    if (!data) return alert("❌ Moteur inaccessible (Mode Cloud SaaS)");
                     if (data.success) alert("📸 " + data.message + "\n" + data.backupName);
                     else alert("Erreur: " + data.error);
                   })
@@ -4799,9 +4801,10 @@ Format attendu:
                 title="Restaurer le projet (Time Machine)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5006/api/bridge/backups?project_id=" + activeProject)
-                  .then(res => res.json())
+                  safeFetch("http://localhost:5006/api/bridge/backups?project_id=" + activeProject)
+                  .then(res => res ? res.json() : null)
                   .then(data => {
+                    if (!data) return alert("❌ Moteur inaccessible (Mode Cloud SaaS)");
                     if (!data.success || !data.backups || data.backups.length === 0) {
                       return alert("⏪ Aucune sauvegarde trouvée pour ce projet.");
                     }
@@ -4832,13 +4835,14 @@ Format attendu:
                 title="Corriger Arborescence (Fix Extensions)"
                 onClick={() => {
                   if (!activeProject) return;
-                  fetch("http://localhost:5006/api/fix-extensions", {
+                  safeFetch("http://localhost:5006/api/fix-extensions", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: activeProject })
                   })
-                  .then(res => res.json())
+                  .then(res => res ? res.json() : null)
                   .then(data => {
+                    if (!data) return alert("❌ Moteur inaccessible (Mode Cloud SaaS)");
                     if (data.success) alert(data.message);
                     else alert("Erreur: " + data.error);
                   })
@@ -4857,7 +4861,7 @@ Format attendu:
                 onClick={() => {
                   setActiveProject("v0-guest");
                   setPreviewUrl("http://localhost:3007");
-                  fetch("http://localhost:5006/api/bridge/launch-project", {
+                  safeFetch("http://localhost:5006/api/bridge/launch-project", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
@@ -4926,7 +4930,7 @@ Format attendu:
                         // Si Suture est vert (le moteur a arrêté de surveiller les erreurs), 
                         // on force un redémarrage de l'analyse (Preview) pour qu'il détecte la nouvelle erreur !
                         if (sutureBtnState !== "error") {
-                          fetch("http://localhost:5006/api/bridge/launch-project", {
+                          safeFetch("http://localhost:5006/api/bridge/launch-project", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ project_id: activeProject })
@@ -4934,13 +4938,13 @@ Format attendu:
                         }
 
                         // Déclenchement de la réparation manuelle (Lock file)
-                        fetch("http://localhost:5006/api/suture/launch", {
+                        safeFetch("http://localhost:5006/api/suture/launch", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ projectId: activeProject })
                         })
-                        .then(r => r.json())
-                        .then(d => console.log("Réponse Suture API:", d))
+                        .then(r => r ? r.json() : null)
+                        .then(d => d && console.log("Réponse Suture API:", d))
                         .catch(e => console.error("Erreur Suture API:", e));
                       }}
                       className={`text-[9px] font-bold px-2 py-0.5 rounded transition-colors border shadow-sm flex items-center gap-1 ${
@@ -4998,7 +5002,7 @@ Format attendu:
                       setActiveProject(selected);
                       setActiveFile(null);
                       setFileContent("");
-                      fetch("http://localhost:5006/api/bridge/launch-project", {
+                      safeFetch("http://localhost:5006/api/bridge/launch-project", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ project_id: selected, open_explorer: false })
@@ -5142,7 +5146,7 @@ Format attendu:
                           <button
                             onClick={() => {
                               if (!activeProject) return;
-                              fetch("http://localhost:5006/api/bridge/launch-project", {
+                              safeFetch("http://localhost:5006/api/bridge/launch-project", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ project_id: activeProject, open_explorer: false })
@@ -5327,7 +5331,7 @@ Format attendu:
                                 setActiveTheme("fold");
                                 document.body.style.background = defaultBg;
                                 document.body.style.backgroundAttachment = "fixed";
-                                fetch("http://localhost:5006/api/theme", {
+                                safeFetch("http://localhost:5006/api/theme", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ activeTheme: "fold", bgApp: defaultBg })
@@ -5487,7 +5491,7 @@ Format attendu:
                                 setApkBuildStatus("building");
                                 setApkLogs([`> Initialisation build APK pour [${target}]...`]);
                                 try {
-                                  await fetch("http://localhost:5006/api/mobile/build-apk", {
+                                  await safeFetch("http://localhost:5006/api/mobile/build-apk", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ project: target })
@@ -5585,8 +5589,8 @@ Format attendu:
                   onClick={async () => {
                     setMouchardLogs(["> Arrêt des processus en cours... (Historique conservé dans la console noire)"]);
                     try {
-                      const res = await fetch("http://localhost:5006/api/bridge/stop-launch", { method: "POST" });
-                      if (!res.ok) {
+                      const res = await safeFetch("http://localhost:5006/api/bridge/stop-launch", { method: "POST" });
+                      if (!res || !res.ok) {
                         setMouchardLogs([
                           "> ⚠️ ERREUR : La commande n'existe pas !",
                           "> ⚠️ VOUS DEVEZ REDÉMARRER LA CONSOLE NOIRE !",
@@ -5712,7 +5716,7 @@ Format attendu:
               onClick={async () => {
                 window.dispatchEvent(new CustomEvent('open-mouchard'));
                 try {
-                  await fetch("http://localhost:5006/api/bridge/launch-project", {
+                  await safeFetch("http://localhost:5006/api/bridge/launch-project", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: "v0-guest" })
@@ -5784,7 +5788,7 @@ Format attendu:
                     }
                   }, 50);
 
-                  const res = await fetch("http://localhost:5006/api/design/intent", {
+                  const res = await safeFetch("http://localhost:5006/api/design/intent", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -5795,14 +5799,14 @@ Format attendu:
                       }
                     })
                   });
-                  const data = await res.json();
+                  const data = res ? await res.json() : null;
                   const logContainerAfter = document.getElementById('mouchard-terminal-logs');
                   if (logContainerAfter) {
-                    if (data.success) {
+                    if (data && data.success) {
                       logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#00e676]">> 🎯 Patch appliqué avec succès par le LLM !</div>` + logContainerAfter.innerHTML;
                     } else {
-                      logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-400">> ⚠️ Erreur Patch UI AST : ${data.error || 'Basculement vers la Suture IA...'}</div>` + logContainerAfter.innerHTML;
-                      handleIDEAction("suture", `Échec du patch automatique AST : ${data.error || 'Format incompatible'}`);
+                      logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-400">> ⚠️ Erreur Patch UI AST : ${(data && data.error) || 'Basculement vers la Suture IA...'}</div>` + logContainerAfter.innerHTML;
+                      handleIDEAction("suture", `Échec du patch automatique AST : ${(data && data.error) || 'Format incompatible'}`);
                     }
                   }
                 } catch (err: any) {
@@ -5826,16 +5830,16 @@ Format attendu:
               type="button"
               onClick={async () => {
                 try {
-                  const res = await fetch("http://localhost:5006/bridge/flush", { method: "POST" });
-                  const data = await res.json();
+                  const res = await safeFetch("http://localhost:5006/bridge/flush", { method: "POST" });
+                  const data = res ? await res.json() : null;
                   setMessages(prev => [...prev, {
                     id: Date.now().toString() + "_flush",
                     role: "assistant",
-                    content: `🧹 File Bridge vidée ! ${data.flushed || 0} prompt(s) supprimé(s).\n\nLa queue est vide. Relancez votre Suture ou Patch.`
+                    content: `🧹 File Bridge vidée ! ${(data && data.flushed) || 0} prompt(s) supprimé(s).\n\nLa queue est vide. Relancez votre Suture ou Patch.`
                   }]);
                   const logContainer = document.getElementById('mouchard-terminal-logs');
                   if (logContainer) {
-                    logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-yellow-400">> 🧹 Bridge Queue FLUSH — ${data.flushed || 0} tâche(s) nettoyée(s)</div>` + logContainer.innerHTML;
+                    logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-yellow-400">> 🧹 Bridge Queue FLUSH — ${(data && data.flushed) || 0} tâche(s) nettoyée(s)</div>` + logContainer.innerHTML;
                   }
                 } catch (e) {
                   alert("Moteur hors ligne : impossible de vider la queue.");
@@ -6478,13 +6482,14 @@ Format attendu:
                   <button
                     onClick={() => {
                       if (window.confirm(`Confirmer la restauration de ${bName} ?\nTout le travail actuel non sauvegardé sera perdu.`)) {
-                        fetch("http://localhost:5006/api/bridge/restore-backup", {
+                        safeFetch("http://localhost:5006/api/bridge/restore-backup", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ project_id: activeProject, backup_name: bName })
                         })
-                        .then(r => r.json())
+                        .then(r => r ? r.json() : null)
                         .then(d => {
+                          if (!d) return alert("❌ Moteur inaccessible (Mode Cloud SaaS)");
                           if (d.success) {
                             alert("✅ " + d.message);
                             setShowBackupModal(false);
