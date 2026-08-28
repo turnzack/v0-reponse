@@ -12,6 +12,6 @@
   ],
   "rewrites": [
     { "source": "/admin-design", "destination": "/admin-design.html" },
-    { "source": "/((?!admin-design\\.html$).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|admin-design\\.html|.*\\.).*)", "destination": "/index.html" }
   ]
 }

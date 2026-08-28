@@ -161,6 +161,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 placeholder="vous@exemple.com"
                 style={{
                   width: '100%', padding: '12px 16px', borderRadius: '12px',
@@ -184,6 +185,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
+                autoComplete={mode === 'login' ? "current-password" : "new-password"}
                 placeholder={mode === 'register' ? '8 caractères minimum' : '••••••••'}
                 style={{
                   width: '100%', padding: '12px 16px', borderRadius: '12px',
@@ -207,6 +209,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   style={{
                     width: '100%', padding: '12px 16px', borderRadius: '12px',
