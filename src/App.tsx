@@ -201,8 +201,8 @@ const WidgetSettings = ({
 
       for (const target of targets) {
         try {
-          const res = await fetch(target, { method: "POST", headers, body: payload });
-          if (res.ok) {
+          const res = await safeFetch(target, { method: "POST", headers, body: payload });
+          if (res && res.ok) {
             const data = await res.json();
             if (data.success) {
               success = true;
@@ -991,9 +991,15 @@ const WidgetSettings = ({
                       onClick={async () => {
                         if (availableProjects.length === 0) {
                           try {
-                            const res = await fetch("http://localhost:5006/api/projects");
-                            const data = await res.json();
-                            if (data.projects) setAvailableProjects(data.projects);
+                            const res = await safeFetch("http://localhost:5006/api/projects");
+                            if (res && res.ok) {
+                              const data = await res.json();
+                              if (data.projects) setAvailableProjects(data.projects);
+                            } else {
+                              const cloudRes = await fetch("/api/projects");
+                              const cloudData = await cloudRes.json();
+                              if (cloudData.projects) setAvailableProjects(cloudData.projects.map((p: any) => p.project_id || p.title));
+                            }
                           } catch (e) {}
                         }
                       }}
@@ -1108,21 +1114,39 @@ const WidgetSettings = ({
                           if (!newProjectName) { alert("Entrez un nom de projet"); return; }
                           
                           try {
-                            const res = await fetch("http://localhost:5006/api/projects/set-active", {
+                            const res = await safeFetch("http://localhost:5006/api/projects/set-active", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ name: newProjectName.trim() })
                             });
-                            const data = await res.json();
-                            if (data.success) {
-                              alert(`✅ Projet "${newProjectName}" créé avec succès !\nChemin : ${data.projectDir}`);
-                              // Refresh projects list if needed
-                              if (setAvailableProjects) {
-                                const pRes = await fetch("http://localhost:5006/api/projects").then(r => r.json()).catch(() => ({}));
-                                if (pRes.projects) setAvailableProjects(pRes.projects);
+                            if (res && res.ok) {
+                              const data = await res.json();
+                              if (data.success) {
+                                alert(`✅ Projet "${newProjectName}" créé avec succès !\nChemin : ${data.projectDir}`);
+                                if (setAvailableProjects) {
+                                  const pRes = await safeFetch("http://localhost:5006/api/projects").then(r => r ? r.json() : null).catch(() => ({}));
+                                  if (pRes && pRes.projects) setAvailableProjects(pRes.projects);
+                                }
+                              } else {
+                                alert("❌ Erreur: " + data.message);
                               }
                             } else {
-                              alert("❌ Erreur: " + data.message);
+                              // Cloud mode persistence sur l'API Vercel Neon DB
+                              const token = localStorage.getItem('kirov5_jwt_token') || '';
+                              const cloudRes = await fetch("/api/projects", {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: JSON.stringify({ title: newProjectName.trim(), description: "Projet Cloud SaaS" })
+                              });
+                              const cloudData = await cloudRes.json();
+                              if (cloudData.success || cloudData.project) {
+                                alert(`✅ Projet Cloud "${newProjectName}" créé avec succès sur Neon DB !`);
+                              } else {
+                                alert("❌ Erreur de création Cloud: " + (cloudData.error || "Impossible d'accéder au serveur"));
+                              }
                             }
                           } catch (e) {
                             alert("❌ Erreur de connexion avec Kirov5.");
@@ -2723,10 +2747,10 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       "bg-gradient-to-br from-[#e4a37f]/80 to-[#bf6969]/90 backdrop-blur-md",
       "bg-gradient-to-br from-[#aa6b73]/80 to-[#c27042]/90 backdrop-blur-md"
     ];
-    fetch("http://localhost:5006/api/projects")
-      .then(res => res.json())
+    safeFetch("http://localhost:5006/api/projects")
+      .then(res => res ? res.json() : null)
       .then(data => {
-        if (data.success && data.projects) {
+        if (data && data.success && data.projects) {
           setLiveProjects(data.projects.map((p: any, i: number) => {
             const projName = typeof p === 'string' ? p : (p.projectName || p.name || p.projectId);
             return {
@@ -2736,9 +2760,29 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
               installed: p.installed
             };
           }));
+          setIsLoading(false);
+          setIsRefreshing(false);
+        } else {
+          const token = localStorage.getItem('kirov5_jwt_token') || '';
+          fetch('/api/projects', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          })
+            .then(r => r.json())
+            .then(cloudData => {
+              if (cloudData && cloudData.projects) {
+                setLiveProjects(cloudData.projects.map((p: any, i: number) => ({
+                  name: p.project_id || p.title,
+                  desc: "SaaS Cloud (Neon DB)",
+                  bg: cardStyles[i % cardStyles.length]
+                })));
+              }
+              setIsLoading(false);
+              setIsRefreshing(false);
+            }).catch(() => {
+              setIsLoading(false);
+              setIsRefreshing(false);
+            });
         }
-        setIsLoading(false);
-        setIsRefreshing(false);
       }).catch(() => {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -3243,11 +3287,22 @@ export default function Dashboard() {
 
   // Fetch initial project list
   useEffect(() => {
-    fetch("http://localhost:5006/api/projects")
-      .then(res => res.json())
+    safeFetch("http://localhost:5006/api/projects")
+      .then(res => res ? res.json() : null)
       .then(data => {
-        if (data.success && Array.isArray(data.projects)) {
+        if (data && data.success && Array.isArray(data.projects)) {
           setRealProjects(data.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+        } else {
+          const token = localStorage.getItem('kirov5_jwt_token') || '';
+          fetch('/api/projects', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          })
+            .then(r => r.json())
+            .then(cloudData => {
+              if (cloudData && cloudData.projects) {
+                setRealProjects(cloudData.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" })));
+              }
+            }).catch(() => {});
         }
       })
       .catch(() => { });
@@ -3401,16 +3456,31 @@ export default function Dashboard() {
           console.log("Aucun projet mobile trouvé ou dossier inexistant.");
         }
       } else {
-        fetch("http://localhost:5006/api/projects-v2")
-          .then(res => res.json())
+        safeFetch("http://localhost:5006/api/projects-v2")
+          .then(res => res ? res.json() : null)
           .then(data => {
-            if (data.success && data.projects) {
+            if (data && data.success && data.projects) {
               setRealProjects(data.projects.map((p: any, i: number) => ({
                 name: p.name,
                 desc: "Environnement Local",
                 bg: cardStyles[i % cardStyles.length],
                 installed: p.installed
               })));
+            } else {
+              const token = localStorage.getItem('kirov5_jwt_token') || '';
+              fetch('/api/projects', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+              })
+                .then(r => r.json())
+                .then(cloudData => {
+                  if (cloudData && cloudData.projects) {
+                    setRealProjects(cloudData.projects.map((p: any, i: number) => ({
+                      name: p.project_id || p.title,
+                      desc: "SaaS Cloud (Neon DB)",
+                      bg: cardStyles[i % cardStyles.length]
+                    })));
+                  }
+                }).catch(() => {});
             }
           }).catch(() => { });
       }
@@ -3466,10 +3536,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isClient) return;
     const interval = setInterval(() => {
-      fetch("http://localhost:5006/api/bridge/logs")
-        .then(res => res.json())
+      safeFetch("http://localhost:5006/api/bridge/logs")
+        .then(res => res ? res.json() : null)
         .then(data => {
-          if (data.success && data.logs) {
+          if (data && data.success && data.logs) {
             setMouchardLogs(data.logs);
             const serverReadyLog = [...data.logs].reverse().find((log: string) => log.includes("URL_PREVIEW="));
             if (serverReadyLog) {
@@ -3486,10 +3556,10 @@ export default function Dashboard() {
         .catch(() => { });
 
       // Polling dynamique READ-ONLY de l'Orchestrateur Autonome (Zero-Touch)
-      fetch("http://localhost:5006/api/bridge/autonomous-status")
-        .then(res => res.json())
+      safeFetch("http://localhost:5006/api/bridge/autonomous-status")
+        .then(res => res ? res.json() : null)
         .then(autoData => {
-          if (autoData.success && (autoData.data || autoData.status)) {
+          if (autoData && autoData.success && (autoData.data || autoData.status)) {
             const statusObj = autoData.data || autoData.status;
             const st = statusObj.state;
             if (st === 'diagnosing' || st === 'repair_required' || st === 'error') {
@@ -3501,27 +3571,19 @@ export default function Dashboard() {
             } else if (st === 'ready') {
               setSutureBtnState('clean');
             } else if (activeProject) {
-              fetch(`http://localhost:5006/api/suture/status?project=${activeProject}`)
-                .then(res => res.json())
+              safeFetch(`http://localhost:5006/api/suture/status?project=${activeProject}`)
+                .then(res => res ? res.json() : null)
                 .then(data => {
-                  if (data.success && data.status) {
+                  if (data && data.success && data.status) {
                     setSutureBtnState(data.status);
                   }
                 }).catch(() => {});
             }
           }
-        }).catch(() => {
-          if (activeProject) {
-            fetch(`http://localhost:5006/api/suture/status?project=${activeProject}`)
-              .then(res => res.json())
-              .then(data => {
-                if (data.success && data.status) setSutureBtnState(data.status);
-              }).catch(() => {});
-          }
-        });
-    }, 1000);
+        }).catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
-  }, [isClient]);
+  }, [isClient, activeProject]);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -4842,9 +4904,17 @@ Format attendu:
                     </button>
                     <button
                       onClick={() => {
-                        fetch("http://localhost:5006/api/projects")
-                          .then(r => r.json())
-                          .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
+                        safeFetch("http://localhost:5006/api/projects")
+                          .then(r => r ? r.json() : null)
+                          .then(d => {
+                            if (d && d.success && d.projects) {
+                              setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+                            } else {
+                              fetch("/api/projects")
+                                .then(cr => cr.json())
+                                .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" }))); });
+                            }
+                          })
                           .catch(() => { });
                       }}
                       className="text-xs text-gray-400 hover:text-cyan p-1 transition-colors"
@@ -4859,9 +4929,17 @@ Format attendu:
                 <select
                   value={activeProject || ""}
                   onFocus={() => {
-                    fetch("http://localhost:5006/api/projects")
-                      .then(r => r.json())
-                      .then(d => { if (d.success && d.projects) setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" }))); })
+                    safeFetch("http://localhost:5006/api/projects")
+                      .then(r => r ? r.json() : null)
+                      .then(d => {
+                        if (d && d.success && d.projects) {
+                          setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+                        } else {
+                          fetch("/api/projects")
+                            .then(cr => cr.json())
+                            .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" }))); });
+                        }
+                      })
                       .catch(() => { });
                   }}
                   onChange={(e) => {

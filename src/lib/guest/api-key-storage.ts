@@ -1,3 +1,5 @@
+import { safeFetch } from '../bridgeClient';
+
 export interface BridgeConfigStatus {
   provider: string;
   configured: boolean;
@@ -21,8 +23,8 @@ export function setApiKey(key: string): void {
     const trimmed = key.trim();
     localStorage.setItem(STORAGE_KEY, trimmed);
     localStorage.setItem(TIGER_STORAGE_KEY, trimmed);
-    // Transmettre au serveur bridge local 5006
-    fetch('http://localhost:5006/api/config/apikey', {
+    // Transmettre au serveur bridge local 5006 de manière sécurisée
+    safeFetch('http://localhost:5006/api/config/apikey', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: trimmed, apiKey: trimmed, provider: 'deepseek' }),
@@ -44,8 +46,8 @@ export function hasApiKey(): boolean {
 
 export async function checkBridgeConfigStatus(): Promise<BridgeConfigStatus> {
   try {
-    const res = await fetch('http://localhost:5006/api/config/apikey');
-    if (res.ok) {
+    const res = await safeFetch('http://localhost:5006/api/config/apikey');
+    if (res && res.ok) {
       const data = await res.json();
       
       const localKeyExists = hasApiKey();
@@ -76,8 +78,8 @@ export async function resolveApiKey(): Promise<string | null> {
   }
 
   try {
-    const res = await fetch('http://localhost:5006/api/config/apikey');
-    if (res.ok) {
+    const res = await safeFetch('http://localhost:5006/api/config/apikey');
+    if (res && res.ok) {
       const data = await res.json();
       if ((data.hasKey || data.hasAnyKey || data.configured) && data.apiKey) {
         setApiKey(data.apiKey);
