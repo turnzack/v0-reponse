@@ -49,13 +49,34 @@
         };
 
         if (window.XMLHttpRequest && window.XMLHttpRequest.prototype) {
-          var origXHR = window.XMLHttpRequest.prototype.open;
+          var origOpen = window.XMLHttpRequest.prototype.open;
+          var origSend = window.XMLHttpRequest.prototype.send;
+
           window.XMLHttpRequest.prototype.open = function(method, url) {
             var blockType = shouldBlock(url);
             if (blockType) {
-              arguments[1] = 'data:application/json,{"success":false,"cloud_blocked":true}';
+              this._isBlocked = true;
+              return origOpen.call(this, method, 'data:application/json,{"success":false,"cloud_blocked":true}');
             }
-            return origXHR.apply(this, arguments);
+            return origOpen.apply(this, arguments);
+          };
+
+          window.XMLHttpRequest.prototype.send = function(body) {
+            if (this._isBlocked) {
+              try {
+                Object.defineProperty(this, 'status', { value: 200, writable: true });
+                Object.defineProperty(this, 'readyState', { value: 4, writable: true });
+                Object.defineProperty(this, 'responseText', { value: '{"success":false,"cloud_blocked":true}', writable: true });
+                Object.defineProperty(this, 'response', { value: '{"success":false,"cloud_blocked":true}', writable: true });
+              } catch(e) {}
+              var self = this;
+              setTimeout(function() {
+                if (typeof self.onreadystatechange === 'function') { self.onreadystatechange(); }
+                if (typeof self.onload === 'function') { self.onload(); }
+              }, 0);
+              return;
+            }
+            return origSend.apply(this, arguments);
           };
         }
       })();
