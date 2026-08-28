@@ -85,30 +85,22 @@ export async function probeLocalBridge(): Promise<boolean> {
  * la requête est évitée avant d'être émise pour zéro erreur ERR_CONNECTION_REFUSED.
  */
 export async function safeFetch(url: string, init?: RequestInit): Promise<Response | null> {
-  const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500');
+  const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500') || url.includes(':5006');
 
   if (isLocalTarget) {
-    // En navigateur web standard (hors Electron), sauf si le bridge local est explicitement activé par l'utilisateur,
-    // interdire l'émission de tout fetch vers localhost pour zéro bruit console.
+    // Si hors Electron et que le pont n'est pas activé explicitement -> AUCUN FETCH
     if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
       return null;
     }
 
-    // En mode Cloud SaaS sur Vercel/Web distant (pas sur localhost/Electron), annuler immédiatement les appels local
-    if (!isLocalEnvironment()) {
-      return null;
-    }
-
-    // Si le bridge local s'est avéré indisponible, ne pas émettre de fetch pour éviter ERR_CONNECTION_REFUSED
     if (isLocalBridgeAvailable === false) {
       if (!isElectronEnvironment()) return null;
       const now = Date.now();
-      if (now - lastFailureTimestamp < 60000) {
+      if (now - lastFailureTimestamp < 3600000) { // Ne retenter qu'après 1 heure
         return null;
       }
     }
 
-    // Prober si l'état est inconnu avant d'émettre plusieurs requêtes en parallèle
     if (isLocalBridgeAvailable === null) {
       const isOk = await probeLocalBridge();
       if (!isOk) return null;
