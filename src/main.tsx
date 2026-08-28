@@ -1,3 +1,4 @@
+// Kirov5 Sovereign Forge - Release 1.0.1 - Zero-Error SaaS Cloud Firewall
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
