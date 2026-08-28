@@ -1,49 +1,123 @@
 // Client Moteur Bridge Souverain
 // Gestionnaire sécurisé pour la version 100% Web Cloud (Vercel + Cloudflare)
 
-let isLocalBridgeAvailable = true;
+let isLocalBridgeAvailable: boolean | null = null;
 let lastFailureTimestamp = 0;
+let probePromise: Promise<boolean> | null = null;
+
+export function isElectronEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    (window as any).electron || 
+    (window as any).electronAPI || 
+    navigator.userAgent?.includes('Electron')
+  );
+}
 
 export function isLocalEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1' || Boolean((window as any).electron || (window as any).electronAPI);
+  return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || isElectronEnvironment();
 }
 
 /**
- * Exécute une requête vers le bridge local (port 5006) de façon sécurisée.
- * Si le bridge local est hors ligne ou si l'application tourne en mode Cloud (Vercel/Web), 
- * la requête est évitée avant d'être émise pour zéro erreur ERR_CONNECTION_REFUSED.
+ * Teste rapidement si le bridge local 5006 est en écoute avec dédoublonnement (un seul ping en vol).
  */
-export async function safeFetch(url: string, init?: RequestInit): Promise<Response | null> {
-  // En mode Cloud SaaS (ex: Vercel / mobile), ne pas tenter d'appeler le port local 5006
-  if (url.includes('localhost:500') || url.includes('127.0.0.1:500')) {
-    if (!isLocalEnvironment()) {
-      return null;
+export async function probeLocalBridge(): Promise<boolean> {
+  if (isLocalBridgeAvailable !== null) {
+    if (isLocalBridgeAvailable === false) {
+      if (!isElectronEnvironment() && (Date.now() - lastFailureTimestamp < 60000)) {
+        return false;
+      }
+    } else {
+      return true;
     }
   }
 
-  const now = Date.now();
-  // Si le bridge local s'est avéré hors ligne dans les 60 dernières secondes, on coupe immédiatement
-  if (!isLocalBridgeAvailable && (now - lastFailureTimestamp < 60000)) {
-    return null;
+  if (!isLocalEnvironment()) {
+    isLocalBridgeAvailable = false;
+    return false;
+  }
+
+  if (probePromise) return probePromise;
+
+  probePromise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 400);
+      const res = await fetch('http://localhost:5006/api/bridge/ping', {
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store'
+      }).catch(() => null);
+      clearTimeout(timer);
+
+      if (res && (res.ok || res.status === 200)) {
+        isLocalBridgeAvailable = true;
+        return true;
+      }
+    } catch {}
+    
+    isLocalBridgeAvailable = false;
+    lastFailureTimestamp = Date.now();
+    return false;
+  })();
+
+  try {
+    return await probePromise;
+  } finally {
+    probePromise = null;
+  }
+}
+
+/**
+ * Exécute une requête vers le bridge local (port 5006/5005) de façon sécurisée.
+ * En mode Cloud SaaS (Vercel/Web) ou si le pont local est fermé, 
+ * la requête est évitée avant d'être émise pour zéro erreur ERR_CONNECTION_REFUSED.
+ */
+export async function safeFetch(url: string, init?: RequestInit): Promise<Response | null> {
+  const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500');
+
+  if (isLocalTarget) {
+    // En mode Cloud SaaS sur Vercel/Web distant (pas sur localhost/Electron), annuler immédiatement les appels local
+    if (!isLocalEnvironment()) {
+      return null;
+    }
+
+    // Si le bridge local s'est avéré indisponible, ne pas émettre de fetch pour éviter ERR_CONNECTION_REFUSED
+    if (isLocalBridgeAvailable === false) {
+      const now = Date.now();
+      if (!isElectronEnvironment() && (now - lastFailureTimestamp < 60000)) {
+        return null;
+      }
+    }
+
+    // Prober si l'état est inconnu avant d'émettre plusieurs requêtes en parallèle
+    if (isLocalBridgeAvailable === null) {
+      const isOk = await probeLocalBridge();
+      if (!isOk) return null;
+    }
   }
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1000);
+    const timer = setTimeout(() => controller.abort(), 1200);
 
     const res = await fetch(url, {
       ...init,
-      signal: controller.signal
+      signal: init?.signal || controller.signal
     });
 
     clearTimeout(timer);
-    isLocalBridgeAvailable = true;
+    if (isLocalTarget) {
+      isLocalBridgeAvailable = true;
+    }
     return res;
   } catch {
-    isLocalBridgeAvailable = false;
-    lastFailureTimestamp = Date.now();
+    if (isLocalTarget) {
+      isLocalBridgeAvailable = false;
+      lastFailureTimestamp = Date.now();
+    }
     return null;
   }
 }

@@ -45,8 +45,8 @@ async function generateViaExtensionWeb(fullPrompt: string, timeoutMs = 180000): 
   while (Date.now() - startTime < timeoutMs) {
     await new Promise(r => setTimeout(r, pollInterval));
     try {
-      const pollRes = await fetch(`${BRIDGE}/v1/bridge/last-capture?target_ai=deepseek`);
-      if (pollRes.ok) {
+      const pollRes = await safeFetch(`${BRIDGE}/v1/bridge/last-capture?target_ai=deepseek`);
+      if (pollRes && pollRes.ok) {
         const pollData = await pollRes.json();
         const data = pollData.data || pollData;
         if (data.content && data.content.length > 100) {

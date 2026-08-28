@@ -10,7 +10,7 @@ import { Diamond, X, CheckCircle2, Box, Zap } from 'lucide-react';
 import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 import { ProjectConfigurator } from './components/ProjectConfigurator';
 import { GuestIdeaPanel } from './components/GuestIdeaPanel';
-import { safeFetch } from './lib/bridgeClient';
+import { safeFetch, isLocalEnvironment } from './lib/bridgeClient';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -153,10 +153,10 @@ const WidgetSettings = ({
 
     // Vérifier si une clé est déjà configurée côté moteur
     const currentBridge = localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006";
-    fetch(`${currentBridge}/api/config/apikey`)
-      .then(r => r.json())
+    safeFetch(`${currentBridge}/api/config/apikey`)
+      .then(r => r ? r.json() : null)
       .then(d => {
-        if (d.hasAnyKey || d.hasKey || d.configured) {
+        if (d && (d.hasAnyKey || d.hasKey || d.configured)) {
           setApiKeyStatus("ok");
           if (d.apiKey && !storedKey) {
             setApiKey(d.apiKey);
@@ -246,7 +246,7 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5005/api/fs/pick-zip", {
+      const res = await safeFetch("http://localhost:5005/api/fs/pick-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -254,6 +254,10 @@ const WidgetSettings = ({
         })
       });
 
+      if (!res) {
+        alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005 (Mode Cloud SaaS).");
+        return;
+      }
       const data = await res.json();
       if (data.canceled) {
         // User cancelled the dialog, just do nothing silently
@@ -272,12 +276,12 @@ const WidgetSettings = ({
         const isRunningNow = isPipelineRunning || (typeof window !== 'undefined' && sessionStorage.getItem('tiger_isPipelineRunning') === 'true');
         if (isRunningNow) {
           alert("🚀 Reprise automatique de la Pipeline (Phase 2) ! L'orchestrateur prend le relais pour l'intégration.");
-          fetch("http://localhost:5005/api/bridge/trombone", {
+          safeFetch("http://localhost:5005/api/bridge/trombone", {
              method: "POST",
              headers: { "Content-Type": "application/json" },
              body: JSON.stringify({
                target_project: designProjectId,
-               target_ai: window.KIROV_TARGET_AI || "deepseek",
+               target_ai: (window as any).KIROV_TARGET_AI || "deepseek",
                start_index: 1,
                zip_mode: true,
                start_phase: 200, 
@@ -311,12 +315,16 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5005/api/fs/pick-prd-zip", {
+      const res = await safeFetch("http://localhost:5005/api/fs/pick-prd-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: designProjectId })
       });
 
+      if (!res) {
+        alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005 (Mode Cloud SaaS).");
+        return;
+      }
       const data = await res.json();
       if (data.canceled) {
         // L'utilisateur a annulé, on ne fait rien
@@ -906,7 +914,7 @@ const WidgetSettings = ({
                 </span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => fetch("http://localhost:5006/api/suture/purge-workspaces", { method: "POST" }).then(() => alert("✅ Bac à sable vidé !")).catch(() => alert("❌ Moteur inaccessible"))}
+                    onClick={() => safeFetch("http://localhost:5006/api/suture/purge-workspaces", { method: "POST" }).then(res => res ? alert("✅ Bac à sable vidé !") : alert("❌ Moteur inaccessible (Mode Cloud SaaS)")).catch(() => alert("❌ Moteur inaccessible"))}
                     className="py-3 bg-orange-900/20 hover:bg-orange-900/40 border border-orange-500/30 text-orange-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     🗑️ Vider le Bac à Sable
@@ -918,7 +926,7 @@ const WidgetSettings = ({
                     🔄 Rafraîchir Historique
                   </button>
                   <button
-                    onClick={() => fetch("http://localhost:5006/api/suture/rollback-last", { method: "POST" }).then(r => r.json()).then(d => alert(d.success ? `✅ Rollback : ${d.message}` : `❌ ${d.error}`)).catch(() => alert("❌ Moteur inaccessible"))}
+                    onClick={() => safeFetch("http://localhost:5006/api/suture/rollback-last", { method: "POST" }).then(r => r ? r.json() : null).then(d => d ? alert(d.success ? `✅ Rollback : ${d.message}` : `❌ ${d.error}`) : alert("❌ Moteur inaccessible (Mode Cloud SaaS)")).catch(() => alert("❌ Moteur inaccessible"))}
                     className="py-3 bg-purple-900/20 hover:bg-purple-900/40 border border-purple-500/30 text-purple-300 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 transition-all"
                   >
                     ↩️ Rollback Dernier Patch
@@ -1019,11 +1027,16 @@ const WidgetSettings = ({
                         onClick={async () => {
                           setNotebookExportStatus("loading");
                           try {
-                            const res = await fetch("http://localhost:5006/api/bridge/export-notebooklm", {
+                            const res = await safeFetch("http://localhost:5006/api/bridge/export-notebooklm", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ projectId: selectedLaunchProject, notebookId, authCookie })
                             });
+                            if (!res) {
+                              alert("Mode Cloud SaaS : Bridge local non connecté.");
+                              setNotebookExportStatus("idle");
+                              return;
+                            }
                             const data = await res.json();
                             if (data.success) {
                               setNotebookExportContent(data.combinedContent || "");
@@ -1213,7 +1226,7 @@ const WidgetSettings = ({
                         // cloudflare = pas de fenêtre fantôme, passe par le Moteur Electron /v1/audit
                         
                         if (url) {
-                          fetch("http://localhost:5006/api/bridge/open-window", {
+                          safeFetch("http://localhost:5006/api/bridge/open-window", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ url })
@@ -1330,19 +1343,20 @@ const WidgetSettings = ({
 
                         if (Number(selectedStartPhase) === 5) {
                           // Lancer la Phase 5 (Backend)
-                          fetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 5,
                               auto_pilot: isAutoPilot
                             })
-                          }).then(r => r.json()).then(tData => {
-                            alert("✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
+                          }).then(r => r ? r.json() : null).then(tData => {
+                            if (tData) alert("✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
+                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
                           }).catch(e => {
                             console.error(e);
                             alert("Erreur: Le moteur :5006 est-il lancé ?");
@@ -1352,20 +1366,21 @@ const WidgetSettings = ({
 
                         if (Number(selectedStartPhase) === 4 || Number(selectedStartPhase) === 3) {
                           // Lancer la Phase 3/4 (Câblage Métier)
-                          fetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "cloudflare", 
+                              target_ai: (window as any).KIROV_TARGET_AI || "cloudflare", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 4,
                               auto_pilot: isAutoPilot,
                               packs: ((window as any).KIROV_SELECTED_PACKS || [])
                             })
-                          }).then(r => r.json()).then(tData => {
-                            alert("✅ PHASE 3/4 (CÂBLAGE MÉTIER) LANCÉE !\nL'orchestrateur prend le relais pour connecter et câbler la logique métier.");
+                          }).then(r => r ? r.json() : null).then(tData => {
+                            if (tData) alert("✅ PHASE 3/4 (CÂBLAGE MÉTIER) LANCÉE !\nL'orchestrateur prend le relais pour connecter et câbler la logique métier.");
+                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
                           }).catch(e => {
                             console.error(e);
                             alert("Erreur: Le moteur :5006 est-il lancé ?");
@@ -1375,12 +1390,12 @@ const WidgetSettings = ({
                         
                         if (Number(selectedStartPhase) === 0) {
                           // Lancer la pipeline complète (Trombone en écoute du ZIP)
-                          fetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 0,
@@ -1395,20 +1410,21 @@ const WidgetSettings = ({
                         
                         if (Number(selectedStartPhase) === 2) {
                           // Lancer la Phase 2 (Backend / Multi-batch)
-                          fetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: window.KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
                               start_index: 1, 
                               zip_mode: true,
                               start_phase: 200,
                               auto_pilot: isAutoPilot,
                               packs: ((window as any).KIROV_SELECTED_PACKS || [])
                             })
-                          }).then(r => r.json()).then(tData => {
-                            alert("✅ PHASE 2 LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
+                          }).then(r => r ? r.json() : null).then(tData => {
+                            if (tData) alert("✅ PHASE 2 LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
+                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
                           }).catch(e => {
                             console.error(e);
                             alert("Erreur: Le moteur :5006 est-il lancé ?");
@@ -1419,7 +1435,7 @@ const WidgetSettings = ({
                         // Phase 1 / Phase 0 : Forcer la cible sur Stitch pour la génération UI initiale
                         const aiTarget = "stitch";
                         
-                        fetch("http://localhost:5006/bridge/prompt", {
+                        safeFetch("http://localhost:5006/bridge/prompt", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
@@ -1429,11 +1445,11 @@ const WidgetSettings = ({
                             target_project: proj,
                             phase_num: 1
                           })
-                        }).then(() => {
-                          alert("✅ Méga-Prompt généré avec succès ! Ouverture de Stitch dans l'IA Fantôme...");
+                        }).then(r => {
+                          if (r) alert("✅ Méga-Prompt généré avec succès ! Ouverture de Stitch dans l'IA Fantôme...");
                           
                           // Demander au Moteur Electron d'ouvrir Stitch dans la fenêtre Fantôme
-                          fetch("http://localhost:5006/api/bridge/open-window", {
+                          safeFetch("http://localhost:5006/api/bridge/open-window", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ url: "https://stitch.withgoogle.com/" })
@@ -1471,9 +1487,11 @@ const WidgetSettings = ({
                               const proj = selectedLaunchProject || newProjectName;
                               if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
                               try {
-                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
-                                const data = await res.json();
-                                if (data.pages) setProjectPages(data.pages);
+                                const res = await safeFetch(`http://localhost:5005/api/projects/${proj}/pages`);
+                                if (res && res.ok) {
+                                  const data = await res.json();
+                                  if (data.pages) setProjectPages(data.pages);
+                                }
                               } catch(e) {}
                             }}
                             className="text-[9px] text-cyan bg-cyan/10 border border-cyan/30 px-2 py-0.5 rounded hover:bg-cyan/20 transition-all"
@@ -1600,7 +1618,7 @@ const WidgetSettings = ({
                                 idempotencyKey: `push-${proj}-${targetFile}-${Date.now()}`
                               };
 
-                              const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
+                              const res = await safeFetch("http://localhost:5005/api/bridge/strict-ui-update", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
@@ -1615,7 +1633,7 @@ const WidgetSettings = ({
                               await new Promise<void>((resolve, reject) => {
                                 const poll = setInterval(async () => {
                                   try {
-                                    const sr = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
+                                    const sr = await safeFetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
                                     const sd = await sr.json();
                                     setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
                                     if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
@@ -1648,7 +1666,7 @@ const WidgetSettings = ({
                             setIsUiPromoting(true);
                             setUiPushMessage("🚀 Promotion en cours vers la Production...");
                             try {
-                              const res = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${uiPushId}/promote`, {
+                              const res = await safeFetch(`http://localhost:5005/api/bridge/strict-ui-update/${uiPushId}/promote`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ projectId: proj, promotionMode: "hybrid", confirm: true })
@@ -1754,7 +1772,7 @@ const WidgetSettings = ({
                         const aiTarget = window.KIROV_TARGET_AI || "notebooklm";
                         try {
                           alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
-                          const res = await fetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
+                          const res = await safeFetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
@@ -1766,6 +1784,10 @@ const WidgetSettings = ({
                               source: "phase-4-ui"
                             })
                           });
+                          if (!res) {
+                            alert("Mode Cloud SaaS : Bridge local non accessible.");
+                            return;
+                          }
                           const data = await res.json();
                           if (data.success) {
                             const wiringPackId = data.data?.wiringPackId || data.wiringPackId || 'Inconnu';
@@ -1780,7 +1802,7 @@ const WidgetSettings = ({
                               zip_mode: true
                             };
                             
-                            fetch("http://localhost:5006/api/bridge/trombone", {
+                            safeFetch("http://localhost:5006/api/bridge/trombone", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(trombonePayload)
@@ -1832,7 +1854,7 @@ const WidgetSettings = ({
                                 start_phase: selectedStartPhase
                               };
 
-                          fetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(payload)
@@ -1848,11 +1870,15 @@ const WidgetSettings = ({
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) { alert("Sélectionnez un projet d'abord."); return; }
                         try {
-                          const res = await fetch("http://localhost:5006/api/bridge/reset-session", {
+                          const res = await safeFetch("http://localhost:5006/api/bridge/reset-session", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ project_id: proj })
                           });
+                          if (!res) {
+                            alert("Mode Cloud SaaS : Moteur local non connecté.");
+                            return;
+                          }
                           const data = await res.json();
                           alert(data.success ? `🔓 ${data.message}` : `❌ ${data.error}`);
                         } catch (e) {
@@ -1871,14 +1897,14 @@ const WidgetSettings = ({
                           // Si aucune tâche n'est en cours (elle a été consommée ou bloquée), on force l'avancement (SKIP)
                           const proj = selectedLaunchProject || newProjectName;
                           if (!proj) return;
-                          fetch("http://localhost:5006/api/debug/advance-batch", { 
+                          safeFetch("http://localhost:5006/api/debug/advance-batch", { 
                             method: "POST", headers: { "Content-Type": "application/json" }, 
                             body: JSON.stringify({ project_id: proj }) 
                           }).catch(() => null);
                           return;
                         }
                         const targetAi = Object.keys(bridgeQueueData.current)[0];
-                        fetch("http://localhost:5006/api/bridge/prompt", {
+                        safeFetch("http://localhost:5006/api/bridge/prompt", {
                            method: "POST", headers: { "Content-Type": "application/json" },
                            body: JSON.stringify({ 
                              prompt: bridgeQueueData.current[targetAi].prompt, 
@@ -2134,7 +2160,11 @@ const WidgetSettings = ({
                   <button
                     onClick={async () => {
                       try {
-                        const res = await fetch("http://localhost:5006/api/theme");
+                        const res = await safeFetch("http://localhost:5006/api/theme");
+                        if (!res) {
+                          alert("Mode Cloud SaaS : Moteur local non connecté.");
+                          return;
+                        }
                         const data = await res.json();
                         alert("Thème synchronisé : " + (data.activeTheme?.nom || "Thème par défaut"));
                       } catch (e) {
@@ -2192,7 +2222,11 @@ const WidgetSettings = ({
                   <button
                     onClick={async () => {
                       try {
-                        const res = await fetch("http://localhost:5006/api/projects");
+                        const res = await safeFetch("http://localhost:5006/api/projects");
+                        if (!res) {
+                          alert("Mode Cloud SaaS actif : Bridge Electron local non connecté.");
+                          return;
+                        }
                         const data = await res.json();
                         alert(`Projets détectés (${data.projects?.length || 0}) : \n` + (data.projects?.join('\n') || 'Aucun'));
                       } catch (e) {
@@ -2846,11 +2880,15 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         e.stopPropagation();
         if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${p.name}" de l'interface ET de votre disque dur ?`)) {
           try {
-            const res = await fetch("http://localhost:5006/api/projects/remove-project", {
+            const res = await safeFetch("http://localhost:5006/api/projects/remove-project", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ project_id: p.name })
             });
+            if (!res) {
+              setLiveProjects(prev => prev.filter(proj => proj.name !== p.name));
+              return;
+            }
             const data = await res.json();
             if (data.success) {
               setLiveProjects(prev => prev.filter(proj => proj.name !== p.name));
@@ -2895,14 +2933,14 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                 
                 if (p.installed === false) {
                   setLaunchingProject(p.name);
-                  fetch("http://localhost:5006/api/bridge/install-dependencies", {
+                  safeFetch("http://localhost:5006/api/bridge/install-dependencies", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project_id: p.name })
-                  }).then(() => {
-                    alert("L'installation a démarré dans le terminal (Suture) ! Une fois terminée, vous pourrez lancer la Preview.");
+                  }).then(r => {
+                    if (r) alert("L'installation a démarré dans le terminal (Suture) ! Une fois terminée, vous pourrez lancer la Preview.");
+                    else alert("Mode Cloud SaaS : Bridge local non connecté.");
                     setLaunchingProject(null);
-                    // Mettre à jour l'état local pour simuler la réussite de l'installation et débloquer le bouton
                     setLiveProjects(prev => prev.map(proj => proj.name === p.name ? {...proj, installed: true} : proj));
                   }).catch(() => setLaunchingProject(null));
                 } else {
@@ -2931,12 +2969,13 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   onClick={(e) => {
                     e.stopPropagation();
                     setLaunchingProject(p.name);
-                    fetch("http://localhost:5006/api/bridge/install-dependencies", {
+                    safeFetch("http://localhost:5006/api/bridge/install-dependencies", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ project_id: p.name })
-                    }).then(() => {
-                      alert("Réinstallation démarrée dans le terminal !");
+                    }).then(r => {
+                      if (r) alert("Réinstallation démarrée dans le terminal !");
+                      else alert("Mode Cloud SaaS : Bridge local non connecté.");
                       setLaunchingProject(null);
                     }).catch(() => setLaunchingProject(null));
                   }}
@@ -2949,11 +2988,15 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      const res = await fetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
+                      const res = await safeFetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ project_id: p.name })
                       });
+                      if (!res) {
+                        alert("Mode Cloud SaaS : Moteur local non connecté.");
+                        return;
+                      }
                       const data = await res.json();
                       alert(data.message || "Terminal ouvert !");
                     } catch(err: any) {
@@ -3071,8 +3114,9 @@ export default function Dashboard() {
     if (apkBuildStatus === 'building') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch("http://localhost:5006/api/mobile/build-logs");
-          const data = await res.json();
+          const res = await safeFetch("http://localhost:5006/api/mobile/build-logs");
+          if (res && res.ok) {
+            const data = await res.json();
           if (data.logs && data.logs.length > 0) {
             setApkLogs(data.logs);
           }
@@ -3540,7 +3584,7 @@ export default function Dashboard() {
 
   // Polling des logs du Mouchard (Bridge Electron)
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || !isLocalEnvironment()) return;
     const interval = setInterval(() => {
       safeFetch("http://localhost:5006/api/bridge/logs")
         .then(res => res ? res.json() : null)
@@ -3635,7 +3679,7 @@ export default function Dashboard() {
         responseMsg.widget = null;
 
         // On envoie le prompt directement au Bridge local sans ouvrir de nouvel onglet
-        fetch("http://localhost:5006/bridge/prompt", {
+        safeFetch("http://localhost:5006/bridge/prompt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -3689,7 +3733,7 @@ export default function Dashboard() {
 
             // On envoie le prompt UI au Bridge
             const sendUiPrompt = () => {
-              return fetch("http://localhost:5006/bridge/prompt", {
+              return safeFetch("http://localhost:5006/bridge/prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -3729,7 +3773,7 @@ export default function Dashboard() {
               window.open(getUrl(logicAi), "_blank");
 
               // Envoi systématique au Bridge pour l'extension et le moteur local
-              fetch("http://localhost:5006/bridge/prompt", {
+              safeFetch("http://localhost:5006/bridge/prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -3744,7 +3788,7 @@ export default function Dashboard() {
 
               if (selectedPacks && selectedPacks.length > 0) {
                 // TROMBONE PIPELINE (PRD)
-                fetch("http://localhost:5006/api/bridge/trombone", {
+                safeFetch("http://localhost:5006/api/bridge/trombone", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -3760,7 +3804,7 @@ export default function Dashboard() {
                 });
               } else {
                 // STANDARD PIPELINE
-                fetch("http://localhost:5006/bridge/prompt", {
+                safeFetch("http://localhost:5006/bridge/prompt", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
