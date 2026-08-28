@@ -10,6 +10,7 @@ import { Diamond, X, CheckCircle2, Box, Zap } from 'lucide-react';
 import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 import { ProjectConfigurator } from './components/ProjectConfigurator';
 import { GuestIdeaPanel } from './components/GuestIdeaPanel';
+import { safeFetch } from './lib/bridgeClient';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -429,26 +430,26 @@ const WidgetSettings = ({
     let interval: any;
     if (activeTab === "deploiement" || activeTab === "creation") {
       const fetchQueue = () => {
-        fetch("http://localhost:5006/api/bridge/queue")
-          .then(res => res.json())
+        safeFetch("http://localhost:5006/api/bridge/queue")
+          .then(res => res ? res.json() : null)
           .then(data => {
-            if (data.success) {
+            if (data && data.success) {
               setBridgeQueueData({ current: data.current || {}, queue: data.queue || [] });
             }
           })
           .catch(() => {});
           
-        fetch("http://localhost:5006/api/logs")
-          .then(res => res.json())
+        safeFetch("http://localhost:5006/api/logs")
+          .then(res => res ? res.json() : null)
           .then(data => {
-            if (data.logs) {
+            if (data && data.logs) {
               setEngineLogs(data.logs);
             }
           })
           .catch(() => {});
       };
       fetchQueue();
-      interval = setInterval(fetchQueue, 2000);
+      interval = setInterval(fetchQueue, 10000);
     }
     return () => clearInterval(interval);
   }, [activeTab]);

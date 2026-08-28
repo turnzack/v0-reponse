@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Cpu, Sparkles, FolderDown, Terminal, ShieldCheck, Zap } from 'lucide-react';
+import { Cpu, Sparkles } from 'lucide-react';
+import { safeFetch } from '../../lib/bridgeClient';
 
 export const Header: React.FC = () => {
   const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
@@ -7,8 +8,8 @@ export const Header: React.FC = () => {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch("http://localhost:5006/api/config/apikey");
-        if (res.ok) {
+        const res = await safeFetch("http://localhost:5006/api/config/apikey");
+        if (res && res.ok) {
           setIsBackendOnline(true);
         } else {
           setIsBackendOnline(false);
@@ -18,7 +19,7 @@ export const Header: React.FC = () => {
       }
     };
     checkBackend();
-    const interval = setInterval(checkBackend, 5000);
+    const interval = setInterval(checkBackend, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -44,7 +45,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
             <Cpu className="w-4 h-4 text-purple-400" />
-            <span className="text-zinc-300">Agent: <strong className="text-purple-300">Hermes DeepSeek AI</strong></span>
+            <span className="text-zinc-300">Agent: <strong className="text-purple-300">Cloud AI (Qwen 3 30B / DeepSeek)</strong></span>
           </div>
 
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
@@ -53,7 +54,7 @@ export const Header: React.FC = () => {
               : "bg-amber-500/10 border-amber-500/30 text-amber-400"
           }`}>
             <span className={`w-2 h-2 rounded-full ${isBackendOnline ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`} />
-            {isBackendOnline ? "Moteur Connecté (Port 5006)" : "Mode Autonome"}
+            {isBackendOnline ? "Moteur Connecté (Port 5006)" : "Mode Web Cloud SaaS"}
           </div>
         </div>
       </div>
