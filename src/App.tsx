@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 "use client";
 
-// Trigger new Vercel Zero-Error SaaS Cloud bundle (v5006-silent)
+// Trigger new Vercel Zero-Error SaaS Cloud bundle v1.0.3-FORCE-NO-CACHE
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from '@monaco-editor/react';
 import { Capacitor } from '@capacitor/core';
