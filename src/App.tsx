@@ -5993,12 +5993,12 @@ Format attendu:
                             setActiveProject(genId);
                             try {
                               const API_BASE = 'http://localhost:5006';
-                              await fetch(`${API_BASE}/v1/projects/set-active`, {
+                              await safeFetch(`${API_BASE}/v1/projects/set-active`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ name: genId, project_id: genId })
                               }).catch(() => null);
-                              await fetch(`${API_BASE}/api/fs/write`, {
+                              await safeFetch(`${API_BASE}/api/fs/write`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -6265,7 +6265,7 @@ Format attendu:
                       } else {
                         // 💻 MODE PC (Electron/Node)
                         // 1. Définir le projet actif & créer le dossier sur le disque dur
-                        await fetch(`${API_BASE}/v1/projects/set-active`, {
+                        await safeFetch(`${API_BASE}/v1/projects/set-active`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ name: genId })
@@ -6285,7 +6285,7 @@ Format attendu:
                         } catch(e) {}
                       } else {
                         // 2. Écrire le fichier README initial
-                        await fetch(`${API_BASE}/api/fs/write`, {
+                        await safeFetch(`${API_BASE}/api/fs/write`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
@@ -6344,7 +6344,7 @@ Format attendu:
                         }
                       } else {
                         if (selectedStartPhase === 2) {
-                          await fetch(`${API_BASE}/api/bridge/trombone`, {
+                          await safeFetch(`${API_BASE}/api/bridge/trombone`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
@@ -6360,7 +6360,7 @@ Format attendu:
                           }).catch(() => null);
                           
                           if (!reuseActiveTab) {
-                            await fetch(`${API_BASE}/v1/bridge/inject`, {
+                            await safeFetch(`${API_BASE}/v1/bridge/inject`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ project_id: genId, prompt: "OPEN_TAB_ONLY", target_ai: finalTargetAi, phase_num: selectedStartPhase })
@@ -6370,14 +6370,14 @@ Format attendu:
                             window.open(logicAiUrl, '_blank');
                           }
                         } else {
-                          await fetch(`${API_BASE}/v1/bridge/inject`, {
+                          await safeFetch(`${API_BASE}/v1/bridge/inject`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ project_id: genId, prompt: megaPrompt, target_ai: finalTargetAi, phase_num: selectedStartPhase, packs: selectedPacks })
                           }).catch(() => null);
 
                           // NOUVEAU: Activer le Watcher de Téléchargements pour la Reprise Automatique (Zero-Touch total)
-                          await fetch(`${API_BASE}/api/bridge/expect-zip`, {
+                          await safeFetch(`${API_BASE}/api/bridge/expect-zip`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ project_id: genId, target_ai: finalTargetAi, auto_submit: isAutoPilotOn })

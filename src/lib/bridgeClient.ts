@@ -44,15 +44,14 @@ export async function probeLocalBridge(): Promise<boolean> {
     return false;
   }
 
-  if (!isLocalEnvironment()) {
-    isLocalBridgeAvailable = false;
-    return false;
-  }
-
   if (probePromise) return probePromise;
 
   probePromise = (async () => {
     try {
+      if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+        isLocalBridgeAvailable = false;
+        return false;
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 400);
       const res = await fetch('http://localhost:5006/api/bridge/ping', {

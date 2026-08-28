@@ -14,8 +14,15 @@
         var origFetch = window.fetch;
         
         window.fetch = function(input, init) {
-          var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-          if (url && (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1)) {
+          var url = '';
+          try {
+            if (typeof input === 'string') { url = input; }
+            else if (input && input.url) { url = input.url; }
+            else if (input && input.href) { url = input.href; }
+            else if (input) { url = String(input); }
+          } catch(e) {}
+          
+          if (url && (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1)) {
             var enableBridge = false;
             try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
             if (!isElectron && !enableBridge) {
