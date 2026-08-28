@@ -7,6 +7,19 @@
     <meta http-equiv="Expires" content="0" />
     <title>Admin Design Studio - Tiger IA</title>
     <script>
+      // PURGE TOTALE AUTOMATIQUE DES SERVICE WORKERS ET CACHES FANTOMES
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          for (var reg of regs) { reg.unregister(); }
+        }).catch(function() {});
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (var name of names) { caches.delete(name); }
+        }).catch(function() {});
+      }
+    </script>
+    <script>
       // Firewall réseau global Zero-Error pour mode Web Cloud SaaS
       (function() {
         var isElectron = Boolean(window.electron || window.electronAPI || (navigator.userAgent && navigator.userAgent.indexOf('Electron') !== -1));
