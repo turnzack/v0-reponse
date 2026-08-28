@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3006",
+    "dev": "vite --port 3006 --strictPort false",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -12,6 +12,11 @@
     "@capacitor/core": "^6.0.0",
     "@capacitor/filesystem": "^6.0.0",
     "@monaco-editor/react": "^4.7.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.378.0",
     "react": "^18.2.0",

@@ -136,6 +136,11 @@ const WidgetSettings = ({
     setTargetUiAi(localStorage.getItem("tiger_targetUiAi") || "stitch");
     setCustomAiName(localStorage.getItem("tiger_customAiName") || "");
     setCustomAiUrl(localStorage.getItem("tiger_customAiUrl") || "");
+    // Migration automatique : si l'ancienne valeur 5005 est stockée, on la corrige
+    const storedBridgeUrl = localStorage.getItem("tiger_bridgeUrl");
+    if (!storedBridgeUrl || storedBridgeUrl === "http://127.0.0.1:5005" || storedBridgeUrl === "http://localhost:5005") {
+      localStorage.setItem("tiger_bridgeUrl", "http://127.0.0.1:5006");
+    }
     setBridgeUrl(localStorage.getItem("tiger_bridgeUrl") || "http://127.0.0.1:5006");
     setVercelUrl(localStorage.getItem("tiger_vercelUrl") || "https://v0-reponse-git-main-v01-e951.vercel.app");
     setDefaultPreviewUrl(localStorage.getItem("tiger_defaultPreviewUrl") || "http://127.0.0.1:5175");
@@ -189,8 +194,8 @@ const WidgetSettings = ({
       let success = false;
       const targets = Array.from(new Set([
         `${bridgeUrl}/api/config/apikey`,
-        "http://localhost:5006/api/config/apikey",
-        "http://127.0.0.1:5006/api/config/apikey"
+        "http://localhost:5005/api/config/apikey",
+        "http://127.0.0.1:5005/api/config/apikey"
       ]));
 
       for (const target of targets) {
@@ -240,7 +245,7 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5006/api/fs/pick-zip", {
+      const res = await fetch("http://localhost:5005/api/fs/pick-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -266,7 +271,7 @@ const WidgetSettings = ({
         const isRunningNow = isPipelineRunning || (typeof window !== 'undefined' && sessionStorage.getItem('tiger_isPipelineRunning') === 'true');
         if (isRunningNow) {
           alert("🚀 Reprise automatique de la Pipeline (Phase 2) ! L'orchestrateur prend le relais pour l'intégration.");
-          fetch("http://localhost:5006/api/bridge/trombone", {
+          fetch("http://localhost:5005/api/bridge/trombone", {
              method: "POST",
              headers: { "Content-Type": "application/json" },
              body: JSON.stringify({
@@ -285,7 +290,7 @@ const WidgetSettings = ({
         alert("❌ Erreur lors de l'extraction: " + data.error || data.message);
       }
     } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5006.");
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
     } finally {
       if (btn) {
         btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
@@ -305,7 +310,7 @@ const WidgetSettings = ({
     try {
       const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-      const res = await fetch("http://localhost:5006/api/fs/pick-prd-zip", {
+      const res = await fetch("http://localhost:5005/api/fs/pick-prd-zip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project: designProjectId })
@@ -320,7 +325,7 @@ const WidgetSettings = ({
         alert("❌ Erreur : " + (data.message || "Impossible de copier le Pack PRD"));
       }
     } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5006.");
+      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
     } finally {
       if (btn) {
         btn.innerHTML = '<span>💎</span>Pack PRD';
@@ -1176,6 +1181,7 @@ const WidgetSettings = ({
                         else if (target === "chatgpt") url = "https://chatgpt.com";
                         else if (target === "claude") url = "https://claude.ai";
                         else if (target === "notebooklm") url = "https://notebooklm.google.com";
+                        // cloudflare = pas de fenêtre fantôme, passe par le Moteur Electron /v1/audit
                         
                         if (url) {
                           fetch("http://localhost:5006/api/bridge/open-window", {
@@ -1188,6 +1194,7 @@ const WidgetSettings = ({
                       defaultValue="notebooklm"
                     >
                       <option value="notebooklm">📓 NotebookLM (Google)</option>
+                      <option value="cloudflare">☁️ Cloudflare Qwen 3 30B (Audit IA Grade Gold)</option>
                       <option value="deepseek">🩵 DeepSeek (Extension Web)</option>
                       <option value="hermes">🤖 Hermes Agent (API DeepSeek)</option>
                       <option value="chatgpt">🟢 ChatGPT</option>
@@ -1265,7 +1272,8 @@ const WidgetSettings = ({
                       0: "🚀 LANCER PIPELINE COMPLÈTE (ONE-SHOT)",
                       1: "✨ LANCER PHASE 1 (Prompt vers l'IA)",
                       2: "⚙️ LANCER PHASE 2 (MULTI-BATCH)",
-                      3: "🔗 LANCER PHASE 3/4",
+                      3: "🎨 LANCER PHASE 3/4 (CÂBLAGE MÉTIER)",
+                      4: "🎨 LANCER PHASE 3/4 (CÂBLAGE MÉTIER)",
                       5: "🔌 LANCER PHASE 5 (INDUSTRIALISATION)",
                       9: "🛡️ LANCER PUSH UI"
                     };
@@ -1275,8 +1283,8 @@ const WidgetSettings = ({
 
                     return (
                       <button 
-
-                      onClick={() => {
+                        id="btn-lancer-phase"
+                        onClick={() => {
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) {
                           alert("Veuillez sélectionner ou créer un projet !");
@@ -1306,6 +1314,29 @@ const WidgetSettings = ({
                             })
                           }).then(r => r.json()).then(tData => {
                             alert("✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
+                          }).catch(e => {
+                            console.error(e);
+                            alert("Erreur: Le moteur :5006 est-il lancé ?");
+                          });
+                          return;
+                        }
+
+                        if (Number(selectedStartPhase) === 4 || Number(selectedStartPhase) === 3) {
+                          // Lancer la Phase 3/4 (Câblage Métier)
+                          fetch("http://localhost:5006/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              target_project: proj, 
+                              target_ai: window.KIROV_TARGET_AI || "cloudflare", 
+                              start_index: 1, 
+                              zip_mode: true,
+                              start_phase: 4,
+                              auto_pilot: isAutoPilot,
+                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                            })
+                          }).then(r => r.json()).then(tData => {
+                            alert("✅ PHASE 3/4 (CÂBLAGE MÉTIER) LANCÉE !\nL'orchestrateur prend le relais pour connecter et câbler la logique métier.");
                           }).catch(e => {
                             console.error(e);
                             alert("Erreur: Le moteur :5006 est-il lancé ?");
@@ -1411,7 +1442,7 @@ const WidgetSettings = ({
                               const proj = selectedLaunchProject || newProjectName;
                               if (!proj) { alert("Sélectionnez un projet actif d'abord !"); return; }
                               try {
-                                const res = await fetch(`http://localhost:5006/api/projects/${proj}/pages`);
+                                const res = await fetch(`http://localhost:5005/api/projects/${proj}/pages`);
                                 const data = await res.json();
                                 if (data.pages) setProjectPages(data.pages);
                               } catch(e) {}
@@ -1538,7 +1569,7 @@ const WidgetSettings = ({
                                 idempotencyKey: `push-${proj}-${targetFile}-${Date.now()}`
                               };
 
-                              const res = await fetch("http://localhost:5006/api/bridge/strict-ui-update", {
+                              const res = await fetch("http://localhost:5005/api/bridge/strict-ui-update", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
@@ -1553,7 +1584,7 @@ const WidgetSettings = ({
                               await new Promise<void>((resolve, reject) => {
                                 const poll = setInterval(async () => {
                                   try {
-                                    const sr = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
+                                    const sr = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
                                     const sd = await sr.json();
                                     setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
                                     if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
@@ -1586,7 +1617,7 @@ const WidgetSettings = ({
                             setIsUiPromoting(true);
                             setUiPushMessage("🚀 Promotion en cours vers la Production...");
                             try {
-                              const res = await fetch(`http://localhost:5006/api/bridge/strict-ui-update/${uiPushId}/promote`, {
+                              const res = await fetch(`http://localhost:5005/api/bridge/strict-ui-update/${uiPushId}/promote`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ projectId: proj, promotionMode: "hybrid", confirm: true })
@@ -1842,21 +1873,29 @@ const WidgetSettings = ({
                            <span className="w-1 h-3 bg-cyan inline-block rounded-sm"></span> Tâche Actuelle
                         </span>
                         <button 
-                          onClick={() => {
-                            if (!bridgeQueueData.current) { alert("Aucune tâche active."); return; }
-                            const targetAi = Object.keys(bridgeQueueData.current)[0];
-                            if (!targetAi || !bridgeQueueData.current[targetAi]) { alert("Aucune tâche active."); return; }
-                            fetch("http://localhost:5006/api/bridge/prompt", {
+                          onClick={async () => {
+                            let task: any = null;
+                            let targetAi = 'deepseek';
+                            if (bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0) {
+                              targetAi = Object.keys(bridgeQueueData.current)[0];
+                              task = bridgeQueueData.current[targetAi];
+                            } else if (bridgeQueueData.queue && bridgeQueueData.queue.length > 0) {
+                              task = bridgeQueueData.queue[0];
+                              targetAi = task.target_ai || 'deepseek';
+                            }
+                            if (!task) { alert("Aucune tâche active ni en attente."); return; }
+                            const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
+                            fetch(`${targetBridge}/v1/bridge/inject`, {
                                method: "POST", headers: { "Content-Type": "application/json" },
                                body: JSON.stringify({ 
-                                 prompt: bridgeQueueData.current[targetAi].prompt, 
+                                 prompt: task.prompt, 
                                  target_ai: targetAi,
-                                 phase_num: bridgeQueueData.current[targetAi].phase_num,
-                                 is_multi_batch: bridgeQueueData.current[targetAi].is_multi_batch,
-                                 project_id: bridgeQueueData.current[targetAi].project_id
+                                 phase_num: task.phase_num,
+                                 is_multi_batch: task.is_multi_batch,
+                                 project_id: task.project_id || task.target_project || 'GTASTICH'
                                })
                             }).catch(() => null);
-                            alert("Prompt poussé manuellement dans la zone texte KIROV5 !");
+                            alert(`Prompt [${task.phase_name || task.phase_num || 'Lot 1'}] poussé manuellement dans la zone texte KIROV5 (${targetAi}) !`);
                           }}
                           className="bg-[#0f2a2a] text-cyan text-[8px] font-bold px-2 py-1 rounded transition-colors"
                         >
@@ -1887,8 +1926,9 @@ const WidgetSettings = ({
                          <div className="flex gap-2">
                            <button 
                              onClick={async () => {
+                               const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
                                for (let i = 0; i < 20; i++) {
-                                 await fetch("http://localhost:5006/api/bridge/consume", { 
+                                 await fetch(`${targetBridge}/v1/bridge/consume`, { 
                                    method: "POST", headers: { "Content-Type": "application/json" },
                                    body: JSON.stringify({})
                                  }).catch(() => null);
@@ -1900,9 +1940,9 @@ const WidgetSettings = ({
                            </button>
                            <button 
                              onClick={() => {
-                               const proj = selectedLaunchProject || newProjectName;
-                               if (!proj) return;
-                               fetch("http://localhost:5006/api/debug/advance-batch", { 
+                               const proj = selectedLaunchProject || newProjectName || 'GTASTICH';
+                               const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
+                               fetch(`${targetBridge}/api/debug/advance-batch`, { 
                                  method: "POST", headers: { "Content-Type": "application/json" }, 
                                  body: JSON.stringify({ project_id: proj }) 
                                }).catch(() => null);
@@ -5889,6 +5929,7 @@ Format attendu:
                       className="bg-[#11161d] text-cyan font-bold text-xs border border-cyan/40 rounded-xl px-2.5 py-1.5 outline-none focus:border-cyan cursor-pointer"
                     >
                       <option value="deepseek">🩵 DeepSeek</option>
+                      <option value="cloudflare">☁️ Cloudflare Qwen 3 (Grade Gold)</option>
                       <option value="stitch">🎨 Stitch (Google)</option>
                       <option value="v0">⚡ V0.dev</option>
                       <option value="chatgpt">🟢 ChatGPT</option>
