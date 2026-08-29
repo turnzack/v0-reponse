@@ -261,12 +261,6 @@ export const GuestIdeaPanel: React.FC<{
       setErrorMsg(e.message || 'Erreur lors de la génération du Pack PRD.');
     }
   };
-      if (onPackGenerated) onPackGenerated(folderName, proposal.description, category);
-    } catch (e: any) {
-      setStatus('error');
-      setErrorMsg(e.message || 'Erreur lors de la génération du Pack PRD.');
-    }
-  };
 
   const handlePhase5Confirm = async (finalAudit: Phase5Audit) => {
     setStatus('generating');

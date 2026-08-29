@@ -3118,22 +3118,24 @@ export default function Dashboard() {
           const res = await safeFetch("http://localhost:5006/api/mobile/build-logs");
           if (res && res.ok) {
             const data = await res.json();
-          if (data.logs && data.logs.length > 0) {
-            setApkLogs(data.logs);
-          }
-          if (data.isBuilding === false && data.result) {
-            if (data.result.success) {
-              setApkBuildStatus("success");
-              setApkOutputUrl(data.result.apkUrl);
-            } else {
-              setApkBuildStatus("error");
+            if (data.logs && data.logs.length > 0) {
+              setApkLogs(data.logs);
             }
-            clearInterval(interval);
+            if (data.isBuilding === false && data.result) {
+              if (data.result.success) {
+                setApkBuildStatus("success");
+                setApkOutputUrl(data.result.apkUrl);
+              } else {
+                setApkBuildStatus("error");
+              }
+              clearInterval(interval);
+            }
           }
         } catch (e) {
           console.warn("Polling APK error", e);
         }
       }, 1000);
+
     }
     return () => {
       if (interval) clearInterval(interval);

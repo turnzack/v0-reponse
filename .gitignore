@@ -11,8 +11,8 @@
 /out/
 
 # production
-/build
-/dist
+# /dist — décommenté pour servir le build local directement via Vercel
+
 
 # misc
 .DS_Store
