@@ -1,4 +1,34 @@
-// Kirov5 Sovereign Forge - Release 1.0.1 - Zero-Error SaaS Cloud Firewall
+// Kirov5 Sovereign Forge - Release 2.0.0 - Zero-Error SaaS Cloud Firewall
+// ═══════════════════════════════════════════════════════════════════
+// PARE-FEU RÉSEAU GLOBAL — INTERCEPTEUR DE FETCH LOCALHOST:5006
+// Ce bloc s'exécute AVANT React. Il intercepte 100% des appels fetch
+// vers le bridge local et les neutralise hors environnement Electron.
+// ═══════════════════════════════════════════════════════════════════
+(function installNetworkFirewall() {
+  const isElectron = typeof window !== 'undefined' && (
+    Boolean((window as any).electron) ||
+    Boolean((window as any).electronAPI) ||
+    (typeof navigator !== 'undefined' && navigator.userAgent?.includes('Electron'))
+  );
+  
+  if (!isElectron && typeof window !== 'undefined') {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+      const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input as Request).url);
+      if (url && (url.includes('localhost:500') || url.includes('127.0.0.1:500') || url.includes(':5006'))) {
+        // Bloquer silencieusement — retourner null response sans contacter le réseau
+        console.debug('[KIROV5-FIREWALL] Blocked local bridge request (Cloud SaaS mode):', url);
+        return Promise.resolve(new Response(JSON.stringify({ success: false, blocked: true, mode: 'cloud-saas' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      }
+      return originalFetch(input, init);
+    };
+    console.info('[KIROV5-FIREWALL] ✅ Network firewall active — Cloud SaaS mode (localhost:5006 blocked)');
+  }
+})();
+
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
