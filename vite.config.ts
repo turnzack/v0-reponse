@@ -23,9 +23,9 @@ export default defineConfig({
         adminDesign: resolve(__dirname, 'admin-design.html'),
       },
       output: {
-        entryFileNames: `assets/[name]-v109-[hash].js`,
-        chunkFileNames: `assets/[name]-v109-[hash].js`,
-        assetFileNames: `assets/[name]-v109-[hash].[ext]`
+        entryFileNames: `assets/[name]-v110-[hash].js`,
+        chunkFileNames: `assets/[name]-v110-[hash].js`,
+        assetFileNames: `assets/[name]-v110-[hash].[ext]`
       }
     },
   },

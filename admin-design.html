@@ -39,9 +39,8 @@
             return 'mock_ok';
           }
           if (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1) {
-            var enableBridge = false;
-            try { enableBridge = localStorage.getItem('tiger_enable_local_bridge') === 'true'; } catch(e) {}
-            if (!isElectron && !enableBridge) {
+            if (!isElectron) {
+              try { localStorage.removeItem('tiger_enable_local_bridge'); } catch(e) {}
               return 'mock_blocked';
             }
           }

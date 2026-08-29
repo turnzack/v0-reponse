@@ -88,8 +88,8 @@ export async function safeFetch(url: string, init?: RequestInit): Promise<Respon
   const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500') || url.includes(':5006');
 
   if (isLocalTarget) {
-    // Si hors Electron et que le pont n'est pas activé explicitement -> AUCUN FETCH
-    if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+    // Hors Electron, interdire absolument toute requete vers le bridge local 5006
+    if (!isElectronEnvironment()) {
       return null;
     }
 
