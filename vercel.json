@@ -1,8 +1,8 @@
 {
   "regions": ["cdg1"],
-  "buildCommand": "pnpm build",
+  "buildCommand": "echo 'Skip build - using local dist folder'",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "installCommand": "echo 'Skip install'",
   "headers": [
     {
       "source": "/index.html",
