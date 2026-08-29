@@ -26,9 +26,6 @@ export function isLocalEnvironment(): boolean {
 export async function probeLocalBridge(): Promise<boolean> {
   if (isLocalBridgeAvailable !== null) {
     if (isLocalBridgeAvailable === false) {
-      if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
-        return false;
-      }
       if (Date.now() - lastFailureTimestamp < 60000) {
         return false;
       }
@@ -37,18 +34,11 @@ export async function probeLocalBridge(): Promise<boolean> {
     }
   }
 
-  // En navigateur Web standard (hors Electron), désactiver le pont local par défaut
-  // pour éviter tout ping réseau vers localhost et éliminer à 100% les erreurs console.
-  if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
-    isLocalBridgeAvailable = false;
-    return false;
-  }
-
   if (probePromise) return probePromise;
 
   probePromise = (async () => {
     try {
-      if (!isElectronEnvironment() && localStorage.getItem('tiger_enable_local_bridge') !== 'true') {
+      if (!isElectronEnvironment()) {
         isLocalBridgeAvailable = false;
         return false;
       }
