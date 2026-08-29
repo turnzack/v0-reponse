@@ -1,0 +1,6 @@
+name = "v0-interface-versel"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+# Add your environment variables in the Cloudflare Dashboard, but we declare the project here.
