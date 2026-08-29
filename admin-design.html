@@ -7,17 +7,24 @@
     <meta http-equiv="Expires" content="0" />
     <title>Admin Design Studio - Tiger IA</title>
     <script>
-      // PURGE TOTALE AUTOMATIQUE DES SERVICE WORKERS ET CACHES FANTOMES
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(regs) {
-          for (var reg of regs) { reg.unregister(); }
-        }).catch(function() {});
-      }
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (var name of names) { caches.delete(name); }
-        }).catch(function() {});
-      }
+      // PURGE TOTALE AUTOMATIQUE ET FORCE RELOAD CACHE CHROME V109
+      (function() {
+        var CLEAN_KEY = 'tiger_v109_purged_final';
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var reg of regs) { reg.unregister(); }
+          }).catch(function() {});
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            for (var name of names) { caches.delete(name); }
+          }).catch(function() {});
+        }
+        if (!localStorage.getItem(CLEAN_KEY)) {
+          localStorage.setItem(CLEAN_KEY, 'true');
+          setTimeout(function() { window.location.reload(true); }, 100);
+        }
+      })();
     </script>
     <script>
       // Firewall réseau global Zero-Error pour mode Web Cloud SaaS
