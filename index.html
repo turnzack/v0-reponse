@@ -8,9 +8,9 @@
     <meta http-equiv="Expires" content="0" />
     <title>v0.reponse - OS Souverain v0.1.0 - idecode-2026</title>
     <script>
-      // PURGE TOTALE AUTOMATIQUE ET FORCE RELOAD CACHE CHROME V109
+      // PURGE TOTALE AUTOMATIQUE v2.0.0 - FORCE RELOAD CACHE CHROME
       (function() {
-        var CLEAN_KEY = 'tiger_v109_purged_final';
+        var CLEAN_KEY = 'kirov5_v200_cache_purged';
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(regs) {
             for (var reg of regs) { reg.unregister(); }
@@ -21,9 +21,12 @@
             for (var name of names) { caches.delete(name); }
           }).catch(function() {});
         }
+        // Supprimer toutes les anciennes clés de purge pour repartir propre
+        var oldKeys = ['tiger_v109_purged_final','tiger_v110_purged','tiger_v111_purged','tiger_enable_local_bridge'];
+        oldKeys.forEach(function(k) { try { localStorage.removeItem(k); } catch(e) {} });
         if (!localStorage.getItem(CLEAN_KEY)) {
-          localStorage.setItem(CLEAN_KEY, 'true');
-          setTimeout(function() { window.location.reload(true); }, 100);
+          localStorage.setItem(CLEAN_KEY, '1');
+          window.location.reload(true);
         }
       })();
     </script>
