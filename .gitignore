@@ -30,3 +30,10 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# API keys
+.api_keys.json
+*.api_keys.json
+backend/.api_keys.json
+
+backend/config/api-keys.json
