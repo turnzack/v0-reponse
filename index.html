@@ -10,7 +10,7 @@
     <script>
       // PURGE TOTALE AUTOMATIQUE v2.0.0 - FORCE RELOAD CACHE CHROME
       (function() {
-        var CLEAN_KEY = 'kirov5_v200_cache_purged';
+        var CLEAN_KEY = 'kirov5_v203_safe_json';
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(function(regs) {
             for (var reg of regs) { reg.unregister(); }
@@ -36,6 +36,12 @@
         var isElectron = Boolean(window.electron || window.electronAPI || (navigator.userAgent && navigator.userAgent.indexOf('Electron') !== -1));
         var origFetch = window.fetch;
         
+        var isLocal = Boolean(
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1' ||
+          isElectron
+        );
+
         function shouldBlock(url) {
           if (!url) return false;
           if (typeof url !== 'string') url = String(url);
@@ -43,8 +49,7 @@
             return 'mock_ok';
           }
           if (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1) {
-            if (!isElectron) {
-              try { localStorage.removeItem('tiger_enable_local_bridge'); } catch(e) {}
+            if (!isLocal) {
               return 'mock_blocked';
             }
           }

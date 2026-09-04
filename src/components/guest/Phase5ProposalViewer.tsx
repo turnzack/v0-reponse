@@ -338,7 +338,7 @@ export const Phase5ProposalViewer: React.FC<Phase5ProposalViewerProps> = ({
                 'ocr_processing': ['Google Vision API', 'AWS Textract', 'Tesseract.js (Local)', 'API tierce dédiée']
               };
               
-              const options = (q.options && q.options.length > 0) ? q.options : (SUGGESTIONS[capKey] || []);
+              const options: string[] = ((q as any).options && (q as any).options.length > 0) ? (q as any).options : (SUGGESTIONS[capKey] || []);
               const hasOptions = options.length > 0;
               
               // On vérifie si la réponse actuelle fait partie des options prédéfinies
@@ -373,7 +373,7 @@ export const Phase5ProposalViewer: React.FC<Phase5ProposalViewerProps> = ({
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/50"
                         >
                           <option value="" disabled>-- Sélectionner une réponse --</option>
-                          {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
                           <option value="other">Autre (Saisie libre)...</option>
                         </select>
                       )}

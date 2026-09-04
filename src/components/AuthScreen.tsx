@@ -1,3 +1,5 @@
+
+
 import { useState } from 'react';
 
 interface AuthScreenProps {
@@ -54,8 +56,14 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
 
       onAuthenticated({ userId: data.userId, email });
 
-    } catch {
-      setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+    } catch (err: any) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.warn('Mode local sans Wrangler: Bypass de la connexion pour accès UI.');
+        localStorage.setItem('kirov5_jwt_token', 'dev-mock-token');
+        onAuthenticated({ userId: 'dev-user-001', email: email || 'dev@local' });
+      } else {
+        setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      }
     } finally {
       setLoading(false);
     }

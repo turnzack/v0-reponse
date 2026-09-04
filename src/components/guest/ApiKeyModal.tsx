@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Key, Eye, EyeOff, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
-import { getApiKey, setApiKey, clearApiKey, hasApiKey } from '../lib/api-key-storage';
+import { getApiKey, setApiKey, clearApiKey, hasApiKey } from '../../lib/guest/api-key-storage';
 import { safeFetch } from '../../lib/bridgeClient';
 
 interface ApiKeyModalProps {

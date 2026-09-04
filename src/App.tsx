@@ -236,113 +236,184 @@ const WidgetSettings = ({
     setTimeout(() => setSavedMsg(false), 3000);
   };
 
-  const triggerNativeZipPicker = async () => {
-    const btn = document.getElementById("btn-joindre-zip");
-    if (btn) {
-      btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
-      (btn as HTMLButtonElement).disabled = true;
+  const triggerNativeZipPicker = () => {
+    const isElectron = typeof window !== 'undefined' && Boolean(
+      (window as any).electron || 
+      (window as any).electronAPI || 
+      navigator.userAgent?.includes('Electron')
+    );
+
+    const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
+
+    // MODE WEB NAVIGATEUR : déclenchement synchrone immédiat (maintient l'activation utilisateur)
+    if (!isElectron) {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".zip";
+      fileInput.style.display = "none";
+      document.body.appendChild(fileInput);
+
+      fileInput.onchange = async () => {
+        const file = fileInput.files?.[0];
+        document.body.removeChild(fileInput);
+        if (!file) return;
+
+        const btn = document.getElementById("btn-joindre-zip");
+        if (btn) {
+          btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
+          (btn as HTMLButtonElement).disabled = true;
+        }
+
+        try {
+          const arrayBuf = await file.arrayBuffer();
+          const base64 = btoa(
+            new Uint8Array(arrayBuf).reduce((d, byte) => d + String.fromCharCode(byte), '')
+          );
+          await fetch("/api/fs/upload-zip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project: designProjectId,
+              fileName: file.name,
+              fileBase64: base64
+            })
+          });
+
+          setUiZipName(file.name);
+          setSelectedStartPhase(2);
+          alert(`✅ Archive "${file.name}" importée avec succès dans le projet : ${designProjectId}\nLe fichier est prêt dans votre projet !`);
+        } catch (err) {
+          console.warn("[Upload ZIP] Erreur fallback:", err);
+        } finally {
+          if (btn) {
+            btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
+            (btn as HTMLButtonElement).disabled = false;
+          }
+        }
+      };
+
+      fileInput.click();
+      return;
     }
 
-    try {
-      const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
-
-      const res = await safeFetch("http://localhost:5005/api/fs/pick-zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project: designProjectId
-        })
-      });
-
-      if (!res) {
-        alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005 (Mode Cloud SaaS).");
-        return;
-      }
-      const data = await res.json();
-      if (data.canceled) {
-        // User cancelled the dialog, just do nothing silently
-      } else if (data.success) {
-        alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\\nLe fichier est prêt dans votre projet !");
-        
-        // Mettre à jour la phase de départ sur 2 (Le Backend) pour ne pas relancer Stitch
-        setSelectedStartPhase(2);
-        
-        // Si le backend renvoie le nom du fichier copié, on pré-remplit le champ du Push UI/UX
-        if (data.fileName || data.filename) {
-           setUiZipName(data.fileName || data.filename);
-        }
-        
-        // Reprise automatique de la Pipeline Zero-Touch (Phase 2)
-        const isRunningNow = isPipelineRunning || (typeof window !== 'undefined' && sessionStorage.getItem('tiger_isPipelineRunning') === 'true');
-        if (isRunningNow) {
-          alert("🚀 Reprise automatique de la Pipeline (Phase 2) ! L'orchestrateur prend le relais pour l'intégration.");
-          safeFetch("http://localhost:5005/api/bridge/trombone", {
-             method: "POST",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify({
-               target_project: designProjectId,
-               target_ai: (window as any).KIROV_TARGET_AI || "deepseek",
-               start_index: 1,
-               zip_mode: true,
-               start_phase: 200, 
-               force_restart: true,
-               auto_submit: true,
-               packs: typeof selectedPacks !== 'undefined' ? selectedPacks : []
-             })
-          }).catch(e => console.error("[TROMBONE] Erreur reprise:", e));
-        }
-      } else {
-        alert("❌ Erreur lors de l'extraction: " + data.error || data.message);
-      }
-    } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
-    } finally {
+    // MODE ELECTRON : dialogue natif OS
+    (async () => {
+      const btn = document.getElementById("btn-joindre-zip");
       if (btn) {
-        btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
-        (btn as HTMLButtonElement).disabled = false;
+        btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
+        (btn as HTMLButtonElement).disabled = true;
       }
-    }
+
+      try {
+        const res = await safeFetch("http://localhost:5005/api/fs/pick-zip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: designProjectId })
+        });
+        const data = res ? await res.json() : null;
+        if (data && data.success) {
+          alert("✅ ZIP Copié avec succès dans le dossier : " + designProjectId + "\nLe fichier est prêt dans votre projet !");
+          setSelectedStartPhase(2);
+          if (data.fileName || data.filename) {
+            setUiZipName(data.fileName || data.filename);
+          }
+        }
+      } catch (err) {
+        console.warn("Erreur picker ZIP:", err);
+      } finally {
+        if (btn) {
+          btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
+          (btn as HTMLButtonElement).disabled = false;
+        }
+      }
+    })();
   };
 
   // --- PICKER NATIF PACK PRD ZIP ---
-  const triggerNativePrdZipPicker = async () => {
-    const btn = document.getElementById("btn-joindre-prd");
-    if (btn) {
-      btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
-      (btn as HTMLButtonElement).disabled = true;
+  const triggerNativePrdZipPicker = () => {
+    const isElectron = typeof window !== 'undefined' && Boolean(
+      (window as any).electron || 
+      (window as any).electronAPI || 
+      navigator.userAgent?.includes('Electron')
+    );
+
+    const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
+
+    if (!isElectron) {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".zip";
+      fileInput.style.display = "none";
+      document.body.appendChild(fileInput);
+
+      fileInput.onchange = async () => {
+        const file = fileInput.files?.[0];
+        document.body.removeChild(fileInput);
+        if (!file) return;
+
+        const btn = document.getElementById("btn-joindre-prd");
+        if (btn) {
+          btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
+          (btn as HTMLButtonElement).disabled = true;
+        }
+
+        try {
+          const arrayBuf = await file.arrayBuffer();
+          const base64 = btoa(
+            new Uint8Array(arrayBuf).reduce((d, byte) => d + String.fromCharCode(byte), '')
+          );
+          await fetch("/api/fs/upload-zip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project: designProjectId,
+              fileName: file.name,
+              fileBase64: base64
+            })
+          });
+
+          alert(`✅ Pack PRD "${file.name}" importé avec succès dans le projet : ${designProjectId}`);
+        } catch (err) {
+          console.warn("[Upload PRD ZIP] Erreur:", err);
+        } finally {
+          if (btn) {
+            btn.innerHTML = '<span>💎</span>Pack PRD';
+            (btn as HTMLButtonElement).disabled = false;
+          }
+        }
+      };
+
+      fileInput.click();
+      return;
     }
 
-    try {
-      const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
-
-      const res = await safeFetch("http://localhost:5005/api/fs/pick-prd-zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project: designProjectId })
-      });
-
-      if (!res) {
-        alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005 (Mode Cloud SaaS).");
-        return;
-      }
-      const data = await res.json();
-      if (data.canceled) {
-        // L'utilisateur a annulé, on ne fait rien
-      } else if (data.success) {
-        alert("✅ Pack PRD copié dans le projet : " + designProjectId + "\n\nFichier : " + data.filename + "\n\nLe moteur Kirov5 l'injectera automatiquement lors du lancement du pipeline !");
-      } else {
-        alert("❌ Erreur : " + (data.message || "Impossible de copier le Pack PRD"));
-      }
-    } catch (err) {
-      alert("❌ Impossible de joindre le Moteur Kirov5 sur le port 5005.");
-    } finally {
+    (async () => {
+      const btn = document.getElementById("btn-joindre-prd");
       if (btn) {
-        btn.innerHTML = '<span>💎</span>Pack PRD';
-        (btn as HTMLButtonElement).disabled = false;
+        btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
+        (btn as HTMLButtonElement).disabled = true;
       }
-    }
-  };
 
+      try {
+        const res = await safeFetch("http://localhost:5005/api/fs/pick-prd-zip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: designProjectId })
+        });
+        const data = res ? await res.json() : null;
+        if (data && data.success) {
+          alert("✅ Pack PRD copié dans le projet : " + designProjectId + "\n\nFichier : " + (data.filename || data.fileName));
+        }
+      } catch (err) {
+        console.warn("Erreur picker PRD:", err);
+      } finally {
+        if (btn) {
+          btn.innerHTML = '<span>💎</span>Pack PRD';
+          (btn as HTMLButtonElement).disabled = false;
+        }
+      }
+    })();
+  };
 
   const tabs = [
     { id: "home", label: "TIGER IA", icon: "🐯" },
@@ -439,7 +510,7 @@ const WidgetSettings = ({
   };
 
   useEffect(() => {
-    if (!isElectronEnvironment()) return;
+    if (!isLocalEnvironment()) return;
     let interval: any;
     if (activeTab === "deploiement" || activeTab === "creation") {
       const fetchQueue = () => {
@@ -1214,7 +1285,8 @@ const WidgetSettings = ({
                       className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-cyan"
                       onChange={(e) => {
                         const target = e.target.value;
-                        window.KIROV_TARGET_AI = target;
+                        (window as any).KIROV_TARGET_AI = target;
+                        if (typeof window !== 'undefined') localStorage.setItem("tiger_targetAi", target);
                         
                         // Dire au moteur d'ouvrir la fenêtre fantôme correspondante
                         let url = "";
@@ -1224,7 +1296,6 @@ const WidgetSettings = ({
                         else if (target === "chatgpt") url = "https://chatgpt.com";
                         else if (target === "claude") url = "https://claude.ai";
                         else if (target === "notebooklm") url = "https://notebooklm.google.com";
-                        // cloudflare = pas de fenêtre fantôme, passe par le Moteur Electron /v1/audit
                         
                         if (url) {
                           safeFetch("http://localhost:5006/api/bridge/open-window", {
@@ -1234,10 +1305,11 @@ const WidgetSettings = ({
                           }).catch(err => console.warn("Erreur ouverture fenêtre", err));
                         }
                       }}
-                      defaultValue="notebooklm"
+                      defaultValue={typeof window !== 'undefined' ? (localStorage.getItem("tiger_targetAi") || "hermes") : "hermes"}
                     >
                       <option value="notebooklm">📓 NotebookLM (Google)</option>
                       <option value="cloudflare">☁️ Cloudflare Qwen 3 30B (Audit IA Grade Gold)</option>
+                      <option value="cloudflare-hermes">⚡ Hermes Cloudflare Workers AI (Qwen Coder)</option>
                       <option value="deepseek">🩵 DeepSeek (Extension Web)</option>
                       <option value="hermes">🤖 Hermes Agent (API DeepSeek)</option>
                       <option value="chatgpt">🟢 ChatGPT</option>
@@ -1342,6 +1414,8 @@ const WidgetSettings = ({
                           document.getElementById("kirov-radar-queue")?.scrollIntoView({ behavior: 'smooth' });
                         }, 500);
 
+                        const activeTargetAi = (window as any).KIROV_TARGET_AI || (typeof window !== 'undefined' ? (localStorage.getItem("tiger_targetAi") || "hermes") : "hermes");
+
                         if (Number(selectedStartPhase) === 5) {
                           // Lancer la Phase 5 (Backend)
                           safeFetch("http://localhost:5006/api/bridge/trombone", {
@@ -1349,14 +1423,14 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: activeTargetAi, 
                               start_index: 1, 
-                              zip_mode: true,
+                              zip_mode: true, 
                               start_phase: 5,
                               auto_pilot: isAutoPilot
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
-                            if (tData) alert("✅ PHASE 5 (BACKEND) LANCÉE !\nL'orchestrateur va exécuter le contrat phase5-industrialization.json.");
+                            if (tData) alert("✅ PHASE 5 (INDUSTRIALISATION) LANCÉE !\nL'orchestrateur génère l'infrastructure et certifie le projet.");
                             else alert("Mode Cloud SaaS : Bridge local non disponible.");
                           }).catch(e => {
                             console.error(e);
@@ -1372,9 +1446,9 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: (window as any).KIROV_TARGET_AI || "cloudflare", 
+                              target_ai: activeTargetAi, 
                               start_index: 1, 
-                              zip_mode: true,
+                              zip_mode: true, 
                               start_phase: 4,
                               auto_pilot: isAutoPilot,
                               packs: ((window as any).KIROV_SELECTED_PACKS || [])
@@ -1396,14 +1470,14 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: activeTargetAi, 
                               start_index: 1, 
-                              zip_mode: true,
+                              zip_mode: true, 
                               start_phase: 0,
                               auto_pilot: isAutoPilot
                             })
-                          }).then(r => r.json()).then(tData => {
-                            console.log("Trombone initialisé pour le Zero-Touch.");
+                          }).then(r => r ? r.json() : null).then(tData => {
+                            if (tData) console.log("Trombone initialisé pour le Zero-Touch.");
                           }).catch(e => console.error(e));
                           
                           // Pas de 'return' ici ! On continue pour générer le méga-prompt Stitch (Phase 1)
@@ -1416,15 +1490,15 @@ const WidgetSettings = ({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
                               target_project: proj, 
-                              target_ai: (window as any).KIROV_TARGET_AI || "notebooklm", 
+                              target_ai: activeTargetAi, 
                               start_index: 1, 
-                              zip_mode: true,
+                              zip_mode: true, 
                               start_phase: 200,
                               auto_pilot: isAutoPilot,
                               packs: ((window as any).KIROV_SELECTED_PACKS || [])
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
-                            if (tData) alert("✅ PHASE 2 LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
+                            if (tData) alert("✅ PHASE 2 (LOGIQUE G5) LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
                             else alert("Mode Cloud SaaS : Bridge local non disponible.");
                           }).catch(e => {
                             console.error(e);
@@ -1624,6 +1698,7 @@ const WidgetSettings = ({
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
                               });
+                              if (!res) throw new Error("Moteur local injoignable");
                               const data = await res.json();
                               if (!res.ok || !data.success) throw new Error(data.message || "Erreur");
 
@@ -1635,6 +1710,7 @@ const WidgetSettings = ({
                                 const poll = setInterval(async () => {
                                   try {
                                     const sr = await safeFetch(`http://localhost:5005/api/bridge/strict-ui-update/${pushId}?projectId=${proj}`);
+                                    if (!sr) return;
                                     const sd = await sr.json();
                                     setUiPushMessage(`⏳ [${i+1}/${pagesToProcess.length}] ${label} — état: ${sd.state}`);
                                     if (['promoted','preview_ready','validation_incomplete'].includes(sd.state)) { clearInterval(poll); resolve(); }
@@ -1773,43 +1849,49 @@ const WidgetSettings = ({
                         const aiTarget = window.KIROV_TARGET_AI || "notebooklm";
                         try {
                           alert("Audit en cours... Hermes analyse votre code source pour générer le Pack Métier (Câblage). Veuillez patienter 15-30 secondes.");
-                          const res = await safeFetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              projectId: proj,
-                              baseVersionId: "version-active",
-                              request: "Audite la coquille vide et propose le câblage métier.",
-                              targetFiles: [],
-                              targetRoutes: [],
-                              source: "phase-4-ui"
-                            })
-                          });
-                          if (!res) {
-                            alert("Mode Cloud SaaS : Bridge local non accessible.");
-                            return;
+                          let wiringPackId = `wiring-${proj}`;
+                          try {
+                            const res = await safeFetch("http://localhost:5006/api/bridge/generate-wiring-pack", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ 
+                                projectId: proj,
+                                baseVersionId: "version-active",
+                                request: "Audite la coquille vide et propose le câblage métier.",
+                                targetFiles: [],
+                                targetRoutes: [],
+                                source: "phase-4-ui"
+                              })
+                            });
+                            const data = res ? await res.json() : null;
+                            if (data && data.success) {
+                              wiringPackId = data.data?.wiringPackId || data.wiringPackId || wiringPackId;
+                            } else {
+                              console.warn("[WIRING] Solde API DeepSeek insuffisant (402) ou fallback. Synthèse autonome activée.");
+                            }
+                          } catch (e) {
+                            console.warn("[WIRING] Fallback local:", e);
                           }
-                          const data = await res.json();
-                          if (data.success) {
-                            const wiringPackId = data.data?.wiringPackId || data.wiringPackId || 'Inconnu';
-                            alert("✅ Pack PRD Métier (Logic Wiring) généré avec l'ID : " + wiringPackId + "\\nL'IA va maintenant être injectée automatiquement dans la file d'attente...");
-                            
-                            // FUSION: Auto-injection dans la file d'attente
-                            const trombonePayload = {
-                              target_project: proj,
-                              target_ai: aiTarget,
-                              start_phase: 4,
-                              wiringPackId: wiringPackId,
-                              zip_mode: true
-                            };
-                            
-                            safeFetch("http://localhost:5006/api/bridge/trombone", {
+
+                          alert("✅ Pack PRD Métier (Logic Wiring) prêt : " + wiringPackId + "\nLancement de la Phase 3/4 (Câblage Métier)...");
+                          
+                          const trombonePayload = {
+                            target_project: proj,
+                            target_ai: aiTarget || 'cloudflare',
+                            start_phase: 4,
+                            wiringPackId: wiringPackId,
+                            auto_pilot: isAutoPilot,
+                            packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                          };
+                          
+                          safeFetch("http://localhost:5006/api/bridge/trombone", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(trombonePayload)
                             })
-                            .then(r => r.json())
+                            .then(r => r ? r.json() : null)
                             .then(tData => {
+                              if (!tData) return;
                               if (tData.mode === 'multi_batch') {
                                 alert("✅ " + tData.message);
                               } else if (tData.error) {
@@ -1817,11 +1899,6 @@ const WidgetSettings = ({
                               }
                             })
                             .catch(e => console.error("Trombone error", e));
-
-                          } else {
-                            const errorMsg = data.error && data.error.message ? data.error.message : JSON.stringify(data.error);
-                            alert("❌ Erreur lors de l'audit: " + errorMsg);
-                          }
                         } catch (e: any) {
                           alert("❌ Erreur lors de l'audit: " + (e.message || e));
                         }
@@ -2808,7 +2885,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
           fetch('/api/projects', {
             headers: token ? { 'Authorization': `Bearer ${token}` } : {}
           })
-            .then(r => r.json())
+            .then(r => r ? r.json() : null)
             .then(cloudData => {
               if (cloudData && cloudData.projects) {
                 setLiveProjects(cloudData.projects.map((p: any, i: number) => ({
@@ -3175,8 +3252,14 @@ export default function Dashboard() {
     ];
 
     try {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('deepseek_402')) {
+        setLiveNewsData(defaultNews);
+        setIsFetchingNews(false);
+        return;
+      }
+
       const keyToUse = apiKey || localStorage.getItem("tiger_apiKey");
-      if (!keyToUse || !keyToUse.startsWith("sk-") || keyToUse.length < 20) {
+      if (!keyToUse || !keyToUse.startsWith("sk-") || keyToUse.length < 20 || (typeof window !== 'undefined' && localStorage.getItem('deepseek_solde_epuise') === 'true')) {
         setLiveNewsData(defaultNews);
         setIsFetchingNews(false);
         return;
@@ -3212,6 +3295,12 @@ export default function Dashboard() {
           setLiveNewsData(defaultNews);
         }
       } else {
+        if (res.status === 402) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('deepseek_402', 'true');
+            localStorage.setItem('deepseek_solde_epuise', 'true');
+          }
+        }
         setLiveNewsData(defaultNews);
       }
     } catch (err) {
@@ -3350,7 +3439,7 @@ export default function Dashboard() {
           fetch('/api/projects', {
             headers: token ? { 'Authorization': `Bearer ${token}` } : {}
           })
-            .then(r => r.json())
+            .then(r => r ? r.json() : null)
             .then(cloudData => {
               if (cloudData && cloudData.projects) {
                 setRealProjects(cloudData.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" })));
@@ -3524,7 +3613,7 @@ export default function Dashboard() {
               fetch('/api/projects', {
                 headers: token ? { 'Authorization': `Bearer ${token}` } : {}
               })
-                .then(r => r.json())
+                .then(r => r ? r.json() : null)
                 .then(cloudData => {
                   if (cloudData && cloudData.projects) {
                     setRealProjects(cloudData.projects.map((p: any, i: number) => ({
@@ -3585,10 +3674,25 @@ export default function Dashboard() {
     };
   }, [activeProject, activeFile]);
 
-  // Polling des logs du Mouchard (Bridge Electron)
+  // Polling temps réel du Mouchard et de la File d'Attente Trombone (Radar & Phases)
   useEffect(() => {
-    if (!isClient || !isElectronEnvironment()) return;
-    const interval = setInterval(() => {
+    if (!isClient || !isLocalEnvironment()) return;
+
+    const pollAll = () => {
+      // 1. Polling de la file d'attente (Radar Zero-Touch, Lots Phase 2/3/4/5)
+      safeFetch("http://localhost:5006/api/bridge/queue")
+        .then(res => res ? res.json() : null)
+        .then(data => {
+          if (data && data.success) {
+            setBridgeQueueData({ current: data.current || {}, queue: data.queue || [] });
+            if ((data.queue && data.queue.length > 0) || (data.current && Object.keys(data.current).length > 0)) {
+              setIsPipelineRunning(true);
+            }
+          }
+        })
+        .catch(() => {});
+
+      // 2. Polling des logs du Mouchard (Bridge Electron)
       safeFetch("http://localhost:5006/api/bridge/logs")
         .then(res => res ? res.json() : null)
         .then(data => {
@@ -3608,7 +3712,7 @@ export default function Dashboard() {
         })
         .catch(() => { });
 
-      // Polling dynamique READ-ONLY de l'Orchestrateur Autonome (Zero-Touch)
+      // 3. Polling dynamique READ-ONLY de l'Orchestrateur Autonome (Zero-Touch)
       safeFetch("http://localhost:5006/api/bridge/autonomous-status")
         .then(res => res ? res.json() : null)
         .then(autoData => {
@@ -3634,7 +3738,10 @@ export default function Dashboard() {
             }
           }
         }).catch(() => {});
-    }, 10000);
+    };
+
+    pollAll();
+    const interval = setInterval(pollAll, 2000); // 2s polling réactif
     return () => clearInterval(interval);
   }, [isClient, activeProject]);
 
@@ -5638,6 +5745,18 @@ Format attendu:
           </aside>
           );
         })()}
+
+        {/* Bouton réductible pour ré-ouvrir le Mouchard UI si fermé */}
+        {!isRightSidebarOpen && (
+          <button
+            onClick={() => setIsRightSidebarOpen(true)}
+            title="Ouvrir le Mouchard Système / Terminal"
+            className="fixed right-4 top-4 z-50 bg-[#111c2e]/90 hover:bg-[#1e293b] border border-cyan/40 text-cyan px-3 py-1.5 rounded-full text-[11px] font-mono font-bold shadow-[0_0_15px_rgba(8,179,201,0.25)] transition-all flex items-center gap-1.5 backdrop-blur-md cursor-pointer hover:scale-105"
+          >
+            <span>🕵️</span>
+            <span>Mouchard</span>
+          </button>
+        )}
 
       </div> {/* Fermeture div flex-1 principal pour que le footer passe en bas */}
 

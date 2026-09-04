@@ -1,12 +1,13 @@
-// === Appel Moteur IA Souverain (Cloudflare Workers AI Qwen 3 30B ou DeepSeek) ===
+// === Appel Moteur IA Souverain (Cloudflare Workers AI Qwen via /api/hermes) ===
+// Mise a jour : utilise callCloudflareHermes (messages[]) identique a worldmodelv2
 
 import { SYSTEM_PROMPT } from './system-prompt';
 import { buildUserPrompt } from './user-prompt';
 import { resolveApiKey } from './api-key-storage';
+import { callCloudflareHermes } from '../cloudflare-ai-provider';
 import type { GeneratedPack, GeneratedFile, PackCategory } from '../../types/pack';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
-const CLOUDFLARE_WORKER_AI_URL = 'https://kirov-worker.v0reponses.workers.dev/v1/ai/generate';
 
 export async function callHermesAgent(
   idea: string,
@@ -16,11 +17,10 @@ export async function callHermesAgent(
 ): Promise<GeneratedPack> {
   const apiKey = await resolveApiKey();
   const userPrompt = buildUserPrompt(idea, category, sourceFolder, webUrl);
-  const fullPrompt = `${SYSTEM_PROMPT}\n\n---\n\n${userPrompt}`;
 
   let rawContent = '';
 
-  // 1. Si une clé API DeepSeek est disponible, tenter DeepSeek
+  // 1. Si une cle API DeepSeek est disponible, tenter DeepSeek (API directe)
   if (apiKey && apiKey.length > 5) {
     try {
       const response = await fetch(DEEPSEEK_API_URL, {
@@ -44,54 +44,51 @@ export async function callHermesAgent(
       if (response.ok) {
         const data = await response.json();
         rawContent = data.choices?.[0]?.message?.content ?? '';
+        console.log('[AI Provider] DeepSeek OK — contenu recu:', rawContent.length, 'chars');
+      } else {
+        console.warn('[AI Provider] DeepSeek erreur:', response.status, '— bascule vers Cloudflare Hermes.');
       }
     } catch {
-      console.warn('[AI Provider] DeepSeek indisponible, bascule vers Cloudflare Workers AI.');
+      console.warn('[AI Provider] DeepSeek indisponible — bascule vers Cloudflare Hermes Worker.');
     }
   }
 
-  // 2. Fallback Souverain Gratuit : Cloudflare Workers AI (Qwen 3 30B)
+  // 2. Fallback Souverain Gratuit : Cloudflare Workers AI via /api/hermes (messages[])
   if (!rawContent) {
-    const token = localStorage.getItem('kirov5_jwt_token') || '';
-    const cfRes = await fetch(CLOUDFLARE_WORKER_AI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        prompt: fullPrompt,
-        missionId: 'guest_prd_generation',
-        lotId: 'lot_001'
-      })
-    });
-
-    if (!cfRes.ok) {
-      throw new Error(`Erreur du moteur IA Cloudflare (${cfRes.status}). Réessayez dans un instant.`);
+    try {
+      console.log('[AI Provider] Appel Hermes Cloudflare Worker (route /api/hermes)...');
+      rawContent = await callCloudflareHermes(
+        SYSTEM_PROMPT,
+        userPrompt,
+        {
+          maxTokens: 8000,
+          temperature: 0.3,
+        }
+      );
+      console.log('[AI Provider] Hermes Cloudflare OK — contenu recu:', rawContent.length, 'chars');
+    } catch (cfErr: any) {
+      console.error('[AI Provider] Hermes Cloudflare echoue:', cfErr.message);
+      throw new Error(`Moteur IA indisponible. DeepSeek ${apiKey ? '(erreur API)' : '(pas de cle)'} et Cloudflare Worker (${cfErr.message}). Reessayez dans un instant.`);
     }
-
-    const cfData = await cfRes.json();
-    rawContent = cfData.response || cfData.choices?.[0]?.message?.content || '';
   }
 
   if (!rawContent) {
-    throw new Error('Réponse vide de l\'Agent Hermes. Réessayez.');
+    throw new Error("Reponse vide de l'Agent Hermes. Reessayez.");
   }
 
-  // Parser le JSON retourné par l'agent
+  // Parser le JSON retourne par l'agent
   let parsed: any;
   try {
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
     parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawContent);
   } catch {
-    throw new Error(`L'Agent Hermes n'a pas retourné un JSON valide. Réponse: ${rawContent.slice(0, 300)}`);
+    throw new Error(`L'Agent Hermes n'a pas retourne un JSON valide. Reponse: ${rawContent.slice(0, 300)}`);
   }
 
-  // Construire le GeneratedPack typé
+  // Construire le GeneratedPack type
   const folderName: string = parsed.folderName || `guest_${idea.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 20)}`;
   const injectFileName = `inject_${folderName}.js`;
 
-  // Construire la liste de fichiers de base
   const baseFiles: GeneratedFile[] = [
     {
       path: 'README.md',
@@ -102,13 +99,13 @@ export async function callHermesAgent(
     {
       path: injectFileName,
       language: 'javascript',
-      purpose: 'Script d\'injection avec PRDS détaillés pour Tiger IA / Hermes',
+      purpose: "Script d'injection avec PRDS detailles pour Tiger IA / Hermes",
       content: parsed.inject_content || '',
     },
     {
       path: 'manifest.json',
       language: 'json',
-      purpose: 'Métadonnées et registre du pack PRD',
+      purpose: 'Metadonnees et registre du pack PRD',
       content: typeof parsed.manifest_content === 'string'
         ? parsed.manifest_content
         : JSON.stringify(parsed.manifest_content ?? {}, null, 2),
@@ -121,7 +118,7 @@ export async function callHermesAgent(
         {
           path: 'project_spec.yaml',
           language: 'yaml',
-          purpose: 'Contrat de Spécification du Projet',
+          purpose: 'Contrat de Specification du Projet',
           content: typeof parsed.project_spec === 'string'
             ? parsed.project_spec
             : JSON.stringify(parsed.project_spec || {
@@ -136,7 +133,7 @@ export async function callHermesAgent(
         {
           path: 'action_plan.yaml',
           language: 'yaml',
-          purpose: 'Graphe de Dépendances & Micro-Actions Granulaires',
+          purpose: 'Graphe de Dependances & Micro-Actions Granulaires',
           content: typeof parsed.action_plan === 'string'
             ? parsed.action_plan
             : JSON.stringify(parsed.action_plan || {
@@ -157,7 +154,7 @@ export async function callHermesAgent(
     architectureSummary: parsed.architectureSummary || 'Architecture React 18 + TypeScript + Vite + Tailwind CSS.',
     tasks: parsed.tasks || [
       { id: 'task-1', title: 'Structure du Projet', description: 'Initialisation React/Vite/TypeScript', priority: 'must-have', status: 'planned' },
-      { id: 'task-2', title: 'Composants Core', description: 'Développement des vues principales', priority: 'must-have', status: 'planned' },
+      { id: 'task-2', title: 'Composants Core', description: 'Developpement des vues principales', priority: 'must-have', status: 'planned' },
     ],
     files: baseFiles,
     extensionPoints: parsed.extensionPoints || ['React Context', 'Custom Hooks', 'TypeScript'],

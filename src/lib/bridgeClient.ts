@@ -1,5 +1,5 @@
 // Client Moteur Bridge Souverain
-// Gestionnaire sécurisé pour la version 100% Web Cloud (Vercel + Cloudflare)
+// Gestionnaire sécurisé pour la version 100% Web Cloud (Vercel + Cloudflare) et Local Dev
 
 let isLocalBridgeAvailable: boolean | null = null;
 let lastFailureTimestamp = 0;
@@ -26,7 +26,7 @@ export function isLocalEnvironment(): boolean {
 export async function probeLocalBridge(): Promise<boolean> {
   if (isLocalBridgeAvailable !== null) {
     if (isLocalBridgeAvailable === false) {
-      if (Date.now() - lastFailureTimestamp < 60000) {
+      if (Date.now() - lastFailureTimestamp < 15000) {
         return false;
       }
     } else {
@@ -38,13 +38,13 @@ export async function probeLocalBridge(): Promise<boolean> {
 
   probePromise = (async () => {
     try {
-      if (!isElectronEnvironment()) {
+      if (!isLocalEnvironment()) {
         isLocalBridgeAvailable = false;
         return false;
       }
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 400);
-      const res = await fetch('http://localhost:5006/api/bridge/ping', {
+      const timer = setTimeout(() => controller.abort(), 800);
+      const res = await fetch('http://localhost:5006/health', {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-store'
@@ -71,22 +71,21 @@ export async function probeLocalBridge(): Promise<boolean> {
 
 /**
  * Exécute une requête vers le bridge local (port 5006/5005) de façon sécurisée.
- * En mode Cloud SaaS (Vercel/Web) ou si le pont local est fermé, 
- * la requête est évitée avant d'être émise pour zéro erreur ERR_CONNECTION_REFUSED.
+ * En mode local (navigateur localhost ou Electron), la requête est émise vers le moteur.
+ * Si le bridge distant (pur Vercel Cloud SaaS) est utilisé, la requête est évitée avant d'être émise.
  */
 export async function safeFetch(url: string, init?: RequestInit): Promise<Response | null> {
   const isLocalTarget = url.includes('localhost:500') || url.includes('127.0.0.1:500') || url.includes(':5006');
 
   if (isLocalTarget) {
-    // Hors Electron, interdire absolument toute requete vers le bridge local 5006
-    if (!isElectronEnvironment()) {
+    // Si on est en environnement cloud pur (ex: hébergé sur Vercel sans machine locale), bloquer
+    if (!isLocalEnvironment()) {
       return null;
     }
 
     if (isLocalBridgeAvailable === false) {
-      if (!isElectronEnvironment()) return null;
       const now = Date.now();
-      if (now - lastFailureTimestamp < 3600000) { // Ne retenter qu'après 1 heure
+      if (now - lastFailureTimestamp < 15000) { // Ne retenter qu'après 15 secondes
         return null;
       }
     }
@@ -99,7 +98,7 @@ export async function safeFetch(url: string, init?: RequestInit): Promise<Respon
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1200);
+    const timer = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(url, {
       ...init,

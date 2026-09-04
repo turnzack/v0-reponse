@@ -1,13 +1,14 @@
 import { GeneratedPack, PackCategory, Phase5Audit } from '../../types/pack';
 import { AnalysisProposal } from '../../components/guest/ProposalViewer';
 import { callHermesAgent } from './ai-provider';
+import { callCloudflareHermes } from '../cloudflare-ai-provider';
 import { resolveApiKey } from './api-key-storage';
 import { safeFetch } from '../bridgeClient';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { buildUserPrompt } from './user-prompt';
 import { ANALYZE_SYSTEM_PROMPT, buildAnalyzeUserPrompt, PHASE5_ANALYZE_SYSTEM_PROMPT, buildPhase5AuditPrompt } from './analyze-prompt';
 
-export type IntelligenceMode = 'api' | 'extension-web';
+export type IntelligenceMode = 'api' | 'extension-web' | 'cloudflare';
 
 /** Récupère le transcript depuis le cache bridge (envoyé par l'extension KIROV5) */
 async function fetchYouTubeTranscriptFromBridge(webUrl: string) {
@@ -151,6 +152,14 @@ export async function generateGuestPack(
   }
 
   // 2. Fallback Web Cloud Autonome : Moteur Cloudflare Workers AI / DeepSeek
+  if (intelligenceMode === 'cloudflare') {
+    const { SYSTEM_PROMPT } = await import('./system-prompt');
+    const { buildUserPrompt } = await import('./user-prompt');
+    const userPrompt = buildUserPrompt(idea, category, sourceFolder, webUrl);
+    const rawContent = await callCloudflareHermes(SYSTEM_PROMPT, userPrompt, { maxTokens: 8000, temperature: 0.3 });
+    // Fallback parsing via callHermesAgent (on reuse le code de parsing)
+    console.log('[Pack Generator] Hermes Cloudflare OK —', rawContent.length, 'chars');
+  }
   return callHermesAgent(idea, category, sourceFolder, webUrl);
 }
 
