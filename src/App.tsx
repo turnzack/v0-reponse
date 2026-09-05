@@ -4855,6 +4855,19 @@ Format attendu:
               <span className="w-2 h-2 rounded-full bg-gray-500"></span>
               <span className="text-gray-400">Mobile (Capacitor)</span>
             </div>
+
+            {/* Bouton Déconnexion intégré avec Online, Ext: Tiger, LLM: DeepSeek... */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 shrink-0 bg-red-950/60 hover:bg-red-600/70 px-3 py-1 rounded-full border border-red-500/40 text-red-300 hover:text-white transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.25)] hover:scale-105 active:scale-95 ml-1"
+              title="Se déconnecter de l'application"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_#ef4444]"></span>
+              <span>Déconnexion</span>
+              {currentUserEmail && (
+                <span className="text-gray-300 font-normal text-[9px] max-w-[130px] truncate ml-0.5">({currentUserEmail})</span>
+              )}
+            </button>
           </div>
         </div>
       )}
