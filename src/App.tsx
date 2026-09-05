@@ -4856,6 +4856,14 @@ Format attendu:
               <span className="text-gray-400">Mobile (Capacitor)</span>
             </div>
 
+            {/* Badge Super-Admin dans la barre de statut si connecté en tant que tel */}
+            {isSuperAdmin && (
+              <div className="flex items-center gap-1.5 shrink-0 bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
+                <span className="text-amber-300 font-bold">👑 Super-Admin</span>
+              </div>
+            )}
+
             {/* Bouton Déconnexion intégré avec Online, Ext: Tiger, LLM: DeepSeek... */}
             <button
               onClick={handleLogout}
