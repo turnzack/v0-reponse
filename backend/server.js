@@ -59,6 +59,10 @@ global._blockedMissions = global._blockedMissions || new Set();
 
 const server = express();
 
+// Import V5 Canonical Router
+const v5Router = require('./electron/orchestrator/routes/v5-router');
+
+
 // Chrome Private Network Access (PNA) & CORS Bypass
 server.use((req, res, next) => {
   const origin = req.headers.origin || '*';
@@ -171,6 +175,15 @@ server.post(['/api/fs/upload-zip', '/fs/upload-zip'], async (req, res) => {
     }
     console.log(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans ${targetProject} (${count} fichiers, méthode: ${extractionMethod})`);
 
+    // 🚀 Configuration automatique Vite & Stitch UI/UX
+    try {
+      if (v5Router && typeof v5Router.ensureVitePackageJson === 'function') {
+        v5Router.ensureVitePackageJson(targetDir, targetProject);
+      }
+    } catch (e) {
+      console.warn('[ZIP UPLOAD] Erreur configuration Vite/Stitch:', e.message);
+    }
+
     return res.json({
       success: true,
       project: targetProject,
@@ -198,8 +211,7 @@ server.post(['/api/fs/pick-zip', '/fs/pick-zip'], (req, res) => {
   });
 });
 
-// Import & Mount V5 Canonical Router
-const v5Router = require('./electron/orchestrator/routes/v5-router');
+// Mount V5 Canonical Router
 server.use('/api/mobile/v5', v5Router);
 server.use('/', v5Router);
 
@@ -435,13 +447,36 @@ server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/lau
   const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
   const previewUrl = `http://109.205.182.17:5173`;
 
-    return res.json({
-      success: true,
-      message: `Projet ${cleanId} lancé avec succès !`,
-      projectId: cleanId,
-      previewUrl
-    });
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectDir = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectDir = cand;
+      break;
+    }
+  }
+
+  // 🚀 Garantir automatiquement la configuration Vite et Stitch
+  try {
+    if (v5Router && typeof v5Router.ensureVitePackageJson === 'function' && projectDir) {
+      v5Router.ensureVitePackageJson(projectDir, cleanId);
+    }
+  } catch (err) {
+    console.warn('[LAUNCH-DESIGN] Erreur ensureVitePackageJson:', err.message);
+  }
+
+  return res.json({
+    success: true,
+    message: `Projet ${cleanId} lancé avec succès !`,
+    projectId: cleanId,
+    previewUrl
   });
+});
 
 // GET /api/fs/tree : Arborescence des fichiers du projet
 server.get(['/api/fs/tree', '/fs/tree'], (req, res) => {
