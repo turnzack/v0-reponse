@@ -5065,4 +5065,25 @@ router.get(['/bridge/logs', '/api/bridge/logs', '/api/logs'], (req, res) => {
   res.json({ success: true, logs });
 });
 
+
+// GET /api/bridge/autonomous-status — État de l'orchestrateur Zero-Touch
+router.get(['/api/bridge/autonomous-status', '/bridge/autonomous-status'], (req, res) => {
+  try {
+    let state = 'ready';
+    try {
+      const AutonomousLauncher = require('../AutonomousLauncher');
+      if (AutonomousLauncher && AutonomousLauncher.autonomousRuns && AutonomousLauncher.autonomousRuns.size > 0) {
+        state = 'working';
+      }
+    } catch (_) {}
+    return res.json({
+      success: true,
+      status: state,
+      data: { state }
+    });
+  } catch (err) {
+    return res.json({ success: true, status: 'ready', data: { state: 'ready' } });
+  }
+});
+
 module.exports = router;

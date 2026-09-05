@@ -454,7 +454,7 @@ const WidgetSettings = ({
   }, []);
 
   useEffect(() => {
-    const proj = selectedLaunchProject || newProjectName;
+    const proj = (typeof selectedLaunchProject === 'string' ? selectedLaunchProject : (selectedLaunchProject?.project_id || selectedLaunchProject?.title)) || newProjectName;
     fetchProjectPages(proj);
   }, [selectedLaunchProject, newProjectName, fetchProjectPages]);
 
@@ -1070,19 +1070,23 @@ const WidgetSettings = ({
                   <div>
                     <label className="text-gray-400 font-bold uppercase tracking-wider text-[9px] block mb-2">CIBLER UN PROJET EXISTANT</label>
                     <select
-                      value={selectedLaunchProject}
+                      value={typeof selectedLaunchProject === 'string' ? selectedLaunchProject : (selectedLaunchProject?.project_id || selectedLaunchProject?.title || '')}
                       onChange={(e) => setSelectedLaunchProject(e.target.value)}
                       onClick={async () => {
                         if (availableProjects.length === 0) {
                           try {
-                            const res = await safeFetch("http://localhost:5006/api/projects");
+                            const res = await safeFetch("/api/projects");
                             if (res && res.ok) {
                               const data = await res.json();
-                              if (data.projects) setAvailableProjects(data.projects);
+                              if (data.projects) {
+                                setAvailableProjects(data.projects.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name || '')));
+                              }
                             } else {
                               const cloudRes = await fetch("/api/projects");
                               const cloudData = await cloudRes.json();
-                              if (cloudData.projects) setAvailableProjects(cloudData.projects.map((p: any) => p.project_id || p.title));
+                              if (cloudData.projects) {
+                                setAvailableProjects(cloudData.projects.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name || '')));
+                              }
                             }
                           } catch (e) {}
                         }
@@ -1090,9 +1094,12 @@ const WidgetSettings = ({
                       className="w-full bg-[#111] text-gray-200 border border-white/10 rounded-lg px-3 py-2 outline-none focus:border-cyan text-xs"
                     >
                       <option value="">-- SÉLECTIONNER UN PROJET --</option>
-                      {availableProjects.map((p: string) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
+                      {availableProjects.map((p: any, idx: number) => {
+                        const val = typeof p === 'string' ? p : (p.project_id || p.title || p.name || ('Projet ' + idx));
+                        return (
+                          <option key={val + '_' + idx} value={val}>{val}</option>
+                        );
+                      })}
                     </select>
                     {selectedLaunchProject && notebookExportStatus === "idle" && (
                       <button
@@ -1621,7 +1628,7 @@ const WidgetSettings = ({
                             }}
                             className="text-[10px] text-gray-500 italic text-center py-3 border border-dashed border-white/10 rounded-lg cursor-pointer hover:border-cyan/30 hover:text-cyan/50 transition-all"
                           >
-                            ⏳ Cliquez pour charger les pages de « {selectedLaunchProject || newProjectName || '?'} »
+                            ⏳ Cliquez pour charger les pages de « {(typeof selectedLaunchProject === 'string' ? selectedLaunchProject : (selectedLaunchProject?.project_id || selectedLaunchProject?.title)) || newProjectName || '?'} »
                           </div>
                         ) : (
                           <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto">
@@ -1798,7 +1805,7 @@ const WidgetSettings = ({
                   {/* === GUEST IDEA PANEL (V0-Guest PRD) === */}
                   <div className="bg-[#050505] border border-white/5 rounded-xl p-5">
                     <GuestIdeaPanel 
-                      activeProjectName={selectedLaunchProject || newProjectName} 
+                      activeProjectName={(typeof selectedLaunchProject === 'string' ? selectedLaunchProject : (selectedLaunchProject?.project_id || selectedLaunchProject?.title)) || newProjectName} 
                       selectedStartPhase={Number(selectedStartPhase)}
                       onPhaseChange={(phase) => setSelectedStartPhase(phase)}
                       onPackGenerated={(pack, description, category) => {
