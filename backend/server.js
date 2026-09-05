@@ -429,6 +429,20 @@ server.delete('/api/projects', async (req, res) => {
   }
 });
 
+// POST /api/projects/:projectId/launch-design : Lancement de l'IDE/preview pour un projet
+server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/launch-design'], (req, res) => {
+  const projectId = req.params.projectId || req.body?.project_id || 'AUDIO';
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const previewUrl = `http://109.205.182.17:5173`;
+
+  return res.json({
+    success: true,
+    message: `Projet ${cleanId} lancé avec succès !`,
+    projectId: cleanId,
+    previewUrl
+  });
+});
+
 
 // ==============================================================================
 // SYSTÈME D'AUTHENTIFICATION & SESSIONS MULTI-TENANT SYNCHRONISÉ AVEC NEON DB

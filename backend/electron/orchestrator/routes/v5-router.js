@@ -765,6 +765,87 @@ if (rootEl) {
     } catch (_) {}
   }
 
+  // Vérifier ou créer src/App.tsx pour satisfaire import App from "./App"
+  const appTsxPath = path.join(srcDir, 'App.tsx');
+  const appJsxPath = path.join(srcDir, 'App.jsx');
+  if (!fs.existsSync(appTsxPath) && !fs.existsSync(appJsxPath)) {
+    // 🔍 Chercher s'il existe des composants dans src/components, components ou src/
+    let compToMount = null;
+    const possibleDirs = [
+      path.join(srcDir, 'components'),
+      path.join(projectRoot, 'components'),
+      srcDir
+    ];
+
+    for (const cDir of possibleDirs) {
+      if (fs.existsSync(cDir)) {
+        try {
+          const items = fs.readdirSync(cDir, { withFileTypes: true });
+          for (const item of items) {
+            if (item.isFile() && (item.name.endsWith('.tsx') || item.name.endsWith('.jsx'))) {
+              const base = item.name.replace(/\.[tj]sx$/, '');
+              if (base !== 'main' && base !== 'index' && base !== 'App') {
+                const rel = path.relative(srcDir, path.join(cDir, base)).replace(/\\/g, '/');
+                compToMount = { name: base, path: rel.startsWith('.') ? rel : `./${rel}` };
+                break;
+              }
+            } else if (item.isDirectory()) {
+              const subFiles = fs.readdirSync(path.join(cDir, item.name));
+              const subComp = subFiles.find(f => (f.endsWith('.tsx') || f.endsWith('.jsx')) && !/main|index/i.test(f));
+              if (subComp) {
+                const base = subComp.replace(/\.[tj]sx$/, '');
+                const rel = path.relative(srcDir, path.join(cDir, item.name, base)).replace(/\\/g, '/');
+                compToMount = { name: base, path: rel.startsWith('.') ? rel : `./${rel}` };
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      if (compToMount) break;
+    }
+
+    let defaultAppCode = '';
+    if (compToMount) {
+      defaultAppCode = `import React from 'react';
+import * as ImportedModule from '${compToMount.path}';
+
+export default function App() {
+  const Component = (ImportedModule as any).default || (ImportedModule as any).${compToMount.name} || Object.values(ImportedModule).find(v => typeof v === 'function') || (() => (
+    <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>Application ${cleanId} initialisée avec succès.</div>
+  ));
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#090d16', color: '#fff' }}>
+      <Component />
+    </div>
+  );
+}
+`;
+    } else {
+      defaultAppCode = `import React from 'react';
+
+export default function App() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#090d16', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ textAlign: 'center', padding: '2rem', background: '#111827', borderRadius: '1rem', border: '1px solid #38bdf8' }}>
+        <h1 style={{ color: '#38bdf8', margin: '0 0 0.5rem 0' }}>Application ${cleanId}</h1>
+        <p style={{ color: '#94a3b8', margin: 0 }}>Serveur Vite actif & prêt pour la production !</p>
+      </div>
+    </div>
+  );
+}
+`;
+    }
+
+    try {
+      fs.writeFileSync(appTsxPath, defaultAppCode, 'utf8');
+      if (global.addLog) global.addLog(`[📦] src/App.tsx généré et configuré pour ${cleanId}`);
+    } catch (appErr) {
+      console.error(`[APP_TSX] Erreur création App.tsx:`, appErr);
+    }
+  }
+
   // Vérifier ou créer src/index.css
   const indexCssPath = path.join(srcDir, 'index.css');
   if (!fs.existsSync(indexCssPath)) {
@@ -873,6 +954,12 @@ function autoInstallAndLaunchDevServer(projectId) {
         }
       } catch (_) {}
       global.activeDevServers.delete(cleanId);
+    }
+
+    if (!isWin) {
+      try {
+        cp.execSync('fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
+      } catch (_) {}
     }
 
     const cmd = isWin ? 'cmd.exe' : '/bin/sh';
@@ -2237,23 +2324,41 @@ router.post('/projects/:projectId/reopen', (req, res) => {
   }
 });
 
-router.post(['/projects/:projectId/launch-design', '/projects/:projectId/launch'], (req, res) => {
+router.post(['/projects/:projectId/launch-design', '/api/projects/:projectId/launch-design', '/projects/:projectId/launch', '/api/projects/:projectId/launch'], (req, res) => {
   try {
-    const id = req.params.projectId || req.body.project_id || 'GAME';
+    const id = req.params.projectId || req.body?.project_id || 'AUDIO';
+    const cleanId = (id || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
     const { shell } = require('electron');
     const { exec } = require('child_process');
-    const WORKSPACE_DIR = (global.WORKSPACE_DIR || require('path').join(process.cwd(), 'v0saveprojets'));
-    const projectDir = path.join(WORKSPACE_DIR, id);
+
+    const candidates = [
+      global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+      path.join(process.cwd(), 'v0saveprojets', cleanId),
+      path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+      path.join('/var/www/tiger/v0saveprojets', cleanId),
+      path.join('/var/projects', cleanId)
+    ].filter(Boolean);
+
+    let projectDir = candidates[0];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        projectDir = cand;
+        break;
+      }
+    }
 
     if (!fs.existsSync(projectDir)) {
-      fs.mkdirSync(projectDir, { recursive: true });
+      try { fs.mkdirSync(projectDir, { recursive: true }); } catch (_) {}
     }
+
+    // Toujours garantir les fichiers nécessaires
+    ensureVitePackageJson(projectDir, cleanId);
 
     if (shell && typeof shell.openPath === 'function') {
       shell.openPath(projectDir).then(err => {
-        if (err) exec(`start "" "${projectDir}"`);
+        if (err && process.platform === 'win32') exec(`start "" "${projectDir}"`);
       });
-    } else {
+    } else if (process.platform === 'win32') {
       exec(`start "" "${projectDir}"`);
     }
 
@@ -2261,22 +2366,24 @@ router.post(['/projects/:projectId/launch-design', '/projects/:projectId/launch'
       const autonomousLauncher = require('../AutonomousLauncher');
       if (autonomousLauncher && typeof autonomousLauncher.startAutonomousRun === 'function') {
         autonomousLauncher.startAutonomousRun({
-          projectId: id,
+          projectId: cleanId,
           projectRoot: projectDir,
           maxAttempts: 10
         }).catch(() => {});
       }
     } catch (_) {}
 
-    return ok(res, {
+    const previewUrl = `http://109.205.182.17:5173`;
+
+    return res.json({
       success: true,
-      message: `Projet ${id} lancé dans l'explorateur et preview prête sur localhost:5175.`,
-      projectId: id,
+      message: `Projet ${cleanId} lancé avec succès !`,
+      projectId: cleanId,
       projectDir,
-      previewUrl: "http://localhost:5175"
+      previewUrl
     });
   } catch (e) {
-    return E.INTERNAL(res, e.message);
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 
@@ -4960,6 +5067,12 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
       }
     } catch (_) {}
     global.activeDevServers.delete(cleanId);
+  }
+
+  if (process.platform !== 'win32') {
+    try {
+      cp.execSync('fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
+    } catch (_) {}
   }
 
   const isWin = process.platform === 'win32';

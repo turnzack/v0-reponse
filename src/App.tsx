@@ -3620,7 +3620,11 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
       .then(res => res ? res.json() : null)
       .then(data => {
         if (data && data.success && Array.isArray(data.projects)) {
-          setRealProjects(data.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+          setRealProjects(data.projects.map((p: any) => ({
+            name: typeof p === 'string' ? p : (p.project_id || p.title || p.name || 'Projet'),
+            desc: "Projet local",
+            bg: ""
+          })));
         } else {
           const token = localStorage.getItem('kirov5_jwt_token') || '';
           fetch('/api/projects', {
@@ -3629,7 +3633,11 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
             .then(r => r ? r.json() : null)
             .then(cloudData => {
               if (cloudData && cloudData.projects) {
-                setRealProjects(cloudData.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" })));
+                setRealProjects(cloudData.projects.map((p: any) => ({
+                  name: typeof p === 'string' ? p : (p.project_id || p.title || p.name || 'Projet'),
+                  desc: "SaaS Cloud",
+                  bg: ""
+                })));
               }
             }).catch(() => {});
         }
@@ -3793,7 +3801,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
           .then(data => {
             if (data && data.success && data.projects) {
               setRealProjects(data.projects.map((p: any, i: number) => ({
-                name: p.name,
+                name: typeof p === 'string' ? p : (p.name || p.project_id || p.title || `Projet_${i}`),
                 desc: "Environnement Local",
                 bg: cardStyles[i % cardStyles.length],
                 installed: p.installed
@@ -3807,7 +3815,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
                 .then(cloudData => {
                   if (cloudData && cloudData.projects) {
                     setRealProjects(cloudData.projects.map((p: any, i: number) => ({
-                      name: p.project_id || p.title,
+                      name: typeof p === 'string' ? p : (p.project_id || p.title || p.name || `Projet_${i}`),
                       desc: "SaaS Cloud (Neon DB)",
                       bg: cardStyles[i % cardStyles.length]
                     })));
@@ -5337,11 +5345,15 @@ Format attendu:
                           .then(r => r ? r.json() : null)
                           .then(d => {
                             if (d && d.success && d.projects) {
-                              setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+                              setRealProjects(d.projects.map((p: any) => ({
+                                name: typeof p === 'string' ? p : (p.name || p.project_id || p.title || 'Projet'),
+                                desc: "Projet local",
+                                bg: ""
+                              })));
                             } else {
                               fetch("/api/projects")
                                 .then(cr => cr.json())
-                                .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" }))); });
+                                .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: typeof p === 'string' ? p : (p.name || p.project_id || p.title || 'Projet'), desc: "SaaS Cloud", bg: "" }))); });
                             }
                           })
                           .catch(() => { });
@@ -5362,11 +5374,15 @@ Format attendu:
                       .then(r => r ? r.json() : null)
                       .then(d => {
                         if (d && d.success && d.projects) {
-                          setRealProjects(d.projects.map((p: string) => ({ name: p, desc: "Projet local", bg: "" })));
+                          setRealProjects(d.projects.map((p: any) => ({
+                            name: typeof p === 'string' ? p : (p.name || p.project_id || p.title || 'Projet'),
+                            desc: "Projet local",
+                            bg: ""
+                          })));
                         } else {
                           fetch("/api/projects")
                             .then(cr => cr.json())
-                            .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: p.project_id || p.title, desc: "SaaS Cloud", bg: "" }))); });
+                            .then(cd => { if (cd.projects) setRealProjects(cd.projects.map((p: any) => ({ name: typeof p === 'string' ? p : (p.name || p.project_id || p.title || 'Projet'), desc: "SaaS Cloud", bg: "" }))); });
                         }
                       })
                       .catch(() => { });
@@ -5388,14 +5404,17 @@ Format attendu:
                 >
                   <option value="" disabled className="bg-black text-gray-400">-- Choisir un projet --</option>
                   {realProjects.length > 0 ? (
-                    realProjects.map((p) => (
-                      <option key={p.name} value={p.name} className="bg-black text-white font-medium py-1">
-                        📁 {p.name}
-                      </option>
-                    ))
+                    realProjects.map((p, idx) => {
+                      const pName = typeof p?.name === 'string' ? p.name : (p?.name?.project_id || p?.name?.title || `Projet_${idx}`);
+                      return (
+                        <option key={pName + '_' + idx} value={pName} className="bg-black text-white font-medium py-1">
+                          📁 {pName}
+                        </option>
+                      );
+                    })
                   ) : (
-                    <option value={activeProject || "Projet_blog_8831"} className="bg-black text-white py-1">
-                      📁 {activeProject || "Projet_blog_8831"}
+                    <option value={typeof activeProject === 'string' ? activeProject : (activeProject?.project_id || activeProject?.title || "AUDIO")} className="bg-black text-white py-1">
+                      📁 {typeof activeProject === 'string' ? activeProject : (activeProject?.project_id || activeProject?.title || "AUDIO")}
                     </option>
                   )}
                 </select>
@@ -5807,9 +5826,10 @@ Format attendu:
                               className="w-full bg-[#121824] text-white border border-purple-500/40 rounded-xl px-4 py-2.5 outline-none focus:border-purple-400 text-xs font-semibold cursor-pointer"
                             >
                               <option value="">-- Sélectionner un projet --</option>
-                              {realProjects.map(p => (
-                                <option key={p.name} value={p.name}>📁 {p.name}</option>
-                              ))}
+                              {realProjects.map((p, idx) => {
+                                const pName = typeof p?.name === 'string' ? p.name : (p?.name?.project_id || p?.name?.title || `Projet_${idx}`);
+                                return <option key={pName + '_' + idx} value={pName}>📁 {pName}</option>;
+                              })}
                             </select>
                           </div>
 
@@ -6335,7 +6355,10 @@ Format attendu:
                   className="w-full bg-[#11161d] text-white border border-cyan/30 rounded-xl px-3 py-2 outline-none focus:border-cyan text-xs cursor-pointer"
                 >
                   <option value="">-- SÉLECTIONNER UN PROJET --</option>
-                  {realProjects.map(p => <option key={p.name} value={p.name}>📁 {p.name}</option>)}
+                  {realProjects.map((p, idx) => {
+                    const pName = typeof p?.name === 'string' ? p.name : (p?.name?.project_id || p?.name?.title || `Projet_${idx}`);
+                    return <option key={pName + '_' + idx} value={pName}>📁 {pName}</option>;
+                  })}
                 </select>
               </div>
 
