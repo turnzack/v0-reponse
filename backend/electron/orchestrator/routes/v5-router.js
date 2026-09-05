@@ -3680,7 +3680,7 @@ router.post('/api/bridge/generate-wiring-pack', async (req, res) => {
     const { projectId, baseVersionId, request, source } = req.body || {};
     if (!projectId) return E.BAD_REQUEST(res, 'projectId requis.');
 
-    const WORKSPACE_DIR = path.join(__dirname, '..', '..', '..', 'v0saveprojets');
+    const WORKSPACE_DIR = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', 'v0saveprojets');
     const absFolder = path.join(WORKSPACE_DIR, projectId);
     if (!fs.existsSync(absFolder)) return E.BAD_REQUEST(res, `Projet introuvable: ${projectId}`);
 
@@ -4047,7 +4047,7 @@ router.get('/suture/config', (req, res) => {
 router.get('/suture/history', (req, res) => {
   try {
     const { projectId } = req.query;
-    const PROJECTS_DIR = path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
+    const PROJECTS_DIR = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
     const repairs = [];
     // Scanner les dossiers .kirov/improvements de tous les projets
     const scanDir = projectId
@@ -4094,7 +4094,7 @@ router.get('/suture/history', (req, res) => {
 // POST /api/suture/purge-workspaces — Vider tous les bacs à sable
 router.post('/suture/purge-workspaces', (req, res) => {
   try {
-    const PROJECTS_DIR = path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
+    const PROJECTS_DIR = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
     let purged = 0;
     try {
       const projectDirs = fs.readdirSync(PROJECTS_DIR);
@@ -4119,7 +4119,7 @@ router.post('/suture/purge-workspaces', (req, res) => {
 router.post('/suture/rollback-last', (req, res) => {
   try {
     // Chercher le snapshot le plus récent dans tous les projets
-    const PROJECTS_DIR = path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
+    const PROJECTS_DIR = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets');
     const SNAPSHOTS_DIR = path.join(PROJECTS_DIR, '.kirov', 'snapshots');
     if (!fs.existsSync(SNAPSHOTS_DIR)) {
       return ok(res, { success: false, error: 'Aucun snapshot disponible pour rollback.' });
@@ -4404,7 +4404,7 @@ router.post('/api/bridge/install-dependencies', (req, res) => {
 router.get('/api/projects-v2', (req, res) => {
   const fs = require('fs');
   const path = require('path');
-  const projectsDir = path.join(__dirname, '..', '..', '..', 'v0saveprojets');
+  const projectsDir = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', 'v0saveprojets');
   
   if (!fs.existsSync(projectsDir)) {
     return res.json({ success: true, projects: [] });
@@ -4448,7 +4448,7 @@ router.post('/api/bridge/backup', (req, res) => {
     
     const fs = require('fs-extra');
     const path = require('path');
-    const projectsDir = path.join(__dirname, '..', '..', '..', 'v0saveprojets');
+    const projectsDir = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', 'v0saveprojets');
     const projectPath = path.join(projectsDir, project_id);
     
     if (!fs.existsSync(projectPath)) {
@@ -4502,7 +4502,7 @@ router.get('/api/bridge/backups', (req, res) => {
     
     const fs = require('fs');
     const path = require('path');
-    const projectsDir = path.join(__dirname, '..', '..', '..', 'v0saveprojets');
+    const projectsDir = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', 'v0saveprojets');
     const backupsDir = path.join(projectsDir, project_id, '.kirov', 'backups');
     
     if (!fs.existsSync(backupsDir)) {
@@ -4528,7 +4528,7 @@ router.post('/api/bridge/restore-backup', (req, res) => {
     
     const fs = require('fs-extra');
     const path = require('path');
-    const projectsDir = path.join(__dirname, '..', '..', '..', 'v0saveprojets');
+    const projectsDir = global.WORKSPACE_DIR || path.join(__dirname, '..', '..', '..', 'v0saveprojets');
     const projectPath = path.join(projectsDir, project_id);
     const backupDir = path.join(projectPath, '.kirov', 'backups', backup_name);
     

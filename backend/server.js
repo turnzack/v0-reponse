@@ -101,6 +101,70 @@ server.get('/api/health', (req, res) => {
 });
 
 // Port configuration
+// Endpoint Super-Admin : Statistiques Système VPS & Disque
+server.get('/api/admin/system', (req, res) => {
+  const os = require('os');
+  const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(2);
+  const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(2);
+  const usedMem = (totalMem - freeMem).toFixed(2);
+
+  let diskProjects = [];
+  try {
+    if (fs.existsSync(global.WORKSPACE_DIR)) {
+      const entries = fs.readdirSync(global.WORKSPACE_DIR, { withFileTypes: true });
+      diskProjects = entries
+        .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+        .map(e => {
+          const pPath = path.join(global.WORKSPACE_DIR, e.name);
+          let fileCount = 0;
+          try {
+            fileCount = fs.readdirSync(pPath).length;
+          } catch (_) {}
+          return {
+            name: e.name,
+            files: fileCount,
+            path: pPath
+          };
+        });
+    }
+  } catch(e) {}
+
+  res.json({
+    success: true,
+    superAdmin: 'zacktunr@gmail.com',
+    system: {
+      uptimeSeconds: Math.floor(os.uptime()),
+      cpuCores: os.cpus().length,
+      ramTotalGB: totalMem,
+      ramUsedGB: usedMem,
+      ramFreeGB: freeMem,
+      projectsOnDisk: diskProjects.length,
+      workspacePath: global.WORKSPACE_DIR,
+      projects: diskProjects
+    }
+  });
+});
+
+// Endpoint fallback /api/projects sur Express
+server.get('/api/projects', (req, res) => {
+  try {
+    if (!fs.existsSync(global.WORKSPACE_DIR)) {
+      return res.json({ success: true, count: 0, projects: [] });
+    }
+    const entries = fs.readdirSync(global.WORKSPACE_DIR, { withFileTypes: true });
+    const projects = entries
+      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+      .map(e => ({
+        projectId: e.name,
+        title: e.name,
+        source: 'vps_disk'
+      }));
+    res.json({ success: true, count: projects.length, projects });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 5006;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[TIGER VPS SERVER] 🚀 Moteur Cloud prêt et en écoute sur http://0.0.0.0:${PORT}`);

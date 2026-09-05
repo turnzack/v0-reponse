@@ -1,7 +1,9 @@
 import { getNeonClient } from '../_lib/neonClient';
 import jwt from 'jsonwebtoken';
 
-function getAuthUser(request: Request, env: any): { userId: number; email: string } | null {
+const SUPER_ADMIN_EMAILS = ['zacktunr@gmail.com'];
+
+function getAuthUser(request: Request, env: any): { userId: number; email: string; isSuperAdmin: boolean } | null {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
 
@@ -12,9 +14,13 @@ function getAuthUser(request: Request, env: any): { userId: number; email: strin
       env.JWT_SECRET || 'kirov5_sovereign_forge_secret_key_2026'
     ) as any;
     
+    const email = (decoded.email || '').toLowerCase().trim();
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email);
+
     return {
       userId: Number(decoded.userId),
-      email: decoded.email
+      email,
+      isSuperAdmin
     };
   } catch {
     return null;
@@ -44,16 +50,35 @@ export async function onRequestGet(context: any) {
       )
     `;
 
-    const projects = await sql`
-      SELECT project_id, title, content, updated_at 
-      FROM user_projects 
-      WHERE user_id = ${user.userId}
-      ORDER BY updated_at DESC
-    `;
+    const url = new URL(request.url);
+    const viewAll = user.isSuperAdmin && url.searchParams.get('view') !== 'mine';
+
+    let projects;
+    if (viewAll) {
+      // 👑 Mode Super-Admin : Visibilité complète sur tous les projets de tous les utilisateurs
+      projects = await sql`
+        SELECT p.project_id, p.title, p.content, p.updated_at, p.user_id, u.email as owner_email 
+        FROM user_projects p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY p.updated_at DESC
+      `;
+    } else {
+      // 🔒 Cloisonnement strict standard : UNIQUEMENT les projets du compte connecté
+      projects = await sql`
+        SELECT project_id, title, content, updated_at, user_id
+        FROM user_projects 
+        WHERE user_id = ${user.userId}
+        ORDER BY updated_at DESC
+      `;
+    }
 
     return new Response(JSON.stringify({
       success: true,
       userId: user.userId,
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin,
+      viewMode: viewAll ? 'global_super_admin' : 'personal_isolated',
+      count: projects.length,
       projects
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
@@ -110,20 +135,27 @@ export async function onRequestDelete(context: any) {
 
   try {
     const sql = getNeonClient(env);
-    const { projectId } = await request.json() as any;
+    const { projectId, targetUserId } = await request.json() as any;
     
     if (!projectId) {
       return new Response(JSON.stringify({ error: 'projectId requis' }), { status: 400 });
     }
 
-    await sql`
-      DELETE FROM user_projects 
-      WHERE user_id = ${user.userId} AND project_id = ${projectId}
-    `;
+    if (user.isSuperAdmin && targetUserId) {
+      await sql`
+        DELETE FROM user_projects 
+        WHERE user_id = ${Number(targetUserId)} AND project_id = ${projectId}
+      `;
+    } else {
+      await sql`
+        DELETE FROM user_projects 
+        WHERE user_id = ${user.userId} AND project_id = ${projectId}
+      `;
+    }
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Projet supprimé de votre espace'
+      message: 'Projet supprimé avec succès'
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error: any) {

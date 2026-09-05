@@ -2,6 +2,8 @@ import { getNeonClient } from '../_lib/neonClient';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+const SUPER_ADMIN_EMAILS = ['zacktunr@gmail.com'];
+
 export async function onRequestPost(context: any) {
   try {
     const env = context.env;
@@ -23,7 +25,8 @@ export async function onRequestPost(context: any) {
       return new Response(JSON.stringify({ error: 'Email et mot de passe requis' }), { status: 400 });
     }
 
-    const users = await sql`SELECT * FROM users WHERE email = ${email.toLowerCase().trim()}`;
+    const cleanEmail = email.toLowerCase().trim();
+    const users = await sql`SELECT * FROM users WHERE email = ${cleanEmail}`;
     if (users.length === 0) {
       return new Response(JSON.stringify({ error: 'Identifiants incorrects' }), { status: 401 });
     }
@@ -35,8 +38,15 @@ export async function onRequestPost(context: any) {
       return new Response(JSON.stringify({ error: 'Identifiants incorrects' }), { status: 401 });
     }
 
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(cleanEmail);
+
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { 
+        userId: user.id, 
+        email: user.email,
+        isSuperAdmin,
+        role: isSuperAdmin ? 'superadmin' : 'user'
+      },
       env.JWT_SECRET || 'kirov5_sovereign_forge_secret_key_2026',
       { expiresIn: '7d' }
     );
@@ -45,7 +55,10 @@ export async function onRequestPost(context: any) {
       success: true,
       message: 'Connexion réussie',
       token,
-      userId: user.id
+      userId: user.id,
+      email: user.email,
+      isSuperAdmin,
+      role: isSuperAdmin ? 'superadmin' : 'user'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

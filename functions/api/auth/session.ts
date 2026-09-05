@@ -20,7 +20,9 @@ export async function onRequestGet(context: any) {
     return new Response(JSON.stringify({
       authenticated: true,
       userId: decoded.userId,
-      email: decoded.email
+      email: decoded.email,
+      isSuperAdmin: (decoded.email || '').toLowerCase().trim() === 'zacktunr@gmail.com',
+      role: ((decoded.email || '').toLowerCase().trim() === 'zacktunr@gmail.com') ? 'superadmin' : 'user'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
