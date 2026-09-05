@@ -236,6 +236,17 @@ const WidgetSettings = ({
     setTimeout(() => setSavedMsg(false), 3000);
   };
 
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    const chunkSize = 0x8000;
+    for (let i = 0; i < len; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    return btoa(binary);
+  };
+
   const triggerNativeZipPicker = () => {
     const isElectron = typeof window !== 'undefined' && Boolean(
       (window as any).electron || 
@@ -266,10 +277,8 @@ const WidgetSettings = ({
 
         try {
           const arrayBuf = await file.arrayBuffer();
-          const base64 = btoa(
-            new Uint8Array(arrayBuf).reduce((d, byte) => d + String.fromCharCode(byte), '')
-          );
-          await fetch("/api/fs/upload-zip", {
+          const base64 = arrayBufferToBase64(arrayBuf);
+          const res = await fetch("/api/fs/upload-zip", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -278,12 +287,15 @@ const WidgetSettings = ({
               fileBase64: base64
             })
           });
+          const data = await res.json().catch(() => null);
 
           setUiZipName(file.name);
           setSelectedStartPhase(2);
-          alert(`✅ Archive "${file.name}" importée avec succès dans le projet : ${designProjectId}\nLe fichier est prêt dans votre projet !`);
+          const countInfo = data?.extractedCount ? ` (${data.extractedCount} fichiers extraits)` : '';
+          alert(`✅ Archive "${file.name}" importée et extraite avec succès${countInfo} dans le projet : ${designProjectId} !\n\nVous êtes maintenant sur la Phase 2. Cliquez sur "⚙️ LANCER PHASE 2 (MULTI-BATCH)" pour démarrer l'intégration !`);
         } catch (err) {
           console.warn("[Upload ZIP] Erreur fallback:", err);
+          alert(`⚠️ Erreur lors de l'envoi de l'archive : ${err}`);
         } finally {
           if (btn) {
             btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
@@ -359,9 +371,7 @@ const WidgetSettings = ({
 
         try {
           const arrayBuf = await file.arrayBuffer();
-          const base64 = btoa(
-            new Uint8Array(arrayBuf).reduce((d, byte) => d + String.fromCharCode(byte), '')
-          );
+          const base64 = arrayBufferToBase64(arrayBuf);
           await fetch("/api/fs/upload-zip", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -4277,17 +4287,36 @@ Description : ${newProjectDesc}.`;
         console.error("Erreur décompression ZIP:", err);
         alert("Système Kirov5 : Impossible de lire l'archive ZIP.");
       }
+
+      // Synchroniser également le ZIP original vers le serveur VPS
+      for (const zf of zipFiles) {
+        try {
+          const arrayBuf = await zf.arrayBuffer();
+          const base64 = arrayBufferToBase64(arrayBuf);
+          const targetProj = activeProject || selectedLaunchProject || newProjectName || "AUDIO";
+          fetch("/api/fs/upload-zip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project: targetProj, fileName: zf.name, fileBase64: base64 })
+          }).catch(e => console.warn("[Upload ZIP Sync] Notice:", e));
+        } catch (_) {}
+      }
     }
 
     // Remplacer les ZIP par leur contenu décompressé
     fileArray = [...fileArray.filter(f => !f.name.endsWith('.zip')), ...extractedFiles];
 
-    // Separate HTML from other files
+    // Separate HTML and code/asset files
     const htmlFiles = fileArray.filter(f => f.name.endsWith('.html'));
-    const otherFiles = fileArray.filter(f => !f.name.endsWith('.html') && (f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') || f.name.endsWith('.md') || f.name.endsWith('.json') || f.name.endsWith('.txt')));
+    const otherFiles = fileArray.filter(f => !f.name.endsWith('.html') && (
+      f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg') ||
+      f.name.endsWith('.md') || f.name.endsWith('.json') || f.name.endsWith('.txt') ||
+      f.name.endsWith('.tsx') || f.name.endsWith('.ts') || f.name.endsWith('.jsx') ||
+      f.name.endsWith('.js') || f.name.endsWith('.css') || f.name.endsWith('.svg')
+    ));
 
     if (htmlFiles.length === 0 && otherFiles.length === 0) {
-      alert("Système Kirov5 : Format non supporté. Veuillez déposer au moins un .html, .md, .png, ou un .zip.");
+      alert("Système Kirov5 : Format non supporté. Veuillez déposer au moins un .html, .md, .tsx, .ts, .png, ou un .zip.");
       return;
     }
 
@@ -6423,8 +6452,8 @@ Format attendu:
                   {/* JOINDRE ZIP (STITCH) */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
+                    onClick={triggerNativeZipPicker}
+                    className="mt-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md hover:border-cyan hover:shadow-[0_0_15px_rgba(8,179,201,0.4)] cursor-pointer"
                   >
                     <span>📎</span>
                     <span>Joindre ZIP (Stitch)</span>

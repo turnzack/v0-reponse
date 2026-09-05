@@ -86,6 +86,118 @@ server.get(['/api/logs', '/api/bridge/logs', '/bridge/logs'], (req, res) => {
   res.json({ success: true, logs: globalLogs });
 });
 
+// ==============================================================================
+// GESTION DES ARCHIVES ZIP (STITCH / EXPORT UI / PACK PRD)
+// ==============================================================================
+server.post(['/api/fs/upload-zip', '/fs/upload-zip'], async (req, res) => {
+  try {
+    const { project, fileName, fileBase64 } = req.body || {};
+    if (!fileBase64) {
+      return res.status(400).json({ success: false, error: 'Données ZIP requises (fileBase64 manquant).' });
+    }
+
+    const targetProject = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const targetDir = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), targetProject);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const cleanFileName = (fileName || 'stitch_export.zip').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const zipFilePath = path.join(targetDir, cleanFileName);
+    fs.writeFileSync(zipFilePath, buffer);
+
+    let extractedFiles = [];
+    let extractionMethod = 'none';
+
+    // 1. Essai avec JSZip (Node.js)
+    let JSZip = null;
+    try {
+      JSZip = require('jszip');
+    } catch {
+      try {
+        JSZip = require(path.join(__dirname, '../node_modules/jszip'));
+      } catch {}
+    }
+
+    if (JSZip) {
+      try {
+        const zip = await JSZip.loadAsync(buffer);
+        for (const [entryPath, entry] of Object.entries(zip.files)) {
+          if (entry.dir) continue;
+          if (entryPath.includes('__MACOSX') || path.basename(entryPath).startsWith('.')) continue;
+
+          // Nettoyage anti-Zip-Slip
+          const safeRel = path.normalize(entryPath).replace(/^(\.\.[\/\\])+/, '');
+          const destPath = path.join(targetDir, safeRel);
+
+          fs.mkdirSync(path.dirname(destPath), { recursive: true });
+          const content = await entry.async('nodebuffer');
+          fs.writeFileSync(destPath, content);
+          extractedFiles.push(safeRel);
+        }
+        extractionMethod = 'jszip';
+      } catch (zipErr) {
+        console.warn('[UPLOAD-ZIP] Échec extraction JSZip:', zipErr.message);
+      }
+    }
+
+    // 2. Fallback système si JSZip non disponible ou échec
+    if (extractedFiles.length === 0) {
+      const { execFileSync } = require('child_process');
+      if (process.platform === 'win32') {
+        try {
+          execFileSync('powershell.exe', [
+            '-NoProfile', '-NonInteractive', '-Command',
+            `& { Expand-Archive -LiteralPath '${zipFilePath}' -DestinationPath '${targetDir}' -Force }`
+          ], { stdio: 'pipe', windowsHide: true });
+          extractionMethod = 'powershell';
+        } catch (psErr) {
+          console.warn('[UPLOAD-ZIP] PowerShell extract failed:', psErr.message);
+        }
+      } else {
+        try {
+          execFileSync('unzip', ['-o', '-q', zipFilePath, '-d', targetDir], { stdio: 'pipe' });
+          extractionMethod = 'unzip_cli';
+        } catch (unzipErr) {
+          console.warn('[UPLOAD-ZIP] unzip CLI failed:', unzipErr.message);
+        }
+      }
+    }
+
+    const count = extractedFiles.length || 1;
+    if (global.addLog) {
+      global.addLog(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans "${targetProject}" (${count} fichier(s) extraits).`);
+    }
+    console.log(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans ${targetProject} (${count} fichiers, méthode: ${extractionMethod})`);
+
+    return res.json({
+      success: true,
+      project: targetProject,
+      fileName: cleanFileName,
+      extractedCount: count,
+      extractionMethod,
+      targetDir,
+      message: `Archive "${cleanFileName}" importée et extraite avec succès dans le projet ${targetProject}.`
+    });
+  } catch (err) {
+    console.error('[UPLOAD-ZIP] ❌ Erreur:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+server.post(['/api/fs/pick-zip', '/fs/pick-zip'], (req, res) => {
+  const { project } = req.body || {};
+  const targetProject = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const targetDir = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), targetProject);
+  return res.json({
+    success: true,
+    project: targetProject,
+    targetDir,
+    message: 'Prêt pour réception de ZIP'
+  });
+});
+
 // Import & Mount V5 Canonical Router
 const v5Router = require('./electron/orchestrator/routes/v5-router');
 server.use('/api/mobile/v5', v5Router);

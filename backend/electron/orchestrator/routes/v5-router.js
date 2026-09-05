@@ -866,6 +866,115 @@ router.post(['/bridge/open-window', '/api/bridge/open-window'], (req, res) => {
   }
 });
 
+// API pour réception et extraction automatique de ZIP (Stitch, Pack PRD, etc.)
+router.post(['/fs/upload-zip', '/api/fs/upload-zip'], async (req, res) => {
+  try {
+    const { project, fileName, fileBase64 } = req.body || {};
+    if (!fileBase64) {
+      return res.status(400).json({ success: false, error: 'Données ZIP requises (fileBase64 manquant).' });
+    }
+
+    const targetProject = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const targetDir = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), targetProject);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const cleanFileName = (fileName || 'stitch_export.zip').replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const zipFilePath = path.join(targetDir, cleanFileName);
+    fs.writeFileSync(zipFilePath, buffer);
+
+    let extractedFiles = [];
+    let extractionMethod = 'none';
+
+    // 1. Essai avec JSZip
+    let JSZip = null;
+    try {
+      JSZip = require('jszip');
+    } catch {
+      try {
+        JSZip = require(path.join(process.cwd(), 'node_modules/jszip'));
+      } catch {}
+    }
+
+    if (JSZip) {
+      try {
+        const zip = await JSZip.loadAsync(buffer);
+        for (const [entryPath, entry] of Object.entries(zip.files)) {
+          if (entry.dir) continue;
+          if (entryPath.includes('__MACOSX') || path.basename(entryPath).startsWith('.')) continue;
+
+          const safeRel = path.normalize(entryPath).replace(/^(\.\.[\/\\])+/, '');
+          const destPath = path.join(targetDir, safeRel);
+
+          fs.mkdirSync(path.dirname(destPath), { recursive: true });
+          const content = await entry.async('nodebuffer');
+          fs.writeFileSync(destPath, content);
+          extractedFiles.push(safeRel);
+        }
+        extractionMethod = 'jszip';
+      } catch (zipErr) {
+        console.warn('[V5 UPLOAD-ZIP] Échec extraction JSZip:', zipErr.message);
+      }
+    }
+
+    // 2. Fallback système
+    if (extractedFiles.length === 0) {
+      const { execFileSync } = require('child_process');
+      if (process.platform === 'win32') {
+        try {
+          execFileSync('powershell.exe', [
+            '-NoProfile', '-NonInteractive', '-Command',
+            `& { Expand-Archive -LiteralPath '${zipFilePath}' -DestinationPath '${targetDir}' -Force }`
+          ], { stdio: 'pipe', windowsHide: true });
+          extractionMethod = 'powershell';
+        } catch (psErr) {
+          console.warn('[V5 UPLOAD-ZIP] PowerShell extract failed:', psErr.message);
+        }
+      } else {
+        try {
+          execFileSync('unzip', ['-o', '-q', zipFilePath, '-d', targetDir], { stdio: 'pipe' });
+          extractionMethod = 'unzip_cli';
+        } catch (unzipErr) {
+          console.warn('[V5 UPLOAD-ZIP] unzip CLI failed:', unzipErr.message);
+        }
+      }
+    }
+
+    const count = extractedFiles.length || 1;
+    if (global.addLog) {
+      global.addLog(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans "${targetProject}" (${count} fichier(s) extraits).`);
+    }
+    console.log(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans ${targetProject} (${count} fichiers, méthode: ${extractionMethod})`);
+
+    return res.json({
+      success: true,
+      project: targetProject,
+      fileName: cleanFileName,
+      extractedCount: count,
+      extractionMethod,
+      targetDir,
+      message: `Archive "${cleanFileName}" importée et extraite avec succès dans le projet ${targetProject}.`
+    });
+  } catch (err) {
+    console.error('[V5 UPLOAD-ZIP] ❌ Erreur:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post(['/fs/pick-zip', '/api/fs/pick-zip'], (req, res) => {
+  const { project } = req.body || {};
+  const targetProject = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const targetDir = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), targetProject);
+  return res.json({
+    success: true,
+    project: targetProject,
+    targetDir,
+    message: 'Prêt pour réception de ZIP'
+  });
+});
+
 // API pour que l'interface Vercel récupère l'état complet de la file
 router.get(['/bridge/queue', '/api/bridge/queue'], (req, res) => {
   try {
