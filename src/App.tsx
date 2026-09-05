@@ -1469,29 +1469,9 @@ const WidgetSettings = ({
                           return;
                         }
                         
-                        if (Number(selectedStartPhase) === 0) {
-                          // Lancer la pipeline complète (Trombone en écoute du ZIP)
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              target_project: proj, 
-                              target_ai: activeTargetAi, 
-                              start_index: 1, 
-                              zip_mode: true, 
-                              start_phase: 0,
-                              auto_pilot: isAutoPilot
-                            })
-                          }).then(r => r ? r.json() : null).then(tData => {
-                            if (tData) console.log("Trombone initialisé pour le Zero-Touch.");
-                          }).catch(e => console.error(e));
-                          
-                          // Pas de 'return' ici ! On continue pour générer le méga-prompt Stitch (Phase 1)
-                        }
-                        
                         if (Number(selectedStartPhase) === 2) {
                           // Lancer la Phase 2 (Backend / Multi-batch)
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
@@ -1505,40 +1485,68 @@ const WidgetSettings = ({
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 2 (LOGIQUE G5) LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
-                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
+                            else alert("Mode Cloud SaaS : Bridge non disponible.");
                           }).catch(e => {
                             console.error(e);
-                            alert("Erreur: Le moteur :5006 est-il lancé ?");
+                            alert("Erreur: Le moteur n'a pas pu être contacté.");
                           });
                           return;
                         }
-                        
-                        // Phase 1 / Phase 0 : Forcer la cible sur Stitch pour la génération UI initiale
-                        const aiTarget = "stitch";
-                        
-                        safeFetch("http://localhost:5006/bridge/prompt", {
+
+                        // 1. Ouvrir immédiatement Stitch dans un nouvel onglet (synchrone pour éviter le blocage pop-up du navigateur)
+                        if (typeof window !== 'undefined') {
+                          window.open("https://stitch.withgoogle.com/", "_blank");
+                          window.dispatchEvent(new CustomEvent('open-mouchard'));
+                        }
+
+                        if (Number(selectedStartPhase) === 0) {
+                          // Lancer la pipeline complète Zero-Touch (Phase 0 One-Shot)
+                          safeFetch("/api/bridge/trombone", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ 
+                              target_project: proj, 
+                              target_ai: "stitch", 
+                              start_index: 1, 
+                              zip_mode: true, 
+                              start_phase: 0,
+                              auto_pilot: isAutoPilot,
+                              instructions: newProjectInstructions || "Génère l'application avec ces packs et directives.",
+                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                            })
+                          }).then(r => r ? r.json() : null).then(tData => {
+                            const promptContent = tData?.prompt || "Génération UI/UX Stitch complète.";
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                              navigator.clipboard.writeText(promptContent).catch(() => {});
+                            }
+                            alert("🚀 PIPELINE ONE-SHOT INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet est copié dans votre presse-papier (Faites simplement Ctrl + V dans Stitch) !\n3. Dès que votre design est prêt dans Stitch, téléchargez le ZIP : l'orchestrateur Zero-Touch prendra le relais automatiquement.");
+                          }).catch(e => {
+                            console.error(e);
+                            alert("L'onglet Stitch a été ouvert. Assurez-vous d'avoir saisi les consignes de design.");
+                          });
+                          return;
+                        }
+
+                        // Phase 1 uniquement (UI/UX Stitch)
+                        safeFetch("/api/bridge/prompt", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
-                            target_ai: aiTarget,
+                            target_ai: "stitch",
                             user_prompt: newProjectInstructions || "Génère l'application avec ces packs et directives.",
                             packs: ((window as any).KIROV_SELECTED_PACKS || []),
                             target_project: proj,
                             phase_num: 1
                           })
-                        }).then(r => {
-                          if (r) alert("✅ Méga-Prompt généré avec succès ! Ouverture de Stitch dans l'IA Fantôme...");
-                          
-                          // Demander au Moteur Electron d'ouvrir Stitch dans la fenêtre Fantôme
-                          safeFetch("http://localhost:5006/api/bridge/open-window", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url: "https://stitch.withgoogle.com/" })
-                          }).catch(e => console.warn("Erreur ouverture fenêtre", e));
-                          
+                        }).then(r => r ? r.json() : null).then(data => {
+                          const promptContent = data?.prompt || data?.data?.prompt || "Génération UI/UX Stitch.";
+                          if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                            navigator.clipboard.writeText(promptContent).catch(() => {});
+                          }
+                          alert("🚀 PHASE 1 (STITCH UI/UX) INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet est copié dans votre presse-papier (Faites simplement Ctrl + V dans Stitch) !");
                         }).catch(e => {
                           console.error(e);
-                          alert("Erreur: Le moteur :5006 est-il lancé ?");
+                          alert("L'onglet Stitch a été ouvert. Assurez-vous d'avoir saisi les consignes de design.");
                         });
                       }}
                       className={`w-full mt-4 py-4 rounded-lg border transition-all flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white ${
@@ -3711,7 +3719,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
   // Polling temps réel du Mouchard et de la File d'Attente Trombone (Radar & Phases)
   useEffect(() => {
-    if (!isClient || !isLocalEnvironment()) return;
+    if (!isClient) return;
 
     const pollAll = () => {
       // 1. Polling de la file d'attente (Radar Zero-Touch, Lots Phase 2/3/4/5)

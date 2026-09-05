@@ -54,6 +54,7 @@ function addLog(msg) {
   console.log(msg);
 }
 global.addLog = addLog;
+global.globalLogs = globalLogs;
 global._blockedMissions = global._blockedMissions || new Set();
 
 const server = express();
@@ -81,7 +82,7 @@ server.use(cors({
 server.use(express.json({ limit: '50mb' }));
 
 // Logs Endpoint
-server.get('/api/logs', (req, res) => {
+server.get(['/api/logs', '/api/bridge/logs', '/bridge/logs'], (req, res) => {
   res.json({ success: true, logs: globalLogs });
 });
 

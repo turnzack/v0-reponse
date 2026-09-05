@@ -751,10 +751,11 @@ router.post(['/bridge/prompt', '/api/bridge/prompt'], async (req, res) => {
       phase_name: phase_name || 'Génération UI/UX',
       timestamp: Date.now()
     });
+    if (global.addLog) global.addLog(`[BRIDGE] 📥 Méga-Prompt généré pour ${targetAi} (Projet: ${proj}, ${finalPrompt.length} car.)`);
     console.log(`[BRIDGE] 📥 Prompt ajouté à la file d'attente. (Cible: ${targetAi}, Projet: ${proj}, Taille: ${finalPrompt.length} car.)`);
     
     if (!res.headersSent) {
-      return ok(res, { success: true, prompt_id: promptId, message: 'Prompt ajouté à la file.' });
+      return ok(res, { success: true, prompt_id: promptId, prompt: finalPrompt, message: 'Prompt ajouté à la file.' });
     }
   } catch (err) {
     if (!res.headersSent) return E.INTERNAL(res, err.message);
@@ -1103,6 +1104,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
          action: 'auto_rip',
          timestamp: Date.now()
       });
+      if (global.addLog) global.addLog(`[TROMBONE] 🚀 Phase 1 (Stitch) initialisée pour ${target_project} (${promptText.length} car.)`);
       console.log(`[TROMBONE] Tâche Phase 1 (Stitch) ajoutée à la file d'attente. (id=${promptId}, ai=${targetAi})`);
 
       if (global.openPhantomWindow) {
@@ -1208,7 +1210,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       console.log(`[TROMBONE] ${batches.length} lots ajoutés à la file d'attente pour la Phase 2.`);
     }
 
-    return ok(res, { success: true, message: 'Trombone configuré et orchestrateur lancé.' });
+    return ok(res, { success: true, prompt: promptText, message: 'Trombone configuré et orchestrateur lancé.' });
   } catch (err) {
     console.error(`[TROMBONE] ❌ Erreur :`, err);
     return E.INTERNAL(res, err.message);
@@ -5055,6 +5057,12 @@ router.post('/api/bridge/export-notebooklm', async (req, res) => {
     console.error("[NotebookLmExport] Erreur:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
+});
+
+
+router.get(['/bridge/logs', '/api/bridge/logs', '/api/logs'], (req, res) => {
+  const logs = (global.globalLogs || global._globalLogs || ["> En attente d'événements..."]);
+  res.json({ success: true, logs });
 });
 
 module.exports = router;

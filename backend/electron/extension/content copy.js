@@ -1092,7 +1092,11 @@
         "kirov_bridge_enabled",
         "kirov_bridge_interval",
       ]);
-      if (r.kirov_bridge_url) CONFIG.BRIDGE_SERVER = r.kirov_bridge_url;
+      if (r.kirov_bridge_url) {
+        CONFIG.BRIDGE_SERVER = r.kirov_bridge_url;
+      } else {
+        CONFIG.BRIDGE_SERVER = "http://109.205.182.17";
+      }
       if (r.kirov_bridge_vercel) CONFIG.BRIDGE_VERCEL = r.kirov_bridge_vercel;
       if (r.kirov_bridge_enabled === false) bridgeEnabled = false;
       else bridgeEnabled = true;

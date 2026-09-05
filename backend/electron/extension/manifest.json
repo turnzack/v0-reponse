@@ -46,7 +46,9 @@
     "*://youtube.com/*",
     "*://youtu.be/*",
     "*://notebooklm.google.com/*",
-    "*://notebook.google.com/*"
+    "*://notebook.google.com/*",
+    "http://109.205.182.17/*",
+    "http://109.205.182.17:5006/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -88,7 +90,9 @@
         "*://notebooklm.google.com/*",
         "*://notebook.google.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_end",
       "all_frames": true
     }
