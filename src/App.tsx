@@ -1200,45 +1200,51 @@ const WidgetSettings = ({
                       />
                       <button 
                         onClick={async () => {
-                          if (!newProjectName) { alert("Entrez un nom de projet"); return; }
+                          if (!newProjectName || !newProjectName.trim()) { alert("Entrez un nom de projet"); return; }
+                          const cleanName = newProjectName.trim();
                           
                           try {
-                            const res = await safeFetch("http://localhost:5006/api/projects/set-active", {
+                            const token = localStorage.getItem('kirov5_jwt_token') || '';
+                            const res = await fetch("/api/projects", {
                               method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ name: newProjectName.trim() })
+                              headers: {
+                                "Content-Type": "application/json",
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                              },
+                              body: JSON.stringify({ 
+                                title: cleanName,
+                                name: cleanName,
+                                projectId: cleanName.replace(/[^a-zA-Z0-9_-]/g, '_'),
+                                description: "Projet Tiger Cloud" 
+                              })
                             });
-                            if (res && res.ok) {
-                              const data = await res.json();
-                              if (data.success) {
-                                alert(`✅ Projet "${newProjectName}" créé avec succès !\nChemin : ${data.projectDir}`);
-                                if (setAvailableProjects) {
-                                  const pRes = await safeFetch("http://localhost:5006/api/projects").then(r => r ? r.json() : null).catch(() => ({}));
-                                  if (pRes && pRes.projects) setAvailableProjects(pRes.projects);
-                                }
-                              } else {
-                                alert("❌ Erreur: " + data.message);
+                            
+                            const data = await res.json();
+                            if (res.ok && (data.success || data.project)) {
+                              alert(`✅ Projet "${cleanName}" créé avec succès !`);
+                              setActiveProject(cleanName);
+                              if (typeof window !== 'undefined') {
+                                localStorage.setItem("tiger_lastGeneratedProject", cleanName);
                               }
+                              // Recharger les projets
+                              fetch("/api/projects", {
+                                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                              })
+                                .then(r => r.json())
+                                .then(d => {
+                                  if (d && d.projects) {
+                                    setRealProjects(d.projects.map((p: any) => ({ 
+                                      name: p.project_id || p.title || p.name, 
+                                      desc: p.owner_email ? `Propriétaire: ${p.owner_email}` : "Projet Cloud", 
+                                      bg: "" 
+                                    })));
+                                  }
+                                }).catch(() => {});
                             } else {
-                              // Cloud mode persistence sur l'API Vercel Neon DB
-                              const token = localStorage.getItem('kirov5_jwt_token') || '';
-                              const cloudRes = await fetch("/api/projects", {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                },
-                                body: JSON.stringify({ title: newProjectName.trim(), description: "Projet Cloud SaaS" })
-                              });
-                              const cloudData = await cloudRes.json();
-                              if (cloudData.success || cloudData.project) {
-                                alert(`✅ Projet Cloud "${newProjectName}" créé avec succès sur Neon DB !`);
-                              } else {
-                                alert("❌ Erreur de création Cloud: " + (cloudData.error || "Impossible d'accéder au serveur"));
-                              }
+                              alert("❌ Erreur création projet: " + (data.error || data.message || "Erreur inconnue"));
                             }
-                          } catch (e) {
-                            alert("❌ Erreur de connexion avec Kirov5.");
+                          } catch (e: any) {
+                            alert("❌ Erreur de connexion avec le serveur: " + (e?.message || e));
                           }
                         }}
                         className="bg-[#0f2a2a] hover:bg-[#153f3f] text-cyan border border-cyan/30 px-4 py-2 rounded-lg text-xs font-bold transition-colors"

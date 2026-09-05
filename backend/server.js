@@ -145,7 +145,11 @@ server.get('/api/admin/system', (req, res) => {
   });
 });
 
-// Endpoint /api/projects avec Neon & multi-tenant isolation
+// ==============================================================================
+// GESTION DES PROJETS (POST / GET / DELETE / SET-ACTIVE) — VPS + NEON DB
+// ==============================================================================
+
+// Endpoint GET /api/projects : Liste des projets (filtrés par utilisateur ou tous pour Super-Admin)
 server.get('/api/projects', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -189,6 +193,124 @@ server.get('/api/projects', async (req, res) => {
       return res.json({ success: true, count: projects.length, projects });
     }
     return res.json({ success: true, count: 0, projects: [] });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint POST /api/projects : Création de projet (Neon DB + Disque VPS)
+server.post('/api/projects', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    let user = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      user = verifyJwt(authHeader.split(' ')[1]);
+    }
+
+    const { title, name, projectId, description, content } = req.body || {};
+    const rawName = (title || name || projectId || '').trim();
+    if (!rawName) {
+      return res.status(400).json({ success: false, error: 'Nom ou titre de projet requis' });
+    }
+
+    const cleanId = (projectId || rawName).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const projectDir = path.join(global.WORKSPACE_DIR, cleanId);
+
+    // 1. Création sur le disque du VPS
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+      fs.writeFileSync(path.join(projectDir, 'README.md'), `# ${rawName}\n\nCréé avec succès sur Tiger Cloud VPS.\nDate: ${new Date().toISOString()}`);
+      fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify({
+        name: cleanId.toLowerCase(),
+        version: '1.0.0',
+        description: description || 'Projet Tiger Cloud',
+        main: 'index.js'
+      }, null, 2));
+    }
+
+    // 2. Persistance dans Neon PostgreSQL
+    if (neonSql) {
+      const userId = user?.userId || 1;
+      const projectPayload = content || { description: description || 'Projet Cloud SaaS' };
+      try {
+        await neonSql`
+          INSERT INTO user_projects (user_id, project_id, title, content, updated_at)
+          VALUES (${userId}, ${cleanId}, ${rawName}, ${JSON.stringify(projectPayload)}, CURRENT_TIMESTAMP)
+          ON CONFLICT (user_id, project_id)
+          DO UPDATE SET
+            title = EXCLUDED.title,
+            content = EXCLUDED.content,
+            updated_at = CURRENT_TIMESTAMP
+        `;
+        console.log(`[PROJECTS] ✅ Projet "${rawName}" (${cleanId}) enregistré dans Neon pour user_id ${userId}`);
+      } catch (neonErr) {
+        console.warn('[PROJECTS WARNING] Erreur écriture Neon:', neonErr.message);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Projet "${rawName}" créé avec succès !`,
+      project: {
+        projectId: cleanId,
+        title: rawName,
+        projectDir
+      },
+      projectDir
+    });
+  } catch (err) {
+    console.error('[PROJECTS ERROR] Création projet:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint POST /api/projects/set-active
+server.post('/api/projects/set-active', (req, res) => {
+  try {
+    const { name, projectId, project_id } = req.body || {};
+    const projName = (name || projectId || project_id || '').trim();
+    if (!projName) {
+      return res.status(400).json({ success: false, error: 'Nom du projet requis' });
+    }
+    const cleanId = projName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const projectDir = path.join(global.WORKSPACE_DIR, cleanId);
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+    return res.json({
+      success: true,
+      projectDir,
+      projectId: cleanId,
+      message: `Projet actif : ${cleanId}`
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint DELETE /api/projects
+server.delete('/api/projects', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    let user = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      user = verifyJwt(authHeader.split(' ')[1]);
+    }
+
+    const { projectId, targetUserId } = req.body || {};
+    if (!projectId) {
+      return res.status(400).json({ success: false, error: 'projectId requis' });
+    }
+
+    if (neonSql && user) {
+      if (user.isSuperAdmin && targetUserId) {
+        await neonSql`DELETE FROM user_projects WHERE user_id = ${Number(targetUserId)} AND project_id = ${projectId}`;
+      } else {
+        await neonSql`DELETE FROM user_projects WHERE user_id = ${user.userId} AND project_id = ${projectId}`;
+      }
+    }
+
+    return res.json({ success: true, message: 'Projet supprimé avec succès' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }

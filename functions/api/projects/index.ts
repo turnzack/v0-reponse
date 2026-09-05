@@ -98,15 +98,17 @@ export async function onRequestPost(context: any) {
 
   try {
     const sql = getNeonClient(env);
-    const { projectId, title, content } = await request.json() as any;
-    
-    if (!projectId || !title) {
-      return new Response(JSON.stringify({ error: 'projectId et title sont requis' }), { status: 400 });
+    const body = await request.json() as any;
+    const rawTitle = (body.title || body.name || body.projectId || '').trim();
+    if (!rawTitle) {
+      return new Response(JSON.stringify({ error: 'Nom ou titre de projet requis' }), { status: 400 });
     }
+    const cleanId = (body.projectId || body.name || rawTitle).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const content = body.content || { description: body.description || 'Projet Cloud' };
 
     await sql`
       INSERT INTO user_projects (user_id, project_id, title, content, updated_at)
-      VALUES (${user.userId}, ${projectId}, ${title}, ${JSON.stringify(content || {})}, CURRENT_TIMESTAMP)
+      VALUES (${user.userId}, ${cleanId}, ${rawTitle}, ${JSON.stringify(content)}, CURRENT_TIMESTAMP)
       ON CONFLICT (user_id, project_id) 
       DO UPDATE SET 
         title = EXCLUDED.title,
