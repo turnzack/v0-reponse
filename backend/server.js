@@ -435,12 +435,143 @@ server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/lau
   const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
   const previewUrl = `http://109.205.182.17:5173`;
 
-  return res.json({
-    success: true,
-    message: `Projet ${cleanId} lancé avec succès !`,
-    projectId: cleanId,
-    previewUrl
+    return res.json({
+      success: true,
+      message: `Projet ${cleanId} lancé avec succès !`,
+      projectId: cleanId,
+      previewUrl
+    });
   });
+
+// GET /api/fs/tree : Arborescence des fichiers du projet
+server.get(['/api/fs/tree', '/fs/tree'], (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+
+  const projectId = req.query.project || req.query.project_id || req.query.projectId || 'AUDIO';
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectDir = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectDir = cand;
+      break;
+    }
+  }
+
+  if (!fs.existsSync(projectDir)) {
+    return res.json({ success: true, project: cleanId, tree: [] });
+  }
+
+  const buildTree = (dir, root) => {
+    try {
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+      return items.map(item => {
+        if (['node_modules', '.git', '.pnpm', '.cache', 'dist'].includes(item.name)) return null;
+        const fullPath = path.join(dir, item.name);
+        const relPath = path.relative(root, fullPath).replace(/\\/g, '/');
+        if (item.isDirectory()) {
+          return { name: item.name, path: relPath, type: 'directory', children: buildTree(fullPath, root) };
+        }
+        return { name: item.name, path: relPath, type: 'file' };
+      }).filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  };
+
+  return res.json({ success: true, project: cleanId, tree: buildTree(projectDir, projectDir) });
+});
+
+// GET /api/fs/read : Lecture d'un fichier du projet
+server.get(['/api/fs/read', '/fs/read'], (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+
+  const projectId = req.query.project || req.query.project_id || 'AUDIO';
+  const file = req.query.file;
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+
+  if (!file) return res.status(400).json({ success: false, error: 'Paramètre file manquant.' });
+
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectDir = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectDir = cand;
+      break;
+    }
+  }
+
+  const safeFile = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  const targetPath = path.join(projectDir, safeFile);
+
+  if (!fs.existsSync(targetPath)) {
+    return res.status(404).json({ success: false, error: `Fichier introuvable: ${file}` });
+  }
+
+  try {
+    const content = fs.readFileSync(targetPath, 'utf8');
+    return res.json({ success: true, project: cleanId, file: safeFile, content });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/fs/write : Écriture d'un fichier dans le projet
+server.post(['/api/fs/write', '/fs/write'], (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+
+  const { project, file, content } = req.body || {};
+  const cleanId = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+
+  if (!file || content === undefined) {
+    return res.status(400).json({ success: false, error: 'Paramètres file et content requis.' });
+  }
+
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectDir = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectDir = cand;
+      break;
+    }
+  }
+
+  const safeFile = path.normalize(file).replace(/^(\.\.[\/\\])+/, '');
+  const targetPath = path.join(projectDir, safeFile);
+
+  try {
+    const dir = path.dirname(targetPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(targetPath, content, 'utf8');
+    return res.json({ success: true, project: cleanId, file: safeFile, message: 'Fichier sauvegardé avec succès.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 
