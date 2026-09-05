@@ -1513,6 +1513,10 @@ const WidgetSettings = ({
                           window.dispatchEvent(new CustomEvent('open-mouchard'));
                         }
 
+                        const activePacks = ((window as any).KIROV_SELECTED_PACKS && (window as any).KIROV_SELECTED_PACKS.length > 0)
+                          ? (window as any).KIROV_SELECTED_PACKS
+                          : (selectedPacks && selectedPacks.length > 0 ? selectedPacks : []);
+
                         if (Number(selectedStartPhase) === 0) {
                           // Lancer la pipeline complète Zero-Touch (Phase 0 One-Shot)
                           safeFetch("/api/bridge/trombone", {
@@ -1526,14 +1530,15 @@ const WidgetSettings = ({
                               start_phase: 0,
                               auto_pilot: isAutoPilot,
                               instructions: newProjectInstructions || "Génère l'application avec ces packs et directives.",
-                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                              packs: activePacks
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
-                            const promptContent = tData?.prompt || "Génération UI/UX Stitch complète.";
+                            const promptContent = tData?.prompt || tData?.data?.prompt || "Génération UI/UX Stitch complète.";
                             if (typeof navigator !== 'undefined' && navigator.clipboard) {
                               navigator.clipboard.writeText(promptContent).catch(() => {});
                             }
-                            alert("🚀 PIPELINE ONE-SHOT INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet est copié dans votre presse-papier (Faites simplement Ctrl + V dans Stitch) !\n3. Dès que votre design est prêt dans Stitch, téléchargez le ZIP : l'orchestrateur Zero-Touch prendra le relais automatiquement.");
+                            const packInfo = activePacks.length > 0 ? activePacks.join(', ') : 'standard';
+                            alert(`🚀 PIPELINE ONE-SHOT INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet (${promptContent.length} car.) pour "${proj}" avec le pack "${packInfo}" est copié dans votre presse-papier !\n👉 Faites simplement Ctrl + V dans Stitch pour lancer le dessin de l'interface !\n3. Dès que votre design est prêt dans Stitch, téléchargez le ZIP : l'orchestrateur Zero-Touch prendra le relais automatiquement.`);
                           }).catch(e => {
                             console.error(e);
                             alert("L'onglet Stitch a été ouvert. Assurez-vous d'avoir saisi les consignes de design.");
@@ -1548,7 +1553,7 @@ const WidgetSettings = ({
                           body: JSON.stringify({
                             target_ai: "stitch",
                             user_prompt: newProjectInstructions || "Génère l'application avec ces packs et directives.",
-                            packs: ((window as any).KIROV_SELECTED_PACKS || []),
+                            packs: activePacks,
                             target_project: proj,
                             phase_num: 1
                           })
@@ -1557,7 +1562,7 @@ const WidgetSettings = ({
                           if (typeof navigator !== 'undefined' && navigator.clipboard) {
                             navigator.clipboard.writeText(promptContent).catch(() => {});
                           }
-                          alert("🚀 PHASE 1 (STITCH UI/UX) INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet est copié dans votre presse-papier (Faites simplement Ctrl + V dans Stitch) !");
+                          alert(`🚀 PHASE 1 (STITCH UI/UX) INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet (${promptContent.length} car.) est copié dans votre presse-papier !\n👉 Faites Ctrl + V dans Stitch pour lancer la génération graphique !`);
                         }).catch(e => {
                           console.error(e);
                           alert("L'onglet Stitch a été ouvert. Assurez-vous d'avoir saisi les consignes de design.");

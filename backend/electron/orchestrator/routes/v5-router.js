@@ -678,50 +678,92 @@ export default function App() {
 startApiWorker().catch(e => console.error("API Worker Error:", e));
 
 function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
-  let promptText = basePrompt || `Génération de l'interface UI/UX complète pour ${projectId}`;
-  const prdContents = [];
+  const projName = projectId || 'MON_PROJET';
+  
+  // Formatage des packs
+  const packList = Array.isArray(packs) && packs.length > 0 ? packs : ['pack_standard'];
+  const packHeaders = packList.map(p => `• ${p.replace(/_/g, ' ').toUpperCase()} (#${p})`).join('\n');
+  
+  // Détail des packs
+  const packDetails = [];
+  const fs = require('fs');
+  const path = require('path');
+  
+  const possibleDirs = [
+    path.join(__dirname, '../../../../prd_packs'),
+    path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), projName, 'prd_packs'),
+    path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), 'pack', 'BIBLE_PRD'),
+    path.join(process.cwd(), 'boilerplates', 'projets', 'pack', 'BIBLE_PRD')
+  ];
 
-  if (Array.isArray(packs) && packs.length > 0) {
-    const fs = require('fs');
-    const path = require('path');
-    const possibleDirs = [
-      path.join(__dirname, '../../../../prd_packs'),
-      path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), projectId, 'prd_packs'),
-      path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), 'facturescan_souverain', 'prd_packs')
-    ];
-
-    for (const packName of packs) {
-      if (!packName) continue;
-      for (const baseDir of possibleDirs) {
-        const targetDir = path.join(baseDir, packName);
-        if (fs.existsSync(targetDir)) {
-          const prdFile = path.join(targetDir, 'prd.md');
-          const promptFile = path.join(targetDir, 'prompt.txt');
-          const manifestFile = path.join(targetDir, 'manifest.json');
-
-          if (fs.existsSync(prdFile)) {
-            try { prdContents.push(fs.readFileSync(prdFile, 'utf8')); break; } catch (_) {}
-          } else if (fs.existsSync(promptFile)) {
-            try { prdContents.push(fs.readFileSync(promptFile, 'utf8')); break; } catch (_) {}
-          } else if (fs.existsSync(manifestFile)) {
-            try {
-              const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-              prdContents.push(`PACK PRD: ${manifest.name || packName}\nDescription: ${manifest.description || ''}\nFonctionnalités: ${(manifest.features || []).join(', ')}`);
-              break;
-            } catch (_) {}
-          }
+  for (const packName of packList) {
+    let found = false;
+    for (const baseDir of possibleDirs) {
+      const targetDir = path.join(baseDir, packName);
+      if (fs.existsSync(targetDir)) {
+        const prdFile = path.join(targetDir, 'prd.md');
+        const readmeFile = path.join(targetDir, 'README.md');
+        const manifestFile = path.join(targetDir, 'manifest.json');
+        if (fs.existsSync(prdFile)) {
+          try { packDetails.push(`• PACK : ${packName.toUpperCase()}\n${fs.readFileSync(prdFile, 'utf8')}`); found = true; break; } catch (_) {}
+        } else if (fs.existsSync(readmeFile)) {
+          try { packDetails.push(`• PACK : ${packName.toUpperCase()}\n${fs.readFileSync(readmeFile, 'utf8')}`); found = true; break; } catch (_) {}
+        } else if (fs.existsSync(manifestFile)) {
+          try {
+            const m = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+            packDetails.push(`• PACK : ${m.name || packName}\nDescription: ${m.description || ''}\nFonctionnalités: ${(m.features || []).join(', ')}`);
+            found = true;
+            break;
+          } catch (_) {}
         }
       }
     }
+    if (!found) {
+      // Synthèse PRD contextuelle intelligente si le pack est sélectionné sans fichier physique
+      const cleanName = packName.replace(/_/g, ' ').toUpperCase();
+      packDetails.push(`• PACK : ${cleanName} (#${packName})
+Spécifications UI/UX & Fonctionnalités Clés :
+- Conception d'un module interactif complet dédié à ${cleanName} avec des composants visuels haute fidélité (lecteurs audio, cartes, listes, visualisations, modales et tiroirs d'actions).
+- Ergonomie soignée, boutons réactifs avec micro-animations et design dark-mode moderne.
+- Zéro placeholder : intégration d'échantillons de données réalistes et immersives.`);
+    }
   }
 
-  if (prdContents.length > 0) {
-    promptText += "\n\n--- PACKS ET SPÉCIFICATIONS PRD JOINTS ---\n" + prdContents.join("\n\n---\n\n");
-  }
+  const megaPrompt = `[PROJET : ${projName.toUpperCase()}]
+Initialisation du projet ${projName.toUpperCase()}
 
-  promptText += "\n\nCONSIGNE DE GÉNÉRATION STITCH UI/UX:\nCréer une application UI/UX complète, professionnelle, moderne et responsive. Tous les composants doivent être intégralement implémentés sans placeholders.";
+[STACK TECHNIQUE OBLIGATOIRE : VITE + REACT + TAILWIND + TS]
+⚠️ CONTRAT BOILERPLATE (GOLDEN CONTRACT) : Ce projet s'appuie sur un boilerplate préexistant (React + Vite + TS + Tailwind).
+• INTERDICTION FORMELLE : Ne crée PAS et ne modifie PAS les fichiers \`package.json\`, \`vite.config.ts\`, \`index.html\`, \`src/main.tsx\` ou \`src/index.css\`. L'architecture de base, le routage racine et les variables Tailwind sont déjà câblés.
+• DÉPENDANCES STRICTES : Tu es AUTORISÉ UNIQUEMENT à utiliser les librairies suivantes (déjà installées) : \`react\`, \`react-dom\`, \`react-router-dom\`, \`lucide-react\`, \`framer-motion\`, \`zustand\`, \`clsx\`, \`tailwind-merge\`. INTERDICTION ABSOLUE d'inventer ou d'importer d'autres librairies (ex: \`axios\`, \`date-fns\`, \`recharts\`), car tu ne peux pas modifier \`package.json\`.
+• ICÔNES : Tu ne peux PAS utiliser les Material Symbols car tu ne peux pas modifier \`index.html\` pour importer la police. Utilise EXCLUSIVEMENT \`lucide-react\` pour TOUTES tes icônes.
+• CHEMINS APLATIS (OBLIGATOIRE) : Tu DOIS placer TOUTES les pages directement à la racine de \`src/pages/\` (ex: \`src/pages/HomePage.tsx\`). NE CRÉE JAMAIS de sous-dossiers imbriqués ni de fichiers \`code.tsx\` profonds.
+• ANTI-DOUBLON : Ne crée pas la même page en double (ex: n'écris pas \`Analyzer.tsx\` ET \`AnalyzerPage.tsx\`). Génère un seul fichier par page avec le suffixe 'Page'.
+• TON RÔLE : Tu dois EXCLUSIVEMENT créer les composants UI dans \`src/components/\`, les pages dans \`src/pages/\`, et assembler le tout dans \`src/App.tsx\`. Utilise uniquement les classes de Tailwind CSS. NOTE: Les variables CSS standards de type shadcn SONT DÉJÀ CONFIGURÉES.
+• ROUTAGE STRICT : Dans \`src/App.tsx\`, vérifie que chaque import correspond EXACTEMENT au nom du fichier plat que tu as généré dans \`src/pages/\`. N'invente pas de routes fantômes ni de dépendances externes.
 
-  return promptText;
+[PACKS PRD ARCHITECTURE SÉLECTIONNÉS (${packList.length})]
+${packHeaders}
+
+--- INSTRUCTIONS UX/UI DE DESIGN SENIOR ---
+Tu es un Product Designer Senior UI/UX. Tu dois concevoir l'interface graphique globale et les écrans de ce projet :
+- DIRECTION ARTISTIQUE PREMIUM : Créer une direction artistique de niveau Apple/Stripe (interface premium, épurée, avec un "Wow-factor" immédiat). Utiliser des espaces généreux (white space), des ombres douces, des micro-animations et des bordures subtiles (ex: glassmorphism, bento grid).
+- COULEURS ET ESTHÉTIQUE : Éviter les couleurs primaires basiques. Utiliser des palettes de couleurs sophistiquées (ex: thèmes sombres profonds type Slate/Zinc avec des couleurs d'accent vibrantes ou des gradients subtils).
+- TYPOGRAPHIE : Appliquer une typographie moderne, très lisible et parfaitement hiérarchisée (ex: polices sans-serif géométriques comme Inter, Outfit ou Roboto).
+- SYSTÈME DE DESIGN : Avant de générer les pages, définis des variables ou tokens visuels clairs (Couleurs, Espacements, Radiuses) afin que l'ensemble du projet partage rigoureusement la même charte.
+- PROTOTYPE INTERACTIF : Chaque onglet, bouton et section clé doit mener vers sa propre page fonctionnelle. Tous les éléments interactifs doivent comporter des actions de navigation et de prototype (State, Modales, Drawer, Navigation).
+- ÉTATS VISUELS : Prévoir tous les états visuels : chargement (loading), données vides (empty), erreur, succès, hors-ligne (offline) et désactivé (disabled).
+- ZÉRO LOREM IPSUM : Utiliser des données visuelles réalistes et riches (jamais de texte factice).
+- GÉNÉRATION DIRECTE : Ne pas demander de confirmation avant de générer les écrans. Générer TOUS les écrans nécessaires déduits du besoin utilisateur et des packs PRD ci-dessous.
+- 🚨 ANTI-CRASH DEEPSEEK : Ne créez JAMAIS de pages HTML monolithiques géantes. Divisez toujours votre UI en composants logiques ou en petits écrans séparés. Ne mettez jamais plus de 10 éléments interactifs complexes par écran (calques/états) pour éviter les dépassements de mémoire lors de la conversion.
+
+--- PACKS PRD SÉLECTIONNÉS (${packList.length}) ---
+${packDetails.join('\n\n---\n\n')}
+
+--- BESOIN ET DIRECTIVES UTILISATEUR ---
+${basePrompt || "Développer l'application complète selon les spécifications des packs ci-dessus."}`;
+
+  return megaPrompt;
 }
 
 global.buildStitchPrompt = buildStitchPrompt;
@@ -1087,7 +1129,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       
       // Phase 1 (UI/UX Stitch) s'exécute toujours via l'extension Stitch
       const targetAi = 'stitch';
-      let promptText = req.body.prompt || req.body.idea || req.body.instructions || `Génération de l'interface UI/UX complète et moderne pour le projet ${target_project}`;
+      promptText = req.body.prompt || req.body.idea || req.body.instructions || `Génération de l'interface UI/UX complète et moderne pour le projet ${target_project}`;
       
       if (typeof global.buildStitchPrompt === 'function') {
         promptText = global.buildStitchPrompt(promptText, req.body.packs || [], target_project);
