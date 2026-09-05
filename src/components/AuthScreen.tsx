@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 interface AuthScreenProps {
-  onAuthenticated: (user: { userId: string; email: string }) => void;
+  onAuthenticated: (user: { userId: string; email: string; isSuperAdmin?: boolean }) => void;
 }
 
 export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
@@ -54,7 +54,7 @@ export default function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         localStorage.setItem('kirov5_jwt_token', data.token);
       }
 
-      onAuthenticated({ userId: data.userId, email });
+      onAuthenticated({ userId: String(data.userId), email, isSuperAdmin: Boolean(data.isSuperAdmin) });
 
     } catch (err: any) {
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {

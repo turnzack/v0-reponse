@@ -3101,7 +3101,12 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
     })]} />
 };
 
-export default function Dashboard() {
+interface DashboardProps {
+  user?: { userId: string; email: string; isSuperAdmin?: boolean } | null;
+  onLogout?: () => void;
+}
+
+export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const gradientCache = useRef<{ [key: string]: string }>({});
   const getCachedGradient = (key: string, alpha = 1) => {
     if (typeof window === 'undefined') return `linear-gradient(135deg, rgba(17,17,17,${alpha}), rgba(34,34,34,${alpha}))`;
@@ -3109,6 +3114,30 @@ export default function Dashboard() {
       gradientCache.current[key] = getRandomGradient(alpha);
     }
     return gradientCache.current[key];
+  };
+
+  
+  const currentUserEmail = user?.email || (typeof window !== 'undefined' ? localStorage.getItem('tiger_currentUserEmail') : null);
+  const isSuperAdmin = Boolean(user?.isSuperAdmin || (currentUserEmail && currentUserEmail.toLowerCase().trim() === 'zacktunr@gmail.com'));
+
+  useEffect(() => {
+    if (user?.email && typeof window !== 'undefined') {
+      localStorage.setItem('tiger_currentUserEmail', user.email);
+    }
+  }, [user]);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('kirov5_jwt_token');
+      localStorage.removeItem('tiger_currentUserEmail');
+      localStorage.removeItem('tiger_lastGeneratedProject');
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    }
+    if (onLogout) {
+      onLogout();
+    } else if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   };
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -4832,7 +4861,7 @@ Format attendu:
 
       {/* Header */}
       {!isIdeFullscreen && (
-        <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg -mt-2">
+        <header className="design-header backdrop-blur-md z-10 flex justify-between items-center shadow-lg -mt-2 px-4">
           <div className="flex items-center gap-3">
             <div className="design-logo flex items-center justify-center">
               <span>🐯</span>
@@ -4840,6 +4869,28 @@ Format attendu:
             <div>
               <h1 className="design-titre whitespace-nowrap">v0.reponse : OS Souverain v0.1.0 - idecode-2026</h1>
             </div>
+          </div>
+
+          {/* Section Profil Utilisateur & Déconnexion */}
+          <div className="flex items-center gap-3">
+            {currentUserEmail && (
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-xs backdrop-blur-sm shadow-inner">
+                <span className="text-gray-300 font-medium">👤 {currentUserEmail}</span>
+                {isSuperAdmin && (
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold text-[10px] tracking-wide animate-pulse">
+                    👑 Super-Admin
+                  </span>
+                )}
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/40 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm cursor-pointer"
+              title="Se déconnecter de l'application"
+            >
+              <span>🚪</span>
+              <span>Déconnexion</span>
+            </button>
           </div>
         </header>
       )}
