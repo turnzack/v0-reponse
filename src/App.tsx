@@ -124,6 +124,9 @@ const WidgetSettings = ({
     }
   }, [isPipelineRunning]);
 
+  const [isExtractingZip, setIsExtractingZip] = useState(false);
+  const [isExtractingPrd, setIsExtractingPrd] = useState(false);
+
   // Tâche 1 : Auto-Pilot Link
   useEffect(() => {
     if (Number(selectedStartPhase) === 0) {
@@ -256,24 +259,19 @@ const WidgetSettings = ({
 
     const designProjectId = selectedLaunchProject || newProjectName || `Projet_ZIP_${Date.now()}`;
 
-    // MODE WEB NAVIGATEUR : déclenchement synchrone immédiat (maintient l'activation utilisateur)
+    // MODE WEB NAVIGATEUR
     if (!isElectron) {
       const fileInput = document.createElement("input");
       fileInput.type = "file";
       fileInput.accept = ".zip";
       fileInput.style.display = "none";
-      document.body.appendChild(fileInput);
 
       fileInput.onchange = async () => {
         const file = fileInput.files?.[0];
-        document.body.removeChild(fileInput);
+        try { fileInput.remove(); } catch (_) {}
         if (!file) return;
 
-        const btn = document.getElementById("btn-joindre-zip");
-        if (btn) {
-          btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
-          (btn as HTMLButtonElement).disabled = true;
-        }
+        setIsExtractingZip(true);
 
         try {
           const arrayBuf = await file.arrayBuffer();
@@ -297,10 +295,7 @@ const WidgetSettings = ({
           console.warn("[Upload ZIP] Erreur fallback:", err);
           alert(`⚠️ Erreur lors de l'envoi de l'archive : ${err}`);
         } finally {
-          if (btn) {
-            btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
-            (btn as HTMLButtonElement).disabled = false;
-          }
+          setIsExtractingZip(false);
         }
       };
 
@@ -310,12 +305,7 @@ const WidgetSettings = ({
 
     // MODE ELECTRON : dialogue natif OS
     (async () => {
-      const btn = document.getElementById("btn-joindre-zip");
-      if (btn) {
-        btn.innerHTML = '<span class="text-xl">⏳</span>Extraction...';
-        (btn as HTMLButtonElement).disabled = true;
-      }
-
+      setIsExtractingZip(true);
       try {
         const res = await safeFetch("http://localhost:5005/api/fs/pick-zip", {
           method: "POST",
@@ -333,10 +323,7 @@ const WidgetSettings = ({
       } catch (err) {
         console.warn("Erreur picker ZIP:", err);
       } finally {
-        if (btn) {
-          btn.innerHTML = '<span class="text-xl">📎</span>Joindre ZIP (Stitch)';
-          (btn as HTMLButtonElement).disabled = false;
-        }
+        setIsExtractingZip(false);
       }
     })();
   };
@@ -356,18 +343,13 @@ const WidgetSettings = ({
       fileInput.type = "file";
       fileInput.accept = ".zip";
       fileInput.style.display = "none";
-      document.body.appendChild(fileInput);
 
       fileInput.onchange = async () => {
         const file = fileInput.files?.[0];
-        document.body.removeChild(fileInput);
+        try { fileInput.remove(); } catch (_) {}
         if (!file) return;
 
-        const btn = document.getElementById("btn-joindre-prd");
-        if (btn) {
-          btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
-          (btn as HTMLButtonElement).disabled = true;
-        }
+        setIsExtractingPrd(true);
 
         try {
           const arrayBuf = await file.arrayBuffer();
@@ -386,10 +368,7 @@ const WidgetSettings = ({
         } catch (err) {
           console.warn("[Upload PRD ZIP] Erreur:", err);
         } finally {
-          if (btn) {
-            btn.innerHTML = '<span>💎</span>Pack PRD';
-            (btn as HTMLButtonElement).disabled = false;
-          }
+          setIsExtractingPrd(false);
         }
       };
 
@@ -398,12 +377,7 @@ const WidgetSettings = ({
     }
 
     (async () => {
-      const btn = document.getElementById("btn-joindre-prd");
-      if (btn) {
-        btn.innerHTML = '<span class="text-xl">⏳</span>Copie...';
-        (btn as HTMLButtonElement).disabled = true;
-      }
-
+      setIsExtractingPrd(true);
       try {
         const res = await safeFetch("http://localhost:5005/api/fs/pick-prd-zip", {
           method: "POST",
@@ -417,10 +391,7 @@ const WidgetSettings = ({
       } catch (err) {
         console.warn("Erreur picker PRD:", err);
       } finally {
-        if (btn) {
-          btn.innerHTML = '<span>💎</span>Pack PRD';
-          (btn as HTMLButtonElement).disabled = false;
-        }
+        setIsExtractingPrd(false);
       }
     })();
   };
@@ -1380,21 +1351,26 @@ const WidgetSettings = ({
                     <div 
                       id="btn-joindre-prd"
                       className={`py-6 text-white text-[10px] font-bold rounded-lg border flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
-                        ((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
-                          ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
-                          : 'bg-[#2a1b3d] border-purple-500/30'
+                        isExtractingPrd
+                          ? 'bg-purple-950/80 border-purple-400 animate-pulse'
+                          : ((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
+                            ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
+                            : 'bg-[#2a1b3d] border-purple-500/30'
                       }`}
                       title="Pack PRD sélectionné — Sera injecté automatiquement dans le contexte IA"
                     >
-                      <span className="text-xl">💎</span>
+                      <span className="text-xl">{isExtractingPrd ? '⏳' : '💎'}</span>
                       <span>
-                        {((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
-                          ? `Packs PRD ${((window as any).KIROV_SELECTED_PACKS || selectedPacks).length} ${((window as any).KIROV_SELECTED_PACKS || selectedPacks)[0]}`
-                          : 'Aucun Pack PRD'}
+                        {isExtractingPrd
+                          ? 'Copie en cours...'
+                          : (((window as any).KIROV_SELECTED_PACKS || selectedPacks).length > 0
+                            ? `Packs PRD ${((window as any).KIROV_SELECTED_PACKS || selectedPacks).length} ${((window as any).KIROV_SELECTED_PACKS || selectedPacks)[0]}`
+                            : 'Aucun Pack PRD')}
                       </span>
                     </div>
                     <button 
                       id="btn-joindre-zip"
+                      disabled={isExtractingZip}
                       onClick={() => {
                         // Si on est en Mode 0 (Pipeline Complète), on force l'état "en cours" pour enchaîner automatiquement la Phase 2 après l'upload
                         if (Number(selectedStartPhase) === 0) {
@@ -1404,17 +1380,19 @@ const WidgetSettings = ({
                         triggerNativeZipPicker();
                       }}
                       className={`py-6 text-white text-[10px] font-bold rounded-lg border transition-all flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
-                        Number(selectedStartPhase) === 2 && !uiZipName
-                          ? 'bg-cyan-950/80 border-2 border-cyan text-cyan shadow-[0_0_30px_rgba(6,182,212,0.7)] animate-pulse scale-105 ring-2 ring-cyan/40 cursor-pointer'
-                          : isPipelineRunning 
-                            ? 'bg-[#1a3a40] hover:bg-[#204a50] pointer-events-auto shadow-[0_0_30px_rgba(8,179,201,0.6)] border-cyan scale-105 z-50 relative animate-pulse'
-                            : 'bg-[#1a2f3a] hover:bg-[#254250] border-cyan/30'
+                        isExtractingZip
+                          ? 'bg-amber-950/70 border-amber-500 text-amber-300 animate-pulse'
+                          : Number(selectedStartPhase) === 2 && !uiZipName
+                            ? 'bg-cyan-950/80 border-2 border-cyan text-cyan shadow-[0_0_30px_rgba(6,182,212,0.7)] animate-pulse scale-105 ring-2 ring-cyan/40 cursor-pointer'
+                            : isPipelineRunning 
+                              ? 'bg-[#1a3a40] hover:bg-[#204a50] pointer-events-auto shadow-[0_0_30px_rgba(8,179,201,0.6)] border-cyan scale-105 z-50 relative animate-pulse'
+                              : 'bg-[#1a2f3a] hover:bg-[#254250] border-cyan/30'
                       }`}
                       title={uiZipName ? `Archive importée : ${uiZipName}` : "Joindre le fichier ZIP exporté depuis Stitch"}
                     >
-                      <span className="text-xl">{uiZipName ? '✅' : '📎'}</span>
-                      <span className="font-extrabold">{uiZipName ? `ZIP : ${uiZipName}` : 'Joindre ZIP (Stitch)'}</span>
-                      {Number(selectedStartPhase) === 2 && !uiZipName && (
+                      <span className="text-xl">{isExtractingZip ? '⏳' : (uiZipName ? '✅' : '📎')}</span>
+                      <span className="font-extrabold">{isExtractingZip ? 'Extraction en cours...' : (uiZipName ? `ZIP : ${uiZipName}` : 'Joindre ZIP (Stitch)')}</span>
+                      {Number(selectedStartPhase) === 2 && !uiZipName && !isExtractingZip && (
                         <span className="text-[9px] text-cyan-300 font-extrabold uppercase animate-bounce mt-0.5">
                           👇 Étape 2 : Joindre le ZIP ici
                         </span>
