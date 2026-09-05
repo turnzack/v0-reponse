@@ -1422,9 +1422,16 @@ const WidgetSettings = ({
 
                         const activeTargetAi = (window as any).KIROV_TARGET_AI || (typeof window !== 'undefined' ? (localStorage.getItem("tiger_targetAi") || "hermes") : "hermes");
 
+                        // Fermeture automatique de la modale et redirection vers l'accueil pour suivre les logs
+                        if (typeof onClose === 'function') onClose();
+                        setActiveTab("home");
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('open-mouchard'));
+                        }
+
                         if (Number(selectedStartPhase) === 5) {
                           // Lancer la Phase 5 (Backend)
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
@@ -1437,17 +1444,17 @@ const WidgetSettings = ({
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 5 (INDUSTRIALISATION) LANCÉE !\nL'orchestrateur génère l'infrastructure et certifie le projet.");
-                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
+                            else alert("Mode Cloud SaaS : Bridge non disponible.");
                           }).catch(e => {
                             console.error(e);
-                            alert("Erreur: Le moteur :5006 est-il lancé ?");
+                            alert("Erreur lors du lancement de la Phase 5.");
                           });
                           return;
                         }
 
                         if (Number(selectedStartPhase) === 4 || Number(selectedStartPhase) === 3) {
                           // Lancer la Phase 3/4 (Câblage Métier)
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ 
@@ -1461,10 +1468,10 @@ const WidgetSettings = ({
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 3/4 (CÂBLAGE MÉTIER) LANCÉE !\nL'orchestrateur prend le relais pour connecter et câbler la logique métier.");
-                            else alert("Mode Cloud SaaS : Bridge local non disponible.");
+                            else alert("Mode Cloud SaaS : Bridge non disponible.");
                           }).catch(e => {
                             console.error(e);
-                            alert("Erreur: Le moteur :5006 est-il lancé ?");
+                            alert("Erreur lors du lancement de la Phase 3/4.");
                           });
                           return;
                         }
@@ -1898,7 +1905,7 @@ const WidgetSettings = ({
                             packs: ((window as any).KIROV_SELECTED_PACKS || [])
                           };
                           
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("/api/bridge/trombone", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(trombonePayload)
@@ -1946,7 +1953,7 @@ const WidgetSettings = ({
                                 start_phase: selectedStartPhase
                               };
 
-                          safeFetch("http://localhost:5006/api/bridge/trombone", {
+                          safeFetch("/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(payload)
@@ -3941,7 +3948,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
               if (selectedPacks && selectedPacks.length > 0) {
                 // TROMBONE PIPELINE (PRD)
-                safeFetch("http://localhost:5006/api/bridge/trombone", {
+                safeFetch("/api/bridge/trombone", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -4074,7 +4081,7 @@ Description : ${newProjectDesc}.`;
 
     const sendUiPrompt = () => {
       if (selectedPacks && selectedPacks.length > 0) {
-        return safeFetch("http://localhost:5006/api/bridge/trombone", {
+        return safeFetch("/api/bridge/trombone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4123,7 +4130,7 @@ Description : ${newProjectDesc}.`;
       setActiveProject(designProjectId);
     }
 
-    safeFetch("http://localhost:5006/api/bridge/trombone", {
+    safeFetch("/api/bridge/trombone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -4307,7 +4314,7 @@ Hermes a détecté ${totalHtmlFiles} pages HTML dans votre ZIP.\nDécoupage auto
         zipBase64 = await zip.generateAsync({ type: "base64" });
       }
 
-      safeFetch("http://localhost:5006/api/bridge/trombone", {
+      safeFetch("/api/bridge/trombone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
