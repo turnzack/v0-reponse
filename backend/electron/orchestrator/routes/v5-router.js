@@ -690,7 +690,11 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
   const path = require('path');
   
   const possibleDirs = [
+    path.join(process.cwd(), 'prd_packs'),
     path.join(__dirname, '../../../../prd_packs'),
+    path.join(__dirname, '../../../prd_packs'),
+    path.join(__dirname, '../../prd_packs'),
+    path.join(__dirname, '../prd_packs'),
     path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), projName, 'prd_packs'),
     path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), 'pack', 'BIBLE_PRD'),
     path.join(process.cwd(), 'boilerplates', 'projets', 'pack', 'BIBLE_PRD')
@@ -701,21 +705,49 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
     for (const baseDir of possibleDirs) {
       const targetDir = path.join(baseDir, packName);
       if (fs.existsSync(targetDir)) {
-        const prdFile = path.join(targetDir, 'prd.md');
-        const readmeFile = path.join(targetDir, 'README.md');
-        const manifestFile = path.join(targetDir, 'manifest.json');
-        if (fs.existsSync(prdFile)) {
-          try { packDetails.push(`• PACK : ${packName.toUpperCase()}\n${fs.readFileSync(prdFile, 'utf8')}`); found = true; break; } catch (_) {}
-        } else if (fs.existsSync(readmeFile)) {
-          try { packDetails.push(`• PACK : ${packName.toUpperCase()}\n${fs.readFileSync(readmeFile, 'utf8')}`); found = true; break; } catch (_) {}
-        } else if (fs.existsSync(manifestFile)) {
-          try {
-            const m = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-            packDetails.push(`• PACK : ${m.name || packName}\nDescription: ${m.description || ''}\nFonctionnalités: ${(m.features || []).join(', ')}`);
+        try {
+          const files = fs.readdirSync(targetDir);
+          let packBlocks = [];
+
+          // 1. Extraire les balises [CONTEXTE CACHÉ] des fichiers inject_*.js
+          const injectFiles = files.filter(f => f.startsWith('inject_') && f.endsWith('.js'));
+          for (const f of injectFiles) {
+            try {
+              const code = fs.readFileSync(path.join(targetDir, f), 'utf8');
+              const matches = code.match(/(\[CONTEXTE CACHÉ[\s\S]*?\[FIN DU CONTEXTE CACHÉ\])/g);
+              if (matches && matches.length > 0) {
+                packBlocks.push(matches.join('\n\n'));
+              }
+            } catch (_) {}
+          }
+
+          // 2. Extraire la documentation README.md ou prd.md
+          if (files.includes('README.md')) {
+            try {
+              const readme = fs.readFileSync(path.join(targetDir, 'README.md'), 'utf8');
+              packBlocks.push(readme.slice(0, 1500));
+            } catch (_) {}
+          } else if (files.includes('prd.md')) {
+            try {
+              const prd = fs.readFileSync(path.join(targetDir, 'prd.md'), 'utf8');
+              packBlocks.push(prd.slice(0, 1500));
+            } catch (_) {}
+          }
+
+          if (packBlocks.length > 0) {
+            packDetails.push(`• PACK : ${packName.toUpperCase()}\n\n${packBlocks.join('\n\n')}`);
             found = true;
             break;
-          } catch (_) {}
-        }
+          }
+
+          // 3. Fallback manifest.json
+          if (files.includes('manifest.json')) {
+            const m = JSON.parse(fs.readFileSync(path.join(targetDir, 'manifest.json'), 'utf8'));
+            packDetails.push(`• PACK : ${m.name || packName.toUpperCase()}\nDescription: ${m.description || ''}\nFonctionnalités: ${(m.features || []).join(', ')}`);
+            found = true;
+            break;
+          }
+        } catch (_) {}
       }
     }
     if (!found) {
@@ -1099,6 +1131,7 @@ router.get(['/config/apikey', '/api/config/apikey', '/bridge/config', '/api/brid
 // =============================================================================
 router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
   try {
+    let promptText = '';
     const { target_project, target_ai, start_phase, auto_pilot } = req.body || {};
     const phaseNum = Number(start_phase);
     const VALID_PHASES = new Set([0, 1, 2, 3, 4, 5, 200]);
@@ -1181,9 +1214,10 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       console.log(`[TROMBONE] Lancement de la Phase 3/4 (Câblage Métier - Business Wiring) pour ${target_project}...`);
       
       const promptId = `prompt_phase4_${Date.now()}`;
+      promptText = `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${target_project}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.`;
       _pendingBridgeQueue.push({
          prompt_id: promptId,
-         prompt: `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${target_project}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.`,
+         prompt: promptText,
          target_ai: target_ai || 'cloudflare',
          project_id: target_project || 'GAME',
          phase_num: 4,
@@ -1195,9 +1229,10 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       console.log(`[TROMBONE] Lancement de la Phase 5 (Backend Industrialisation) pour ${target_project}...`);
       
       const promptId = `prompt_phase5_${Date.now()}`;
+      promptText = `Applique le contrat de migration et d'industrialisation (Phase 5) pour le projet ${target_project}. Analyse le code généré, détecte les dépendances et prépare l'export définitif.`;
       _pendingBridgeQueue.push({
          prompt_id: promptId,
-         prompt: `Applique le contrat de migration et d'industrialisation (Phase 5) pour le projet ${target_project}. Analyse le code généré, détecte les dépendances et prépare l'export définitif.`,
+         prompt: promptText,
          target_ai: target_ai || 'cloudflare',
          project_id: target_project || 'GAME',
          phase_num: 5,
@@ -1238,9 +1273,11 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       
       batches.forEach((batch, idx) => {
         const promptId = `prompt_phase2_${idx}_${Date.now()}`;
+        const pText = `[LOT ${idx + 1}/${batches.length}] - ${batch.name}\n${batch.desc}\nProjet: ${target_project}${contextStr}`;
+        if (!promptText) promptText = pText;
         _pendingBridgeQueue.push({
            prompt_id: promptId,
-           prompt: `[LOT ${idx + 1}/${batches.length}] - ${batch.name}\n${batch.desc}\nProjet: ${target_project}${contextStr}`,
+           prompt: pText,
            target_ai: target_ai || 'deepseek',
            project_id: target_project || 'GAME',
            phase_num: 2,
