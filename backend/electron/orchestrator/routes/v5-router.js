@@ -680,6 +680,154 @@ export default function App() {
   }
 }
 
+// 🚀 HELPER : Garantir package.json avec scripts.dev, main.tsx, index.html et vite.config pour Vite
+function ensureVitePackageJson(projectRoot, cleanId) {
+  const fs = require('fs');
+  const path = require('path');
+  const pkgPath = path.join(projectRoot, 'package.json');
+
+  let pkg = {};
+  if (fs.existsSync(pkgPath)) {
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    } catch (_) {
+      pkg = {};
+    }
+  }
+
+  pkg.name = pkg.name || cleanId.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  pkg.version = pkg.version || "0.0.0";
+  pkg.type = pkg.type || "module";
+
+  pkg.scripts = pkg.scripts || {};
+  // TOUJOURS garantir le script "dev" pour Vite
+  pkg.scripts.dev = "vite --host 0.0.0.0 --port 5173";
+  pkg.scripts.build = pkg.scripts.build || "tsc && vite build";
+  pkg.scripts.preview = pkg.scripts.preview || "vite preview --host 0.0.0.0 --port 5173";
+
+  pkg.dependencies = pkg.dependencies || {};
+  if (!pkg.dependencies.react && !pkg.devDependencies?.react) {
+    pkg.dependencies.react = "^18.3.1";
+    pkg.dependencies["react-dom"] = "^18.3.1";
+  }
+  if (!pkg.dependencies["lucide-react"]) {
+    pkg.dependencies["lucide-react"] = "^0.344.0";
+  }
+
+  pkg.devDependencies = pkg.devDependencies || {};
+  if (!pkg.devDependencies.vite && !pkg.dependencies.vite) {
+    pkg.devDependencies.vite = "^5.4.2";
+  }
+  if (!pkg.devDependencies["@vitejs/plugin-react"]) {
+    pkg.devDependencies["@vitejs/plugin-react"] = "^4.3.1";
+  }
+  if (!pkg.devDependencies.typescript) {
+    pkg.devDependencies.typescript = "^5.5.3";
+  }
+  if (!pkg.devDependencies["@types/react"]) {
+    pkg.devDependencies["@types/react"] = "^18.3.3";
+    pkg.devDependencies["@types/react-dom"] = "^18.3.0";
+  }
+
+  try {
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), 'utf8');
+    if (global.addLog) global.addLog(`[📦] package.json vérifié & script "dev" garanti pour ${cleanId}`);
+  } catch (e) {
+    console.error(`[PACKAGE_JSON] Erreur:`, e);
+  }
+
+  const srcDir = path.join(projectRoot, 'src');
+  if (!fs.existsSync(srcDir)) {
+    try { fs.mkdirSync(srcDir, { recursive: true }); } catch (_) {}
+  }
+
+  // Vérifier ou créer src/main.tsx pour monter App dans #root
+  const mainTsxPath = path.join(srcDir, 'main.tsx');
+  const mainJsxPath = path.join(srcDir, 'main.jsx');
+  if (!fs.existsSync(mainTsxPath) && !fs.existsSync(mainJsxPath)) {
+    const defaultMainTsx = `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+`;
+    try {
+      fs.writeFileSync(mainTsxPath, defaultMainTsx, 'utf8');
+      if (global.addLog) global.addLog(`[📦] src/main.tsx généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // Vérifier ou créer src/index.css
+  const indexCssPath = path.join(srcDir, 'index.css');
+  if (!fs.existsSync(indexCssPath)) {
+    try {
+      fs.writeFileSync(indexCssPath, `*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; }`, 'utf8');
+    } catch (_) {}
+  }
+
+  // Vérifier ou créer index.html racine pour Vite
+  const indexPath = path.join(projectRoot, 'index.html');
+  let shouldWriteIndex = !fs.existsSync(indexPath);
+  if (!shouldWriteIndex) {
+    try {
+      const htmlContent = fs.readFileSync(indexPath, 'utf8');
+      if (!htmlContent.includes('id="root"') || (!htmlContent.includes('main.tsx') && !htmlContent.includes('main.jsx') && !htmlContent.includes('App.tsx'))) {
+        shouldWriteIndex = true;
+      }
+    } catch (_) {}
+  }
+
+  if (shouldWriteIndex) {
+    const defaultIndexHtml = `<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${cleanId}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>`;
+    try {
+      fs.writeFileSync(indexPath, defaultIndexHtml, 'utf8');
+      if (global.addLog) global.addLog(`[📦] index.html racine configuré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // Vérifier ou créer vite.config.ts
+  const viteConfigPath = path.join(projectRoot, 'vite.config.ts');
+  const viteConfigJsPath = path.join(projectRoot, 'vite.config.js');
+  if (!fs.existsSync(viteConfigPath) && !fs.existsSync(viteConfigJsPath)) {
+    const defaultViteConfig = `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false
+  }
+});
+`;
+    try {
+      fs.writeFileSync(viteConfigPath, defaultViteConfig, 'utf8');
+      if (global.addLog) global.addLog(`[📦] vite.config.ts configuré pour ${cleanId}`);
+    } catch (_) {}
+  }
+}
+
 // 🚀 AUTOMATISATION POST-PHASE 5 : Installation dépendances + Lancement Dev Server + Preview
 function autoInstallAndLaunchDevServer(projectId) {
   const path = require('path');
@@ -708,37 +856,8 @@ function autoInstallAndLaunchDevServer(projectId) {
     fs.mkdirSync(projectRoot, { recursive: true });
   }
 
-  // Vérifier et initialiser package.json si absent
-  const pkgPath = path.join(projectRoot, 'package.json');
-  if (!fs.existsSync(pkgPath)) {
-    const defaultPkg = {
-      name: cleanId.toLowerCase(),
-      private: true,
-      version: "0.0.0",
-      type: "module",
-      scripts: {
-        dev: "vite --host 0.0.0.0 --port 5173",
-        build: "tsc && vite build",
-        preview: "vite preview --host 0.0.0.0 --port 5173"
-      },
-      dependencies: {
-        "react": "^18.3.1",
-        "react-dom": "^18.3.1",
-        "lucide-react": "^0.344.0"
-      },
-      devDependencies: {
-        "@types/react": "^18.3.3",
-        "@types/react-dom": "^18.3.0",
-        "@vitejs/plugin-react": "^4.3.1",
-        "typescript": "^5.5.3",
-        "vite": "^5.4.2"
-      }
-    };
-    try {
-      fs.writeFileSync(pkgPath, JSON.stringify(defaultPkg, null, 2));
-      if (global.addLog) global.addLog(`[📦] package.json créé pour ${cleanId}`);
-    } catch (_) {}
-  }
+  // Toujours garantir le package.json complet et valide (avec dev, index.html, etc.)
+  ensureVitePackageJson(projectRoot, cleanId);
 
   const isWin = process.platform === 'win32';
 
@@ -757,7 +876,7 @@ function autoInstallAndLaunchDevServer(projectId) {
     }
 
     const cmd = isWin ? 'cmd.exe' : '/bin/sh';
-    const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173';
+    const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173 || npx vite --host 0.0.0.0 --port 5173';
     const args = isWin ? ['/c', devCommand] : ['-c', devCommand];
 
     const devProc = cp.spawn(cmd, args, {
@@ -1115,6 +1234,11 @@ router.post(['/fs/upload-zip', '/api/fs/upload-zip'], async (req, res) => {
       global.addLog(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans "${targetProject}" (${count} fichier(s) extraits).`);
     }
     console.log(`[ZIP UPLOAD] 📦 Archive "${cleanFileName}" importée dans ${targetProject} (${count} fichiers, méthode: ${extractionMethod})`);
+
+    // 🚀 Garantir immédiatement package.json, scripts.dev, index.html et vite.config.ts
+    try {
+      ensureVitePackageJson(targetDir, targetProject);
+    } catch (_) {}
 
     return res.json({
       success: true,
@@ -4738,37 +4862,8 @@ router.post(['/api/bridge/install-dependencies', '/bridge/install-dependencies']
     fs.mkdirSync(projectRoot, { recursive: true });
   }
 
-  // Vérification ou initialisation de package.json
-  const pkgPath = path.join(projectRoot, 'package.json');
-  if (!fs.existsSync(pkgPath)) {
-    const defaultPkg = {
-      name: cleanId.toLowerCase(),
-      private: true,
-      version: "0.0.0",
-      type: "module",
-      scripts: {
-        dev: "vite --host 0.0.0.0 --port 5173",
-        build: "tsc && vite build",
-        preview: "vite preview --host 0.0.0.0 --port 5173"
-      },
-      dependencies: {
-        "react": "^18.3.1",
-        "react-dom": "^18.3.1",
-        "lucide-react": "^0.344.0"
-      },
-      devDependencies: {
-        "@types/react": "^18.3.3",
-        "@types/react-dom": "^18.3.0",
-        "@vitejs/plugin-react": "^4.3.1",
-        "typescript": "^5.5.3",
-        "vite": "^5.4.2"
-      }
-    };
-    try {
-      fs.writeFileSync(pkgPath, JSON.stringify(defaultPkg, null, 2));
-      if (global.addLog) global.addLog(`[📦] package.json créé pour ${cleanId}`);
-    } catch (_) {}
-  }
+  // Toujours garantir le package.json complet et valide (avec scripts.dev, main.tsx, index.html, vite.config.ts)
+  ensureVitePackageJson(projectRoot, cleanId);
   
   // Exécuter l'installation en arrière-plan avec streaming dans les logs
   const isWin = process.platform === 'win32';
@@ -4848,6 +4943,9 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
     return res.status(404).json({ success: false, error: `Dossier introuvable pour ${cleanId}` });
   }
 
+  // Toujours garantir le package.json complet et valide avant de lancer le dev server
+  ensureVitePackageJson(projectRoot, cleanId);
+
   // Tuer le serveur précédent s'il tourne déjà pour ce projet
   global.activeDevServers = global.activeDevServers || new Map();
   if (global.activeDevServers.has(cleanId)) {
@@ -4866,7 +4964,7 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
 
   const isWin = process.platform === 'win32';
   const cmd = isWin ? 'cmd.exe' : '/bin/sh';
-  const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173';
+  const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173 || npx vite --host 0.0.0.0 --port 5173';
   const args = isWin ? ['/c', devCommand] : ['-c', devCommand];
 
   const devProc = cp.spawn(cmd, args, {
