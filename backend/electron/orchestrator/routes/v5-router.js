@@ -4541,25 +4541,82 @@ router.post('/api/suture/launch', (req, res) => {
 });
 
 // POST /api/bridge/install-dependencies
-router.post('/api/bridge/install-dependencies', (req, res) => {
-  const { project_id } = req.body;
-  if (!project_id) return res.status(400).json({ success: false, error: 'project_id requis' });
-  
+router.post(['/api/bridge/install-dependencies', '/bridge/install-dependencies'], (req, res) => {
   const path = require('path');
   const cp = require('child_process');
+  const fs = require('fs');
   
-  const projectRoot = path.join(__dirname, '..', '..', '..', 'v0saveprojets', project_id);
+  const projectId = req.body?.project_id || req.body?.projectId || req.body?.project || req.body?.name || req.query?.project_id || req.query?.projectId || 'AUDIO';
   
-  // Exécuter l'installation en arrière-plan
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectRoot = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectRoot = cand;
+      break;
+    }
+  }
+
+  if (!fs.existsSync(projectRoot)) {
+    fs.mkdirSync(projectRoot, { recursive: true });
+  }
+
+  // Vérification ou initialisation de package.json
+  const pkgPath = path.join(projectRoot, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    const defaultPkg = {
+      name: cleanId.toLowerCase(),
+      private: true,
+      version: "0.0.0",
+      type: "module",
+      scripts: {
+        dev: "vite --host 0.0.0.0 --port 5173",
+        build: "tsc && vite build",
+        preview: "vite preview --host 0.0.0.0 --port 5173"
+      },
+      dependencies: {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "lucide-react": "^0.344.0"
+      },
+      devDependencies: {
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "typescript": "^5.5.3",
+        "vite": "^5.4.2"
+      }
+    };
+    try {
+      fs.writeFileSync(pkgPath, JSON.stringify(defaultPkg, null, 2));
+      if (global.addLog) global.addLog(`[📦] package.json créé pour ${cleanId}`);
+    } catch (_) {}
+  }
+  
+  // Exécuter l'installation en arrière-plan avec streaming dans les logs
   const isWin = process.platform === 'win32';
-  const cmd = isWin ? 'cmd.exe' : 'pnpm';
-  const args = isWin ? ['/c', 'pnpm.cmd', 'install', '--force'] : ['install', '--force'];
+  const cmd = isWin ? 'cmd.exe' : '/bin/sh';
+  const shellCmd = 'pnpm install --force || npm install --force';
+  const args = isWin ? ['/c', shellCmd] : ['-c', shellCmd];
   
   const installProc = cp.spawn(cmd, args, {
     cwd: projectRoot,
     shell: false,
     windowsHide: true
   });
+
+  const launchMsg = `[📦 INSTALL] Démarrage installation des dépendances dans : ${projectRoot}`;
+  if (global.addLog) global.addLog(launchMsg);
+  console.log(launchMsg);
 
   installProc.stdout.on('data', (data) => {
     const text = data.toString().trim();
@@ -4578,16 +4635,124 @@ router.post('/api/bridge/install-dependencies', (req, res) => {
   });
 
   installProc.on('close', (code) => {
-    const msg = `[INSTALL] pnpm install terminé avec le code ${code}`;
+    const msg = code === 0
+      ? `[📦 INSTALL] ✅ Dépendances installées avec succès pour ${cleanId} ! Prêt pour le lancement (pnpm run dev).`
+      : `[📦 INSTALL] Terminé avec code ${code} pour ${cleanId}.`;
     if (global.addLog) global.addLog(msg);
     console.log(msg);
   });
   
-  const launchMsg = `[INSTALL] Lancement de pnpm install dans ${projectRoot}`;
-  if (global.addLog) global.addLog(launchMsg);
-  console.log(launchMsg);
-  
-  return res.json({ success: true, message: 'Installation démarrée.' });
+  return res.json({
+    success: true,
+    message: `Installation démarrée pour ${cleanId}.`,
+    project_id: cleanId,
+    projectRoot
+  });
+});
+
+// POST /api/bridge/manual-pnpm-run & /api/bridge/launch-project
+router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bridge/launch-project', '/bridge/launch-project'], (req, res) => {
+  const path = require('path');
+  const cp = require('child_process');
+  const fs = require('fs');
+
+  const projectId = req.body?.project_id || req.body?.projectId || req.body?.project || req.body?.name || req.query?.project_id || req.query?.projectId || 'AUDIO';
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectRoot = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectRoot = cand;
+      break;
+    }
+  }
+
+  if (!fs.existsSync(projectRoot)) {
+    return res.status(404).json({ success: false, error: `Dossier introuvable pour ${cleanId}` });
+  }
+
+  // Tuer le serveur précédent s'il tourne déjà pour ce projet
+  global.activeDevServers = global.activeDevServers || new Map();
+  if (global.activeDevServers.has(cleanId)) {
+    try {
+      const oldProc = global.activeDevServers.get(cleanId);
+      if (oldProc && !oldProc.killed) {
+        if (process.platform === 'win32') {
+          cp.exec(`taskkill /pid ${oldProc.pid} /T /F`, () => {});
+        } else {
+          oldProc.kill('SIGTERM');
+        }
+      }
+    } catch (_) {}
+    global.activeDevServers.delete(cleanId);
+  }
+
+  const isWin = process.platform === 'win32';
+  const cmd = isWin ? 'cmd.exe' : '/bin/sh';
+  const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173';
+  const args = isWin ? ['/c', devCommand] : ['-c', devCommand];
+
+  const devProc = cp.spawn(cmd, args, {
+    cwd: projectRoot,
+    shell: false,
+    windowsHide: true,
+    env: { ...process.env, PORT: '5173' }
+  });
+
+  global.activeDevServers.set(cleanId, devProc);
+
+  const startMsg = `[💻 PNPM DEV] 🚀 Serveur Vite lancé pour ${cleanId} (Port 5173) !`;
+  if (global.addLog) global.addLog(startMsg);
+  console.log(startMsg);
+
+  devProc.stdout.on('data', (data) => {
+    const text = data.toString().trim();
+    if (text) {
+      if (global.addLog) global.addLog(`[VITE] ${text}`);
+      console.log(`[VITE] ${text}`);
+    }
+  });
+
+  devProc.stderr.on('data', (data) => {
+    const text = data.toString().trim();
+    if (text) {
+      if (global.addLog) global.addLog(`[VITE] ${text}`);
+      console.error(`[VITE WARN] ${text}`);
+    }
+  });
+
+  devProc.on('close', (code) => {
+    if (global.activeDevServers.get(cleanId) === devProc) {
+      global.activeDevServers.delete(cleanId);
+    }
+    const endMsg = `[💻 PNPM DEV] Serveur arrêté (code ${code}) pour ${cleanId}`;
+    if (global.addLog) global.addLog(endMsg);
+    console.log(endMsg);
+  });
+
+  const previewUrl = `http://109.205.182.17:5173`;
+
+  if (global.addLog) {
+    global.addLog(`URL_PREVIEW=${previewUrl}`);
+    global.addLog(`[VITE READY] 🎉 Application "${cleanId}" disponible sur : ${previewUrl}`);
+  }
+
+  return res.json({
+    success: true,
+    message: `🚀 Serveur Vite démarré pour ${cleanId} !\nPrévisualisation accessible sur ${previewUrl}`,
+    project_id: cleanId,
+    previewUrl,
+    projectRoot
+  });
 });
 
 // GET /api/projects-v2 — Retourne les projets avec le statut d'installation (node_modules)

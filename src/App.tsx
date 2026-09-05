@@ -3007,7 +3007,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       .then(data => {
         if (data && data.success && data.projects) {
           setLiveProjects(data.projects.map((p: any, i: number) => {
-            const projName = typeof p === 'string' ? p : (p.projectName || p.name || p.projectId);
+            const projName = typeof p === 'string' ? p : (p.projectName || p.name || p.projectId || p.project_id || p.title || `Projet_${i}`);
             return {
               name: projName,
               desc: "Environnement Local",
@@ -3026,7 +3026,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
             .then(cloudData => {
               if (cloudData && cloudData.projects) {
                 setLiveProjects(cloudData.projects.map((p: any, i: number) => ({
-                  name: p.project_id || p.title,
+                  name: p.project_id || p.title || p.name || `Projet_${i}`,
                   desc: "SaaS Cloud (Neon DB)",
                   bg: cardStyles[i % cardStyles.length]
                 })));
@@ -3073,15 +3073,30 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
 
   return <Carousel items={[
     ...liveProjects.map((p, i) => {
+      const targetProjName = p.name || 'AUDIO';
       const handleOpenProject = async () => {
-        setLaunchingProject(p.name);
-        setActiveProject(p.name);
+        setLaunchingProject(targetProjName);
+        setActiveProject(targetProjName);
         try {
           window.dispatchEvent(new CustomEvent('open-mouchard'));
-          await safeFetch(`http://localhost:5006/api/projects/${encodeURIComponent(p.name)}/launch-design`, {
+          // Démarre le serveur Vite de dev en arrière-plan
+          safeFetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_id: p.name, open_explorer: false })
+            body: JSON.stringify({ project_id: targetProjName })
+          }).then(async r => {
+            if (r) {
+              const d = await r.json().catch(() => null);
+              if (d?.previewUrl) {
+                window.open(d.previewUrl, "_blank");
+              }
+            }
+          }).catch(() => {});
+
+          await safeFetch(`http://localhost:5006/api/projects/${encodeURIComponent(targetProjName)}/launch-design`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: targetProjName, open_explorer: false })
           }).catch(err => console.error("Erreur de lancement :", err));
         } catch (err: any) {
           console.error("Erreur de lancement :", err);
@@ -3093,20 +3108,20 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       const handleDeleteProject = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${p.name}" de l'interface ET de votre disque dur ?`)) {
+        if (window.confirm(`⚠️ SUPPRESSION DEFINITIVE :\nVoulez-vous vraiment supprimer le projet "${targetProjName}" de l'interface ET de votre disque dur ?`)) {
           try {
             const res = await safeFetch("http://localhost:5006/api/projects/remove-project", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ project_id: p.name })
+              body: JSON.stringify({ project_id: targetProjName })
             });
             if (!res) {
-              setLiveProjects(prev => prev.filter(proj => proj.name !== p.name));
+              setLiveProjects(prev => prev.filter(proj => proj.name !== targetProjName));
               return;
             }
             const data = await res.json();
             if (data.success) {
-              setLiveProjects(prev => prev.filter(proj => proj.name !== p.name));
+              setLiveProjects(prev => prev.filter(proj => proj.name !== targetProjName));
             } else {
               alert(`Erreur lors de la suppression : ${data.message || 'Échec server'}`);
             }
@@ -3136,7 +3151,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
           <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-0" />
           <div className="z-10 relative pointer-events-none w-full pr-8">
             <div className="text-white/70 text-xs font-bold uppercase tracking-widest drop-shadow-md">PROJET</div>
-            <h3 className="design-carte-titre text-xl font-black text-white break-all drop-shadow-lg leading-tight w-full">{p.name}</h3>
+            <h3 className="design-carte-titre text-xl font-black text-white break-all drop-shadow-lg leading-tight w-full">{targetProjName}</h3>
           </div>
           <div className="design-carte-desc z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none w-full">{p.desc}</div>
 
@@ -3144,16 +3159,16 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (launchingProject === p.name) return;
+                if (launchingProject === targetProjName) return;
                 
                 if (p.installed === false) {
-                  setLaunchingProject(p.name);
+                  setLaunchingProject(targetProjName);
                   safeFetch("http://localhost:5006/api/bridge/install-dependencies", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ project_id: p.name })
+                    body: JSON.stringify({ project_id: targetProjName })
                   }).then(r => {
-                    if (r) alert("L'installation a démarré dans le terminal (Suture) ! Une fois terminée, vous pourrez lancer la Preview.");
+                    if (r) alert(`📦 Installation des dépendances démarrée pour "${targetProjName}" !\nSuivez la progression dans les logs.`);
                     else alert("Mode Cloud SaaS : Bridge local non connecté.");
                     setLaunchingProject(null);
                     setLiveProjects(prev => prev.map(proj => proj.name === p.name ? {...proj, installed: true} : proj));
@@ -3162,15 +3177,15 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   handleOpenProject();
                 }
               }}
-              disabled={launchingProject === p.name}
+              disabled={launchingProject === targetProjName}
               className={`font-bold py-2 px-4 rounded-xl text-xs transition-all flex items-center gap-1.5 ${
-                launchingProject === p.name 
+                launchingProject === targetProjName 
                   ? "bg-cyan-500/40 text-cyan-200 cursor-wait animate-pulse" 
                   : (p.installed === false ? "bg-orange-500/80 hover:bg-orange-600 text-white cursor-pointer" : "bg-white/20 hover:bg-white/40 text-white cursor-pointer")
               }`}
               title={p.installed === false ? "Installer les dépendances requises pour ce projet" : "Lancer la prévisualisation Vite"}
             >
-              {launchingProject === p.name ? (
+              {launchingProject === targetProjName ? (
                 <>
                   <span className="animate-spin inline-block">⏳</span> {p.installed === false ? "Installation..." : "Lancement..."}
                 </>
@@ -3183,19 +3198,19 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setLaunchingProject(p.name);
+                    setLaunchingProject(targetProjName);
                     safeFetch("http://localhost:5006/api/bridge/install-dependencies", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ project_id: p.name })
+                      body: JSON.stringify({ project_id: targetProjName })
                     }).then(r => {
-                      if (r) alert("Réinstallation démarrée dans le terminal !");
+                      if (r) alert(`🔄 Réinstallation des dépendances démarrée pour "${targetProjName}" !`);
                       else alert("Mode Cloud SaaS : Bridge local non connecté.");
                       setLaunchingProject(null);
                     }).catch(() => setLaunchingProject(null));
                   }}
-                  className="bg-orange-500/30 hover:bg-orange-500/60 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center border border-orange-500/40"
-                  title="Forcer la réinstallation des dépendances (npm install)"
+                  className="bg-orange-500/30 hover:bg-orange-500/60 text-white font-bold py-2 px-3 rounded-xl text-xs transition-colors flex items-center justify-center border border-orange-500/40 cursor-pointer"
+                  title="Forcer la réinstallation des dépendances (pnpm install)"
                 >
                   🔄
                 </button>
@@ -3203,23 +3218,29 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
+                      setLaunchingProject(targetProjName);
                       const res = await safeFetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ project_id: p.name })
+                        body: JSON.stringify({ project_id: targetProjName })
                       });
+                      setLaunchingProject(null);
                       if (!res) {
                         alert("Mode Cloud SaaS : Moteur local non connecté.");
                         return;
                       }
                       const data = await res.json();
-                      alert(data.message || "Terminal ouvert !");
+                      alert(data.message || `🚀 Serveur Vite démarré pour ${targetProjName} !`);
+                      if (data.previewUrl) {
+                        window.open(data.previewUrl, "_blank");
+                      }
                     } catch(err: any) {
+                      setLaunchingProject(null);
                       alert("Erreur de connexion au bridge: " + err.message);
                     }
                   }}
-                  className="font-bold py-2 px-3 rounded-xl text-xs bg-purple-500/60 hover:bg-purple-500 text-white transition-all shadow-md"
-                  title="Lancer manuellement avec pnpm run dev (ouvre un terminal)"
+                  className="font-bold py-2 px-3 rounded-xl text-xs bg-purple-500/60 hover:bg-purple-500 text-white transition-all shadow-md cursor-pointer"
+                  title="Lancer le serveur Vite avec pnpm run dev"
                 >
                   💻 PNPM
                 </button>
