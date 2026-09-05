@@ -442,9 +442,18 @@ const WidgetSettings = ({
   // --- Push UI/UX State ---
   const [uiTargetFile, setUiTargetFile] = useState("src/pages/ShoppingCartDrawer.tsx");
   const [uiSelectedPages, setUiSelectedPages] = useState<string[]>([]);
-  const [uiAllPages, setUiAllPages] = useState(false);
-  const [uiZipName, setUiZipName] = useState("v0-design.zip");
-  const [isUiPushLoading, setIsUiPushLoading] = useState(false);
+  const [uiZipName, setUiZipName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('tiger_uiZipName') || "";
+    }
+    return "";
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && uiZipName) {
+      sessionStorage.setItem('tiger_uiZipName', uiZipName);
+    }
+  }, [uiZipName]);
   const [uiPushMessage, setUiPushMessage] = useState<string | null>(null);
   const [uiPushId, setUiPushId] = useState<string | null>(null);
   const [isUiPromoting, setIsUiPromoting] = useState(false);
@@ -1394,22 +1403,34 @@ const WidgetSettings = ({
                         }
                         triggerNativeZipPicker();
                       }}
-                      className={`py-6 text-white text-[10px] font-bold rounded-lg border border-cyan/30 transition-all flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
-                        isPipelineRunning 
-                          ? 'bg-[#1a3a40] hover:bg-[#204a50] pointer-events-auto shadow-[0_0_30px_rgba(8,179,201,0.6)] border-cyan scale-105 z-50 relative animate-pulse'
-                          : 'bg-[#1a2f3a] hover:bg-[#254250]'
+                      className={`py-6 text-white text-[10px] font-bold rounded-lg border transition-all flex flex-col items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] ${
+                        Number(selectedStartPhase) === 2 && !uiZipName
+                          ? 'bg-cyan-950/80 border-2 border-cyan text-cyan shadow-[0_0_30px_rgba(6,182,212,0.7)] animate-pulse scale-105 ring-2 ring-cyan/40 cursor-pointer'
+                          : isPipelineRunning 
+                            ? 'bg-[#1a3a40] hover:bg-[#204a50] pointer-events-auto shadow-[0_0_30px_rgba(8,179,201,0.6)] border-cyan scale-105 z-50 relative animate-pulse'
+                            : 'bg-[#1a2f3a] hover:bg-[#254250] border-cyan/30'
                       }`}
+                      title={uiZipName ? `Archive importée : ${uiZipName}` : "Joindre le fichier ZIP exporté depuis Stitch"}
                     >
-                      <span className="text-xl">📎</span>
-                      Joindre ZIP (Stitch)
+                      <span className="text-xl">{uiZipName ? '✅' : '📎'}</span>
+                      <span className="font-extrabold">{uiZipName ? `ZIP : ${uiZipName}` : 'Joindre ZIP (Stitch)'}</span>
+                      {Number(selectedStartPhase) === 2 && !uiZipName && (
+                        <span className="text-[9px] text-cyan-300 font-extrabold uppercase animate-bounce mt-0.5">
+                          👇 Étape 2 : Joindre le ZIP ici
+                        </span>
+                      )}
                     </button>
                   </div>
 
                   {(() => {
+                    const isPhase2WaitingZip = Number(selectedStartPhase) === 2 && !uiZipName;
+
                     const PHASE_ACTIONS: Record<number, string> = {
                       0: "🚀 LANCER PIPELINE COMPLÈTE (ONE-SHOT)",
                       1: "✨ LANCER PHASE 1 (Prompt vers l'IA)",
-                      2: "⚙️ LANCER PHASE 2 (MULTI-BATCH)",
+                      2: uiZipName 
+                        ? `⚙️ LANCER PHASE 2 (MULTI-BATCH) [${uiZipName}]` 
+                        : "⚙️ LANCER PHASE 2 (MULTI-BATCH) — ⏳ EN ATTENTE DU ZIP STITCH",
                       3: "🎨 LANCER PHASE 3/4 (CÂBLAGE MÉTIER)",
                       4: "🎨 LANCER PHASE 3/4 (CÂBLAGE MÉTIER)",
                       5: "🔌 LANCER PHASE 5 (INDUSTRIALISATION)",
@@ -1426,6 +1447,15 @@ const WidgetSettings = ({
                         const proj = selectedLaunchProject || newProjectName;
                         if (!proj) {
                           alert("Veuillez sélectionner ou créer un projet !");
+                          return;
+                        }
+
+                        // Si en Phase 2 et en attente du ZIP Stitch : proposer de le joindre directement
+                        if (Number(selectedStartPhase) === 2 && !uiZipName) {
+                          const confirmPick = confirm("📁 Le fichier .zip Stitch n'est pas encore joint à ce projet.\n\nSouhaitez-vous sélectionner et importer votre archive ZIP maintenant ?");
+                          if (confirmPick) {
+                            triggerNativeZipPicker();
+                          }
                           return;
                         }
                         
@@ -1470,7 +1500,7 @@ const WidgetSettings = ({
                         }
 
                         if (Number(selectedStartPhase) === 4 || Number(selectedStartPhase) === 3) {
-                          // Lancer la Phase 3/4 (Câblage Métier)
+                          // Lancer la Phase 3/4 (CÂBLAGE MÉTIER)
                           safeFetch("/api/bridge/trombone", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1546,6 +1576,12 @@ const WidgetSettings = ({
                             const promptContent = tData?.prompt || tData?.data?.prompt || "Génération UI/UX Stitch complète.";
                             const packInfo = activePacks.length > 0 ? activePacks.join(', ') : 'standard';
                             
+                            // 💡 BASCULE IMMÉDIATE DU MODE VERS LA PHASE 2 EN ATTENTE DU FICHIER ZIP STITCH
+                            setSelectedStartPhase(2);
+                            if (typeof window !== 'undefined') {
+                              sessionStorage.setItem('tiger_selectedStartPhase', '2');
+                            }
+
                             // Afficher l'overlay avec prévisualisation et copie garantie
                             if (typeof document !== 'undefined') {
                               const existing = document.getElementById('tiger-mega-prompt-overlay');
@@ -1568,10 +1604,21 @@ const WidgetSettings = ({
                                     </div>
                                     <button id="btn-close-prompt-overlay" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-weight:bold;display:flex;align-items:center;justify-content:center;">✕</button>
                                   </div>
+
+                                  <div style="background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.4);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                                    <span style="font-size:20px;">⚙️</span>
+                                    <div style="font-size:11px;color:#cbd5e1;line-height:1.4;">
+                                      <strong style="color:#38bdf8;">Pipeline automatiquement basculée en Phase 2 (Multi-Batch) :</strong><br/>
+                                      1. Collez le prompt ci-dessous dans <strong>Stitch</strong>.<br/>
+                                      2. Dès que votre UI est générée, téléchargez le <strong>.zip</strong>.<br/>
+                                      3. Cliquez sur <strong>📎 Joindre ZIP (Stitch)</strong> pour lancer l'assemblage backend !
+                                    </div>
+                                  </div>
+
                                   <p style="margin:0;font-size:12px;color:#e2e8f0;line-height:1.5;">
                                     ✅ <strong>Le prompt Stitch est prêt et formaté !</strong> Cliquez sur le bouton ci-dessous pour le copier, puis collez-le (<strong>Ctrl + V</strong>) dans votre onglet Stitch :
                                   </p>
-                                  <textarea id="tiger-prompt-area" readonly style="width:100%;height:220px;background:#050505;border:1px solid #334155;border-radius:10px;padding:12px;font-family:monospace;font-size:11px;color:#67e8f9;resize:none;outline:none;box-sizing:border-box;">${promptContent}</textarea>
+                                  <textarea id="tiger-prompt-area" readonly style="width:100%;height:200px;background:#050505;border:1px solid #334155;border-radius:10px;padding:12px;font-family:monospace;font-size:11px;color:#67e8f9;resize:none;outline:none;box-sizing:border-box;">${promptContent}</textarea>
                                   <div style="display:flex;gap:12px;">
                                     <button id="btn-copy-prompt" style="flex:1;background:linear-gradient(135deg,#06b6d4,#2563eb);color:#fff;border:none;padding:14px 20px;border-radius:10px;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 0 20px rgba(6,182,212,0.4);display:flex;align-items:center;justify-content:center;gap:8px;">
                                       📋 COPIER LE MÉGA-PROMPT
@@ -1597,6 +1644,7 @@ const WidgetSettings = ({
                                   document.execCommand('copy');
                                 }
                                 if (navigator.clipboard) navigator.clipboard.writeText(promptContent).catch(() => {});
+                                setSelectedStartPhase(2);
                                 if (copyBtn) {
                                   copyBtn.innerHTML = '✅ COPIÉ DANS LE PRESSE-PAPIER !';
                                   copyBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
@@ -1609,12 +1657,13 @@ const WidgetSettings = ({
                                 }
                               };
 
-                              if (copyBtn) copyBtn.onclick = doCopy;
-                              if (closeBtn) closeBtn.onclick = () => overlay.remove();
-                              if (stitchBtn) stitchBtn.onclick = () => window.open('https://stitch.withgoogle.com/', '_blank');
+                              if (copyBtn) copyBtn.onclick = () => { doCopy(); setSelectedStartPhase(2); };
+                              if (closeBtn) closeBtn.onclick = () => { overlay.remove(); setSelectedStartPhase(2); };
+                              if (stitchBtn) stitchBtn.onclick = () => { window.open('https://stitch.withgoogle.com/', '_blank'); setSelectedStartPhase(2); };
                               
-                              // Copie automatique immédiate dès l'affichage
+                              // Copie automatique immédiate dès l'affichage et bascule en Phase 2
                               doCopy();
+                              setSelectedStartPhase(2);
                             }
                           }).catch(e => {
                             console.error(e);
