@@ -15,7 +15,7 @@ const os   = require('os');
 // CONSTANTES
 // =============================================================================
 
-const BASE_WORKSPACE = 'e:\\v0reponses\\v0-moteur-electron\\v0saveprojets';
+const BASE_WORKSPACE = global.WORKSPACE_DIR || process.env.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets');
 
 /** Répertoire de persistance des jobs mobiles */
 const MOBILE_JOBS_DIR = path.join(BASE_WORKSPACE, '.kirov', 'jobs');

@@ -10,9 +10,12 @@
 const registry = require('./mcp-registry');
 
 // Serveurs MCP (vague 1 — Sprint 4)
-const ServerFilesystem  = require('../../mcp/servers/project-filesystem');
-const ServerMemory      = require('../../mcp/servers/project-memory');
-const ServerBrowser     = require('../../mcp/servers/browser-deepseek-extension');
+let ServerFilesystem = null;
+let ServerMemory = null;
+let ServerBrowser = null;
+try { ServerFilesystem = require('../../mcp/servers/project-filesystem'); } catch(e) { console.warn('[MCP-HOST] project-filesystem non chargé:', e.message); }
+try { ServerMemory     = require('../../mcp/servers/project-memory');     } catch(e) { console.warn('[MCP-HOST] project-memory non chargé:',     e.message); }
+try { ServerBrowser    = require('../../mcp/servers/browser-deepseek-extension'); } catch(e) { console.warn('[MCP-HOST] browser-deepseek non chargé:', e.message); }
 
 // Serveurs MCP (vague 2 — Sprint 5)
 let ServerRunner  = null;
