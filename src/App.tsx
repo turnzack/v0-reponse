@@ -1534,14 +1534,81 @@ const WidgetSettings = ({
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             const promptContent = tData?.prompt || tData?.data?.prompt || "Génération UI/UX Stitch complète.";
-                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                              navigator.clipboard.writeText(promptContent).catch(() => {});
-                            }
                             const packInfo = activePacks.length > 0 ? activePacks.join(', ') : 'standard';
-                            alert(`🚀 PIPELINE ONE-SHOT INITIALISÉE !\n\n1. L'onglet Stitch a été ouvert dans votre navigateur.\n2. Le Méga-Prompt complet (${promptContent.length} car.) pour "${proj}" avec le pack "${packInfo}" est copié dans votre presse-papier !\n👉 Faites simplement Ctrl + V dans Stitch pour lancer le dessin de l'interface !\n3. Dès que votre design est prêt dans Stitch, téléchargez le ZIP : l'orchestrateur Zero-Touch prendra le relais automatiquement.`);
+                            
+                            // Afficher l'overlay avec prévisualisation et copie garantie
+                            if (typeof document !== 'undefined') {
+                              const existing = document.getElementById('tiger-mega-prompt-overlay');
+                              if (existing) existing.remove();
+
+                              const overlay = document.createElement('div');
+                              overlay.id = 'tiger-mega-prompt-overlay';
+                              overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:sans-serif;';
+                              
+                              overlay.innerHTML = `
+                                <div style="background:#0f172a;border:2px solid #06b6d4;border-radius:16px;width:100%;max-width:760px;padding:24px;box-shadow:0 0 50px rgba(6,182,212,0.4);display:flex;flex-direction:column;gap:16px;color:#fff;">
+                                  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:12px;">
+                                    <div>
+                                      <h3 style="margin:0;font-size:16px;font-weight:900;color:#38bdf8;display:flex;align-items:center;gap:8px;">
+                                        <span>🧵</span> MÉGA-PROMPT STITCH PRÊT (${promptContent.length} car.)
+                                      </h3>
+                                      <p style="margin:4px 0 0 0;font-size:11px;color:#94a3b8;">
+                                        Projet : <strong style="color:#e2e8f0;">${proj}</strong> | Pack PRD : <strong style="color:#a855f7;">${packInfo}</strong>
+                                      </p>
+                                    </div>
+                                    <button id="btn-close-prompt-overlay" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-weight:bold;display:flex;align-items:center;justify-content:center;">✕</button>
+                                  </div>
+                                  <p style="margin:0;font-size:12px;color:#e2e8f0;line-height:1.5;">
+                                    ✅ <strong>Le prompt Stitch est prêt et formaté !</strong> Cliquez sur le bouton ci-dessous pour le copier, puis collez-le (<strong>Ctrl + V</strong>) dans votre onglet Stitch :
+                                  </p>
+                                  <textarea id="tiger-prompt-area" readonly style="width:100%;height:220px;background:#050505;border:1px solid #334155;border-radius:10px;padding:12px;font-family:monospace;font-size:11px;color:#67e8f9;resize:none;outline:none;box-sizing:border-box;">${promptContent}</textarea>
+                                  <div style="display:flex;gap:12px;">
+                                    <button id="btn-copy-prompt" style="flex:1;background:linear-gradient(135deg,#06b6d4,#2563eb);color:#fff;border:none;padding:14px 20px;border-radius:10px;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 0 20px rgba(6,182,212,0.4);display:flex;align-items:center;justify-content:center;gap:8px;">
+                                      📋 COPIER LE MÉGA-PROMPT
+                                    </button>
+                                    <button id="btn-open-stitch" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:14px 24px;border-radius:10px;font-weight:bold;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                      🚀 OUVRIR STITCH
+                                    </button>
+                                  </div>
+                                </div>
+                              `;
+
+                              document.body.appendChild(overlay);
+
+                              const ta = document.getElementById('tiger-prompt-area') as HTMLTextAreaElement;
+                              const copyBtn = document.getElementById('btn-copy-prompt');
+                              const closeBtn = document.getElementById('btn-close-prompt-overlay');
+                              const stitchBtn = document.getElementById('btn-open-stitch');
+
+                              const doCopy = () => {
+                                if (ta) {
+                                  ta.select();
+                                  ta.setSelectionRange(0, 99999);
+                                  document.execCommand('copy');
+                                }
+                                if (navigator.clipboard) navigator.clipboard.writeText(promptContent).catch(() => {});
+                                if (copyBtn) {
+                                  copyBtn.innerHTML = '✅ COPIÉ DANS LE PRESSE-PAPIER !';
+                                  copyBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                                  setTimeout(() => {
+                                    if (copyBtn) {
+                                      copyBtn.innerHTML = '📋 COPIER LE MÉGA-PROMPT';
+                                      copyBtn.style.background = 'linear-gradient(135deg,#06b6d4,#2563eb)';
+                                    }
+                                  }, 3000);
+                                }
+                              };
+
+                              if (copyBtn) copyBtn.onclick = doCopy;
+                              if (closeBtn) closeBtn.onclick = () => overlay.remove();
+                              if (stitchBtn) stitchBtn.onclick = () => window.open('https://stitch.withgoogle.com/', '_blank');
+                              
+                              // Copie automatique immédiate dès l'affichage
+                              doCopy();
+                            }
                           }).catch(e => {
                             console.error(e);
-                            alert("L'onglet Stitch a été ouvert. Assurez-vous d'avoir saisi les consignes de design.");
+                            alert("Erreur de communication avec le serveur Kirov5.");
                           });
                           return;
                         }
