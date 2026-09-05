@@ -662,6 +662,12 @@ export default function App() {
           } else if (task.phase_num === 5) {
             console.log(`[TROMBONE] 🎉 PIPELINE SOUVERAIN ZÉRO-TOUCH EFFECTUÉ AVEC SUCCÈS pour ${task.project_id} !`);
             if (global.addLog) global.addLog(`[TROMBONE] 🎉 PIPELINE COMPLET TERMINÉ avec succès pour ${task.project_id}.`);
+            
+            // 🚀 DÉCLENCHEMENT AUTOMATIQUE ZERO-TOUCH POST-PHASE 5 :
+            // 1. Installation des dépendances (pnpm install)
+            // 2. Démarrage automatique du serveur Vite (pnpm run dev --host 0.0.0.0 --port 5173)
+            // 3. Émission de l'URL_PREVIEW pour affichage direct dans l'interface
+            autoInstallAndLaunchDevServer(task.project_id);
           }
         }
       } catch (err) {
@@ -672,6 +678,168 @@ export default function App() {
       }
     }
   }
+}
+
+// 🚀 AUTOMATISATION POST-PHASE 5 : Installation dépendances + Lancement Dev Server + Preview
+function autoInstallAndLaunchDevServer(projectId) {
+  const path = require('path');
+  const cp = require('child_process');
+  const fs = require('fs');
+
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const candidates = [
+    global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+    path.join(process.cwd(), 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join(__dirname, '..', '..', '..', '..', 'v0saveprojets', cleanId),
+    path.join('/var/www/tiger/v0saveprojets', cleanId),
+    path.join('/var/projects', cleanId)
+  ].filter(Boolean);
+
+  let projectRoot = candidates[0];
+  for (const cand of candidates) {
+    if (fs.existsSync(cand)) {
+      projectRoot = cand;
+      break;
+    }
+  }
+
+  if (!fs.existsSync(projectRoot)) {
+    fs.mkdirSync(projectRoot, { recursive: true });
+  }
+
+  // Vérifier et initialiser package.json si absent
+  const pkgPath = path.join(projectRoot, 'package.json');
+  if (!fs.existsSync(pkgPath)) {
+    const defaultPkg = {
+      name: cleanId.toLowerCase(),
+      private: true,
+      version: "0.0.0",
+      type: "module",
+      scripts: {
+        dev: "vite --host 0.0.0.0 --port 5173",
+        build: "tsc && vite build",
+        preview: "vite preview --host 0.0.0.0 --port 5173"
+      },
+      dependencies: {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "lucide-react": "^0.344.0"
+      },
+      devDependencies: {
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "typescript": "^5.5.3",
+        "vite": "^5.4.2"
+      }
+    };
+    try {
+      fs.writeFileSync(pkgPath, JSON.stringify(defaultPkg, null, 2));
+      if (global.addLog) global.addLog(`[📦] package.json créé pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  const isWin = process.platform === 'win32';
+
+  // Lancement du serveur Vite de développement
+  const launchVite = () => {
+    global.activeDevServers = global.activeDevServers || new Map();
+    if (global.activeDevServers.has(cleanId)) {
+      try {
+        const oldProc = global.activeDevServers.get(cleanId);
+        if (oldProc && !oldProc.killed) {
+          if (isWin) cp.exec(`taskkill /pid ${oldProc.pid} /T /F`, () => {});
+          else oldProc.kill('SIGTERM');
+        }
+      } catch (_) {}
+      global.activeDevServers.delete(cleanId);
+    }
+
+    const cmd = isWin ? 'cmd.exe' : '/bin/sh';
+    const devCommand = 'pnpm run dev --host 0.0.0.0 --port 5173 || npm run dev -- --host 0.0.0.0 --port 5173';
+    const args = isWin ? ['/c', devCommand] : ['-c', devCommand];
+
+    const devProc = cp.spawn(cmd, args, {
+      cwd: projectRoot,
+      shell: false,
+      windowsHide: true,
+      env: { ...process.env, PORT: '5173' }
+    });
+
+    global.activeDevServers.set(cleanId, devProc);
+
+    const previewUrl = `http://109.205.182.17:5173`;
+    if (global.addLog) {
+      global.addLog(`[💻 AUTO-PILOT] 🚀 Serveur Vite lancé automatiquement pour ${cleanId} !`);
+      global.addLog(`URL_PREVIEW=${previewUrl}`);
+      global.addLog(`[VITE READY] 🎉 Application "${cleanId}" prête et active sur : ${previewUrl}`);
+    }
+    console.log(`[AUTO-PILOT] Serveur Vite démarré pour ${cleanId} sur ${previewUrl}`);
+
+    devProc.stdout.on('data', (data) => {
+      const text = data.toString().trim();
+      if (text && global.addLog) {
+        global.addLog(`[VITE] ${text}`);
+      }
+    });
+
+    devProc.stderr.on('data', (data) => {
+      const text = data.toString().trim();
+      if (text && global.addLog) {
+        global.addLog(`[VITE] ${text}`);
+      }
+    });
+
+    devProc.on('close', (code) => {
+      if (global.activeDevServers.get(cleanId) === devProc) {
+        global.activeDevServers.delete(cleanId);
+      }
+      if (global.addLog) global.addLog(`[VITE] Serveur arrêté pour ${cleanId} (code ${code})`);
+    });
+  };
+
+  const hasNodeModules = fs.existsSync(path.join(projectRoot, 'node_modules'));
+  if (hasNodeModules) {
+    if (global.addLog) global.addLog(`[AUTO-PILOT] ⚡ node_modules déjà présent pour ${cleanId}. Lancement immédiat du serveur Vite...`);
+    launchVite();
+    return;
+  }
+
+  if (global.addLog) global.addLog(`[AUTO-PILOT] 📦 Début de l'installation automatique des dépendances (pnpm install) pour ${cleanId}...`);
+
+  const installCmd = isWin ? 'cmd.exe' : '/bin/sh';
+  const installShell = 'pnpm install --force || npm install --force';
+  const installArgs = isWin ? ['/c', installShell] : ['-c', installShell];
+
+  const installProc = cp.spawn(installCmd, installArgs, {
+    cwd: projectRoot,
+    shell: false,
+    windowsHide: true
+  });
+
+  installProc.stdout.on('data', (data) => {
+    const text = data.toString().trim();
+    if (text && global.addLog) {
+      global.addLog(`[📦 INSTALL] ${text}`);
+    }
+  });
+
+  installProc.stderr.on('data', (data) => {
+    const text = data.toString().trim();
+    if (text && global.addLog) {
+      global.addLog(`[📦 WARN] ${text}`);
+    }
+  });
+
+  installProc.on('close', (code) => {
+    if (code === 0) {
+      if (global.addLog) global.addLog(`[AUTO-PILOT] ✅ Dépendances installées avec succès pour ${cleanId} ! Enchaînement direct sur le serveur Vite...`);
+    } else {
+      if (global.addLog) global.addLog(`[AUTO-PILOT] ⚠️ Installation terminée avec code ${code} pour ${cleanId}. Démarrage du serveur Vite...`);
+    }
+    launchVite();
+  });
 }
 
 // Start the worker

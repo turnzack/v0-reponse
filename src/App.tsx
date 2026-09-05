@@ -3653,7 +3653,10 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
     } else if (activeProject) {
       setIsIdeFullscreen(true);
       const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
-      const defaultUrl = isNextJs ? "http://localhost:3000" : "http://127.0.0.1:5175";
+      const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const defaultUrl = isNextJs 
+        ? "http://localhost:3000" 
+        : (lastPreviewUrlRef.current || (isRemote ? `http://${window.location.hostname}:5173` : "http://localhost:5173"));
       setPreviewUrl(defaultUrl);
       setPreviewInput(defaultUrl);
       lastPreviewUrlRef.current = defaultUrl;
@@ -3887,12 +3890,26 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
             setMouchardLogs(data.logs);
             const serverReadyLog = [...data.logs].reverse().find((log: string) => log.includes("URL_PREVIEW="));
             if (serverReadyLog) {
-              const url = serverReadyLog.split('URL_PREVIEW=')[1];
+              let url = serverReadyLog.split('URL_PREVIEW=')[1]?.trim();
+              if (url && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                url = url.replace(/localhost|127\.0\.0\.1/, window.location.hostname);
+              }
 
-              if (url !== lastPreviewUrlRef.current) {
+              if (url && url !== lastPreviewUrlRef.current) {
                 lastPreviewUrlRef.current = url;
                 setPreviewUrl(url);
                 setPreviewInput(url);
+                setIsIdeFullscreen(true);
+              }
+            }
+
+            // Détection automatique de fin de pipeline complet
+            const pipelineDoneLog = [...data.logs].reverse().find((log: string) => log.includes("PIPELINE COMPLET TERMINÉ avec succès pour "));
+            if (pipelineDoneLog) {
+              const matchedProj = pipelineDoneLog.split("PIPELINE COMPLET TERMINÉ avec succès pour ")[1]?.replace(/[.\s]+$/, '');
+              if (matchedProj && activeProject !== matchedProj) {
+                setActiveProject(matchedProj);
+                setIsIdeFullscreen(true);
               }
             }
           }
@@ -5487,14 +5504,14 @@ Format attendu:
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
                           <span className="text-xs font-mono font-bold text-green-400">
-                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : "LOCALHOST:5175"})
+                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `${window.location.hostname}:5173` : "LOCALHOST:5173")})
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5175")}
+                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `http://${window.location.hostname}:5173` : "http://localhost:5173"))}
                             onChange={(e) => setPreviewInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') setPreviewUrl(previewInput);
@@ -5521,7 +5538,7 @@ Format attendu:
                       {/* IFRAME APPLICATION ACTIVE */}
                       <div className="flex-1 relative overflow-hidden" style={{ background: 'var(--preview-bg)' }}>
                         <iframe
-                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : "http://localhost:5175")}
+                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `http://${window.location.hostname}:5173` : "http://localhost:5173"))}
                           className="w-full h-full border-none"
                           title="Application Preview Live"
                         />
