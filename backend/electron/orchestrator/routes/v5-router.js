@@ -634,9 +634,22 @@ export default function App() {
             console.log(`[TROMBONE] 🚀 Auto-Pilot : Injection de la Phase 3/4 (Câblage Métier)...`);
             
             const promptId = `prompt_phase4_${Date.now()}`;
+            let moduleDirectives = "";
+            const prdPath = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), task.project_id, 'hermes-business-pack.json');
+            if (fs.existsSync(prdPath)) {
+              try {
+                const prdData = JSON.parse(fs.readFileSync(prdPath, 'utf8'));
+                if (prdData && Array.isArray(prdData.modules)) {
+                  moduleDirectives = `\n\n[DIRECTIVES MÉTIER DES PACKS]\n` +
+                    prdData.modules.map(m => `• ${m.name} : ${m.mission} => Composants: ${(m.mappingVfs || []).join(', ')}`).join('\n') +
+                    `\n\nCÂBLAGE REQUIS : Relie tous ces composants dans src/App.tsx et src/pages, câble les states réactifs et assure un prototype 100% interactif.`;
+                }
+              } catch (_) {}
+            }
+
             _pendingBridgeQueue.push({
                prompt_id: promptId,
-               prompt: `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${task.project_id}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.`,
+               prompt: `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${task.project_id}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.${moduleDirectives}`,
                target_ai: targetAi || 'cloudflare',
                project_id: task.project_id,
                phase_num: 4,
@@ -1794,15 +1807,9 @@ function autoInstallAndLaunchDevServer(projectId) {
 // Start the worker
 startApiWorker().catch(e => console.error("API Worker Error:", e));
 
-function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
-  const projName = projectId || 'MON_PROJET';
-  
-  // Formatage des packs
+// Helper universel pour extraire et compiler l'expertise métier des packs PRD
+function resolvePackExpertise(packs = [], projName = '') {
   const packList = Array.isArray(packs) && packs.length > 0 ? packs : ['pack_standard'];
-  const packHeaders = packList.map(p => `• ${p.replace(/_/g, ' ').toUpperCase()} (#${p})`).join('\n');
-  
-  // Détail des packs
-  const packDetails = [];
   const fs = require('fs');
   const path = require('path');
   
@@ -1817,6 +1824,14 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
     path.join(process.cwd(), 'boilerplates', 'projets', 'pack', 'BIBLE_PRD')
   ];
 
+  const result = {
+    packHeaders: packList.map(p => `• ${p.replace(/_/g, ' ').toUpperCase()} (#${p})`).join('\n'),
+    modules: [],
+    readmes: [],
+    manifests: [],
+    details: []
+  };
+
   for (const packName of packList) {
     let found = false;
     for (const baseDir of possibleDirs) {
@@ -1826,22 +1841,38 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
           const files = fs.readdirSync(targetDir);
           let packBlocks = [];
 
-          // 1. Extraire les balises [CONTEXTE CACHÉ] des fichiers inject_*.js
+          // 1. Extraire les modules [CONTEXTE CACHÉ - PRD ...] des fichiers inject_*.js
           const injectFiles = files.filter(f => f.startsWith('inject_') && f.endsWith('.js'));
           for (const f of injectFiles) {
             try {
               const code = fs.readFileSync(path.join(targetDir, f), 'utf8');
-              const matches = code.match(/(\[CONTEXTE CACHÉ[\s\S]*?\[FIN DU CONTEXTE CACHÉ\])/g);
-              if (matches && matches.length > 0) {
-                packBlocks.push(matches.join('\n\n'));
+              const regex = /\[CONTEXTE CACHÉ\s*-\s*PRD\s*([^\]]+)\]([\s\S]*?)\[FIN DU CONTEXTE CACHÉ\]/g;
+              let m;
+              while ((m = regex.exec(code)) !== null) {
+                const name = m[1].trim();
+                const body = m[2];
+                const mission = body.match(/MISSION:\s*([^\n\r]+)/)?.[1]?.trim() || '';
+                const style = body.match(/STYLE & DESIGN:\s*([^\n\r]+)/)?.[1]?.trim() || '';
+                const mappingVfs = body.match(/MAPPING VFS:\s*([^\n\r]+)/)?.[1]?.trim() || '';
+                result.modules.push({
+                  packName,
+                  id: name.toLowerCase(),
+                  name,
+                  mission,
+                  style,
+                  mappingVfs: mappingVfs ? mappingVfs.split(',').map(s => s.trim()) : [],
+                  raw: m[0]
+                });
+                packBlocks.push(m[0]);
               }
             } catch (_) {}
           }
 
-          // 2. Extraire la documentation README.md ou prd.md
+          // 2. Extraire la documentation README.md
           if (files.includes('README.md')) {
             try {
               const readme = fs.readFileSync(path.join(targetDir, 'README.md'), 'utf8');
+              result.readmes.push({ packName, content: readme });
               packBlocks.push(readme.slice(0, 1500));
             } catch (_) {}
           } else if (files.includes('prd.md')) {
@@ -1851,32 +1882,66 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
             } catch (_) {}
           }
 
-          if (packBlocks.length > 0) {
-            packDetails.push(`• PACK : ${packName.toUpperCase()}\n\n${packBlocks.join('\n\n')}`);
-            found = true;
-            break;
+          // 3. Extraire manifest.json
+          if (files.includes('manifest.json')) {
+            try {
+              const m = JSON.parse(fs.readFileSync(path.join(targetDir, 'manifest.json'), 'utf8'));
+              result.manifests.push({ packName, manifest: m });
+              if (packBlocks.length === 0) {
+                packBlocks.push(`Nom: ${m.name || packName}\nDescription: ${m.description || ''}\nFonctionnalités: ${(m.features || []).join(', ')}`);
+              }
+            } catch (_) {}
           }
 
-          // 3. Fallback manifest.json
-          if (files.includes('manifest.json')) {
-            const m = JSON.parse(fs.readFileSync(path.join(targetDir, 'manifest.json'), 'utf8'));
-            packDetails.push(`• PACK : ${m.name || packName.toUpperCase()}\nDescription: ${m.description || ''}\nFonctionnalités: ${(m.features || []).join(', ')}`);
+          if (packBlocks.length > 0) {
+            result.details.push(`• PACK : ${packName.toUpperCase()}\n\n${packBlocks.join('\n\n')}`);
             found = true;
             break;
           }
         } catch (_) {}
       }
     }
+
     if (!found) {
-      // Synthèse PRD contextuelle intelligente si le pack est sélectionné sans fichier physique
       const cleanName = packName.replace(/_/g, ' ').toUpperCase();
-      packDetails.push(`• PACK : ${cleanName} (#${packName})
+      result.details.push(`• PACK : ${cleanName} (#${packName})
 Spécifications UI/UX & Fonctionnalités Clés :
 - Conception d'un module interactif complet dédié à ${cleanName} avec des composants visuels haute fidélité (cartes interactives, tableaux de bord, formulaires, listes dynamiques, modales et tiroirs d'actions).
 - Ergonomie soignée, boutons réactifs avec micro-animations et design dark-mode moderne.
 - Zéro placeholder : intégration d'échantillons de données réalistes et immersives.`);
     }
   }
+
+  // 4. Persistance automatique dans le dossier du projet (hermes-business-pack.json)
+  if (projName && result.modules.length > 0) {
+    try {
+      const projRoot = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), projName);
+      if (!fs.existsSync(projRoot)) fs.mkdirSync(projRoot, { recursive: true });
+      const hermesPackPath = path.join(projRoot, 'hermes-business-pack.json');
+      fs.writeFileSync(hermesPackPath, JSON.stringify({
+        project: projName,
+        packs: packList,
+        modulesCount: result.modules.length,
+        modules: result.modules.map(m => ({
+          name: m.name,
+          mission: m.mission,
+          style: m.style,
+          mappingVfs: m.mappingVfs
+        })),
+        updatedAt: new Date().toISOString()
+      }, null, 2), 'utf8');
+      console.log(`[TROMBONE] 📁 hermes-business-pack.json persisté pour ${projName} (${result.modules.length} modules métiers)`);
+    } catch (e) {
+      console.warn("[TROMBONE] Erreur écriture hermes-business-pack.json:", e.message);
+    }
+  }
+
+  return result;
+}
+
+function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
+  const projName = projectId || 'MON_PROJET';
+  const expertise = resolvePackExpertise(packs, projName);
 
   const megaPrompt = `[PROJET : ${projName.toUpperCase()}]
 Initialisation du projet ${projName.toUpperCase()}
@@ -1891,8 +1956,8 @@ Initialisation du projet ${projName.toUpperCase()}
 • TON RÔLE : Tu dois EXCLUSIVEMENT créer les composants UI dans \`src/components/\`, les pages dans \`src/pages/\`, et assembler le tout dans \`src/App.tsx\`. Utilise uniquement les classes de Tailwind CSS. NOTE: Les variables CSS standards de type shadcn SONT DÉJÀ CONFIGURÉES.
 • ROUTAGE STRICT : Dans \`src/App.tsx\`, vérifie que chaque import correspond EXACTEMENT au nom du fichier plat que tu as généré dans \`src/pages/\`. N'invente pas de routes fantômes ni de dépendances externes.
 
-[PACKS PRD ARCHITECTURE SÉLECTIONNÉS (${packList.length})]
-${packHeaders}
+[PACKS PRD ARCHITECTURE SÉLECTIONNÉS (${expertise.details.length})]
+${expertise.packHeaders}
 
 --- INSTRUCTIONS UX/UI DE DESIGN SENIOR ---
 Tu es un Product Designer Senior UI/UX. Tu dois concevoir l'interface graphique globale et les écrans de ce projet :
@@ -1906,8 +1971,8 @@ Tu es un Product Designer Senior UI/UX. Tu dois concevoir l'interface graphique 
 - GÉNÉRATION DIRECTE : Ne pas demander de confirmation avant de générer les écrans. Générer TOUS les écrans nécessaires déduits du besoin utilisateur et des packs PRD ci-dessous.
 - 🚨 ANTI-CRASH DEEPSEEK : Ne créez JAMAIS de pages HTML monolithiques géantes. Divisez toujours votre UI en composants logiques ou en petits écrans séparés. Ne mettez jamais plus de 10 éléments interactifs complexes par écran (calques/états) pour éviter les dépassements de mémoire lors de la conversion.
 
---- PACKS PRD SÉLECTIONNÉS (${packList.length}) ---
-${packDetails.join('\n\n---\n\n')}
+--- PACKS PRD SÉLECTIONNÉS (${expertise.details.length}) ---
+${expertise.details.join('\n\n---\n\n')}
 
 --- BESOIN ET DIRECTIVES UTILISATEUR ---
 ${basePrompt || "Développer l'application complète selon les spécifications des packs ci-dessus."}`;
@@ -2444,8 +2509,17 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
     } else if (Number(start_phase) === 4 || Number(start_phase) === 3) {
       console.log(`[TROMBONE] Lancement de la Phase 3/4 (Câblage Métier - Business Wiring) pour ${target_project}...`);
       
+      const expertise = resolvePackExpertise(req.body.packs, target_project);
       const promptId = `prompt_phase4_${Date.now()}`;
-      promptText = `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${target_project}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.`;
+      
+      let moduleDirectives = "";
+      if (expertise.modules.length > 0) {
+        moduleDirectives = `\n\n[MODULES ET COMPOSANTS DU PACK MÉTIER À CÂBLER]\n` +
+          expertise.modules.map(m => `• ${m.name} (${m.mission}) => Fichiers VFS: ${m.mappingVfs.join(', ')}`).join('\n') +
+          `\n\nRÈGLE DE CÂBLAGE : Connecte tous ces composants dans src/App.tsx et src/pages, implémente la gestion d'état réactive (Zustand ou React State) et assure-toi que chaque action (bouton, formulaire, modal) est 100% fonctionnelle sans placeholder.`;
+      }
+
+      promptText = `[PHASE 3/4 - CÂBLAGE MÉTIER] Projet: ${target_project}\nConnecte l'ensemble des composants React générés dans src/components aux APIs, aux handlers d'événements et finalise la logique métier complète de l'application.${moduleDirectives}`;
       _pendingBridgeQueue.push({
          prompt_id: promptId,
          prompt: promptText,
@@ -2460,7 +2534,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       console.log(`[TROMBONE] Lancement de la Phase 5 (Backend Industrialisation) pour ${target_project}...`);
       
       const promptId = `prompt_phase5_${Date.now()}`;
-      promptText = `Applique le contrat de migration et d'industrialisation (Phase 5) pour le projet ${target_project}. Analyse le code généré, détecte les dépendances et prépare l'export définitif.`;
+      promptText = `Applique le contrat de migration et d'industrialisation (Phase 5) pour le projet ${target_project}. Analyse le code généré, valide la compilation TypeScript/Vite, vérifie l'absence de bugs et certifie le projet prêt pour la production.`;
       _pendingBridgeQueue.push({
          prompt_id: promptId,
          prompt: promptText,
@@ -2484,23 +2558,54 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
       const fs = require('fs');
       const path = require('path');
       
+      // 1. Résolution de l'expertise métier depuis les packs sélectionnés
+      const expertise = resolvePackExpertise(req.body.packs, target_project);
+      
       let contextStr = "";
       const prdPath = path.join(global.WORKSPACE_DIR || path.join(process.cwd(), 'v0saveprojets'), target_project, 'hermes-business-pack.json');
       if (fs.existsSync(prdPath)) {
-          try {
-              const prdContent = fs.readFileSync(prdPath, 'utf8');
-              contextStr = "\n\nCONTEXTE PROJET:\n" + prdContent;
-          } catch (e) {
-              console.warn("[TROMBONE] Erreur lecture PRD:", e);
-          }
+        try {
+          const prdContent = fs.readFileSync(prdPath, 'utf8');
+          contextStr = "\n\nCONTEXTE PROJET:\n" + prdContent;
+        } catch (e) {
+          console.warn("[TROMBONE] Erreur lecture PRD:", e);
+        }
       }
       
-      // Simuler le Multi-Batch (3 lots)
-      const batches = [
-        { name: "Fondation et Architecture Backend", desc: "Mets en place l'architecture de base, la base de données et les modèles." },
-        { name: "Composants UI et Intégration", desc: "Crée les composants d'interface utilisateur et connecte-les aux modèles." },
-        { name: "Routes et Logique métier", desc: "Finalise le routage, les contrôleurs et la logique métier principale." }
-      ];
+      // 2. Découpage dynamique des lots si des modules réels existent dans le pack
+      let batches = [];
+      if (expertise.modules.length > 0) {
+        const totalMods = expertise.modules.length;
+        const chunkSize = Math.ceil(totalMods / 3);
+        
+        for (let c = 0; c < totalMods; c += chunkSize) {
+          const slice = expertise.modules.slice(c, c + chunkSize);
+          const lotNum = Math.floor(c / chunkSize) + 1;
+          const lotNames = slice.map(m => m.name).join(', ');
+          const allVfsFiles = slice.flatMap(m => m.mappingVfs).filter(Boolean);
+          
+          batches.push({
+            name: `Lot ${lotNum} : ${lotNames}`,
+            desc: `Tu es l'Architecte Logiciel Senior. Génère le code complet, typé TypeScript et prêt pour la production pour les modules suivants :
+${slice.map(m => `--- MODULE ${m.name} ---
+MISSION : ${m.mission}
+STYLE & DESIGN : ${m.style || 'Interface Tailwind moderne et réactive'}
+FICHIERS VFS À PRODUIRE : ${m.mappingVfs.join(', ') || 'Composants dédiés dans src/components/'}`).join('\n\n')}
+
+DIRECTIVES TECHNIQUES OBLIGATOIRES :
+1. Crée les composants dans src/components/ et les écrans dans src/pages/.
+2. Fichiers cibles attendus : ${allVfsFiles.join(', ')}.
+3. Utilise uniquement TypeScript, React et Tailwind CSS. Zéro placeholder.`
+          });
+        }
+      } else {
+        // Fallback standard
+        batches = [
+          { name: "Fondation et Architecture Backend", desc: "Mets en place l'architecture de base, la base de données locale ou mock, et les modèles TypeScript." },
+          { name: "Composants UI et Intégration", desc: "Crée les composants d'interface utilisateur riches et connecte-les aux modèles de données." },
+          { name: "Routes et Logique métier", desc: "Finalise le routage React Router, les contrôleurs et la logique métier principale." }
+        ];
+      }
       
       batches.forEach((batch, idx) => {
         const promptId = `prompt_phase2_${idx}_${Date.now()}`;
@@ -2509,7 +2614,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
         _pendingBridgeQueue.push({
            prompt_id: promptId,
            prompt: pText,
-           target_ai: target_ai || 'deepseek',
+           target_ai: target_ai || 'cloudflare',
            project_id: target_project || 'GAME',
            phase_num: 2,
            phase_name: `Phase 2 - Lot ${idx + 1}`,
@@ -2517,7 +2622,7 @@ router.post(['/bridge/trombone', '/api/bridge/trombone'], async (req, res) => {
         });
       });
       
-      console.log(`[TROMBONE] ${batches.length} lots ajoutés à la file d'attente pour la Phase 2.`);
+      console.log(`[TROMBONE] ${batches.length} lots métiers dérivés du pack ajoutés à la file pour la Phase 2 (${target_ai}).`);
     }
 
     return ok(res, { success: true, prompt: promptText, message: 'Trombone configuré et orchestrateur lancé.' });

@@ -1455,6 +1455,11 @@ const WidgetSettings = ({
                           window.dispatchEvent(new CustomEvent('open-mouchard'));
                         }
 
+                        // Récupération dynamique des packs sélectionnés
+                        const activePacks = ((window as any).KIROV_SELECTED_PACKS && (window as any).KIROV_SELECTED_PACKS.length > 0)
+                          ? (window as any).KIROV_SELECTED_PACKS
+                          : (selectedPacks && selectedPacks.length > 0 ? selectedPacks : []);
+
                         if (Number(selectedStartPhase) === 5) {
                           // Lancer la Phase 5 (Backend)
                           safeFetch("/api/bridge/trombone", {
@@ -1466,7 +1471,8 @@ const WidgetSettings = ({
                               start_index: 1, 
                               zip_mode: true, 
                               start_phase: 5,
-                              auto_pilot: isAutoPilot
+                              auto_pilot: isAutoPilot,
+                              packs: activePacks
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 5 (INDUSTRIALISATION) LANCÉE !\nL'orchestrateur génère l'infrastructure et certifie le projet.");
@@ -1490,7 +1496,7 @@ const WidgetSettings = ({
                               zip_mode: true, 
                               start_phase: 4,
                               auto_pilot: isAutoPilot,
-                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                              packs: activePacks
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 3/4 (CÂBLAGE MÉTIER) LANCÉE !\nL'orchestrateur prend le relais pour connecter et câbler la logique métier.");
@@ -1514,7 +1520,7 @@ const WidgetSettings = ({
                               zip_mode: true, 
                               start_phase: 200,
                               auto_pilot: isAutoPilot,
-                              packs: ((window as any).KIROV_SELECTED_PACKS || [])
+                              packs: activePacks
                             })
                           }).then(r => r ? r.json() : null).then(tData => {
                             if (tData) alert("✅ PHASE 2 (LOGIQUE G5) LANCÉE !\nL'orchestrateur prend le relais pour générer le Backend et intégrer les composants.");
@@ -1531,10 +1537,6 @@ const WidgetSettings = ({
                           window.open("https://stitch.withgoogle.com/", "_blank");
                           window.dispatchEvent(new CustomEvent('open-mouchard'));
                         }
-
-                        const activePacks = ((window as any).KIROV_SELECTED_PACKS && (window as any).KIROV_SELECTED_PACKS.length > 0)
-                          ? (window as any).KIROV_SELECTED_PACKS
-                          : (selectedPacks && selectedPacks.length > 0 ? selectedPacks : []);
 
                         if (Number(selectedStartPhase) === 0) {
                           // Lancer la pipeline complète Zero-Touch (Phase 0 One-Shot)
