@@ -31,14 +31,6 @@ function broadcastLog(message: string, onLog?: (msg: string) => void) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('open-mouchard'));
     window.dispatchEvent(new CustomEvent('kirov-mouchard-log', { detail: message }));
-
-    const terminalLogs = document.getElementById('mouchard-terminal-logs');
-    if (terminalLogs) {
-      const isErr = message.includes('❌') || message.includes('Erreur');
-      const isSuccess = message.includes('✅') || message.includes('🎉');
-      const color = isErr ? 'text-red-400' : isSuccess ? 'text-emerald-400' : 'text-purple-300';
-      terminalLogs.innerHTML = `<div class="mb-1 opacity-90 break-words ${color}">${message}</div>` + terminalLogs.innerHTML;
-    }
   }
 
   // Notifier également le bridge backend pour persistance

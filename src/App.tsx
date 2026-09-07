@@ -6519,10 +6519,12 @@ Format attendu:
                   if (log.includes("[INSTALL]")) colorClass = "text-[#f29f43]"; // Orange
                   if (log.includes("[SERVER]")) colorClass = "text-[#0ab7d4]"; // Cyan vif
                   if (log.includes("[IDE]")) colorClass = "text-[#e27396]"; // Rose
-                  if (log.includes("WARN") || log.includes("ERR")) colorClass = "text-red-500";
+                  if (log.includes("[APK]")) colorClass = "text-[#c084fc]"; // Violet clair
+                  if (log.includes("WARN") || log.includes("ERR") || log.includes("❌")) colorClass = "text-red-500";
+                  if (log.includes("✅") || log.includes("🎉")) colorClass = "text-emerald-400";
 
                   return (
-                    <div key={idx} className={`mb-1 opacity-90 break-words ${colorClass}`}>
+                    <div key={`log_${idx}_${log.slice(0, 15)}`} className={`mb-1 opacity-90 break-words ${colorClass}`}>
                       {log}
                     </div>
                   );
@@ -6689,12 +6691,9 @@ Format attendu:
                   const targetFileRelative = activeFile || "src/App.tsx";
                   const fullTargetFilePath = `e:\\v0reponses\\v0-moteur-electron\\v0saveprojets\\${targetProj}\\${targetFileRelative.replace(/\//g, '\\')}`;
 
-                  setTimeout(() => {
-                    const logContainer = document.getElementById('mouchard-terminal-logs');
-                    if (logContainer) {
-                      logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#e27396]">> 🚀 Lancement du Patch UI (Suture dynamique sur ${targetProj})...</div>` + logContainer.innerHTML;
-                    }
-                  }, 50);
+                  window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+                    detail: `> 🚀 Lancement du Patch UI (Suture dynamique sur ${targetProj})...`
+                  }));
 
                   const res = await safeFetch("http://localhost:5006/api/design/intent", {
                     method: "POST",
@@ -6708,20 +6707,20 @@ Format attendu:
                     })
                   });
                   const data = res ? await res.json() : null;
-                  const logContainerAfter = document.getElementById('mouchard-terminal-logs');
-                  if (logContainerAfter) {
-                    if (data && data.success) {
-                      logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-[#00e676]">> 🎯 Patch appliqué avec succès par le LLM !</div>` + logContainerAfter.innerHTML;
-                    } else {
-                      logContainerAfter.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-400">> ⚠️ Erreur Patch UI AST : ${(data && data.error) || 'Basculement vers la Suture IA...'}</div>` + logContainerAfter.innerHTML;
-                      handleIDEAction("suture", `Échec du patch automatique AST : ${(data && data.error) || 'Format incompatible'}`);
-                    }
+                  if (data && data.success) {
+                    window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+                      detail: `> 🎯 Patch appliqué avec succès par le LLM !`
+                    }));
+                  } else {
+                    window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+                      detail: `> ⚠️ Erreur Patch UI AST : ${(data && data.error) || 'Basculement vers la Suture IA...'}`
+                    }));
+                    handleIDEAction("suture", `Échec du patch automatique AST : ${(data && data.error) || 'Format incompatible'}`);
                   }
                 } catch (err: any) {
-                  const logContainer = document.getElementById('mouchard-terminal-logs');
-                  if (logContainer) {
-                    logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-red-500">> ⛔ Erreur Patch UI : ${err.message}</div>` + logContainer.innerHTML;
-                  }
+                  window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+                    detail: `> ⛔ Erreur Patch UI : ${err.message}`
+                  }));
                   handleIDEAction("suture", `Exception Patch UI: ${err.message}`);
                 }
               }}
@@ -6745,10 +6744,9 @@ Format attendu:
                     role: "assistant",
                     content: `🧹 File Bridge vidée ! ${(data && data.flushed) || 0} prompt(s) supprimé(s).\n\nLa queue est vide. Relancez votre Suture ou Patch.`
                   }]);
-                  const logContainer = document.getElementById('mouchard-terminal-logs');
-                  if (logContainer) {
-                    logContainer.innerHTML = `<div class="mb-1 opacity-90 break-words text-yellow-400">> 🧹 Bridge Queue FLUSH — ${(data && data.flushed) || 0} tâche(s) nettoyée(s)</div>` + logContainer.innerHTML;
-                  }
+                  window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+                    detail: `> 🧹 Bridge Queue FLUSH — ${(data && data.flushed) || 0} tâche(s) nettoyée(s)`
+                  }));
                 } catch (e) {
                   alert("Moteur hors ligne : impossible de vider la queue.");
                 }
