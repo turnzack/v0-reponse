@@ -3462,127 +3462,6 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const [isLocalZipMode, setIsLocalZipMode] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
 
-  // --- ETAT : COMPILATEUR APK MOBILE (v0-apk) ---
-  const [isApkModalOpen, setIsApkModalOpen] = useState(false);
-  const [apkBuildStatus, setApkBuildStatus] = useState<"idle" | "building" | "success" | "error">("idle");
-  const [apkLogs, setApkLogs] = useState<string[]>([]);
-  const [selectedApkTarget, setSelectedApkTarget] = useState<string>("");
-  const [apkOutputUrl, setApkOutputUrl] = useState<string | null>(null);
-  const [availableApks, setAvailableApks] = useState<Array<{ file: string, name: string, sizeMb: string, url: string }>>([]);
-
-  const loadAvailableApks = useCallback(async () => {
-    try {
-      let list: any[] = [];
-      // 1. Récupération universelle depuis GitHub Releases
-      try {
-        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
-        if (ghRes.ok) {
-          const releases = await ghRes.json();
-          if (Array.isArray(releases)) {
-            releases.forEach((r: any) => {
-              if (Array.isArray(r.assets)) {
-                r.assets.forEach((ast: any) => {
-                  if (ast.name?.endsWith('.apk')) {
-                    list.push({
-                      file: ast.name,
-                      name: ast.name.replace('.apk', ''),
-                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
-                      url: ast.browser_download_url
-                    });
-                  }
-                });
-              }
-            });
-          }
-        }
-      } catch (e) {}
-
-      // 2. Récupération locale / VPS
-      try {
-        const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
-        if (res && res.ok) {
-          const data = await res.json();
-          if (data && data.success && Array.isArray(data.apks)) {
-            list = [...list, ...data.apks];
-          }
-        } else {
-          const cloudRes = await fetch("/api/mobile/list-apks");
-          if (cloudRes && cloudRes.ok) {
-            const cloudData = await cloudRes.json();
-            if (cloudData && cloudData.success && Array.isArray(cloudData.apks)) {
-              list = [...list, ...cloudData.apks];
-            }
-          }
-        }
-      } catch (e) {}
-
-      if (list.length > 0) {
-        // Dédoublonnage par nom de fichier
-        const seen = new Set<string>();
-        const unique = list.filter(item => {
-          if (seen.has(item.file.toLowerCase())) return false;
-          seen.add(item.file.toLowerCase());
-          return true;
-        });
-        setAvailableApks(unique);
-      }
-    } catch (e) {
-      console.warn("[v0-apk] loadAvailableApks error", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isApkModalOpen) {
-      loadAvailableApks();
-    }
-  }, [isApkModalOpen, loadAvailableApks]);
-
-  // --- POLLING LOGS APK ---
-  useEffect(() => {
-    let interval: any;
-    let failureCount = 0;
-    if (apkBuildStatus === 'building') {
-      interval = setInterval(async () => {
-        try {
-          const res = await safeFetch("http://localhost:5006/api/mobile/build-logs");
-          if (res && res.ok) {
-            failureCount = 0;
-            const data = await res.json();
-            if (data.logs && data.logs.length > 0) {
-              setApkLogs(data.logs);
-            }
-            if (data.isBuilding === false && data.result) {
-              if (data.result.success) {
-                setApkBuildStatus("success");
-                setApkOutputUrl(data.result.apkUrl);
-              } else {
-                setApkBuildStatus("error");
-              }
-              clearInterval(interval);
-            }
-          } else {
-            failureCount++;
-            if (failureCount >= 3) {
-              clearInterval(interval);
-              setApkBuildStatus("error");
-              setApkLogs(l => [
-                ...l,
-                `❌ Service de compilation mobile absent sur ce serveur (${res ? res.status : 'erreur réseau'}).`,
-                `📱 Option 1 (Cloud) : Déclenchez le build sans dépendance via GitHub Actions (.github/workflows/build-apk.yml).`,
-                `💻 Option 2 (Local) : Lancez 'python apk_builder.py --src ... --name ${selectedApkTarget || activeProject || 'app'} --build' dans E:\\v0reponses\\v0-apk.`
-              ]);
-            }
-          }
-        } catch (e) {
-          console.warn("Polling APK error", e);
-        }
-      }, 1500);
-
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [apkBuildStatus, selectedApkTarget, activeProject]);
 
 
   // --- WIDGET NEWS (LIVE API & FALLBACK RAPIDE) ---
@@ -3791,6 +3670,127 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [tromboneFiles, setTromboneFiles] = useState<{ path: string, content: string }[]>([]);
+
+  // --- ETAT : COMPILATEUR APK MOBILE (v0-apk) ---
+  const [isApkModalOpen, setIsApkModalOpen] = useState(false);
+  const [apkBuildStatus, setApkBuildStatus] = useState<"idle" | "building" | "success" | "error">("idle");
+  const [apkLogs, setApkLogs] = useState<string[]>([]);
+  const [selectedApkTarget, setSelectedApkTarget] = useState<string>("");
+  const [apkOutputUrl, setApkOutputUrl] = useState<string | null>(null);
+  const [availableApks, setAvailableApks] = useState<Array<{ file: string, name: string, sizeMb: string, url: string }>>([]);
+
+  const loadAvailableApks = useCallback(async () => {
+    try {
+      let list: any[] = [];
+      // 1. Récupération universelle depuis GitHub Releases
+      try {
+        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
+        if (ghRes.ok) {
+          const releases = await ghRes.json();
+          if (Array.isArray(releases)) {
+            releases.forEach((r: any) => {
+              if (Array.isArray(r.assets)) {
+                r.assets.forEach((ast: any) => {
+                  if (ast.name?.endsWith('.apk')) {
+                    list.push({
+                      file: ast.name,
+                      name: ast.name.replace('.apk', ''),
+                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
+                      url: ast.browser_download_url
+                    });
+                  }
+                });
+              }
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 2. Récupération locale / VPS
+      try {
+        const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.apks)) {
+            list = [...list, ...data.apks];
+          }
+        } else {
+          const cloudRes = await fetch("/api/mobile/list-apks");
+          if (cloudRes && cloudRes.ok) {
+            const cloudData = await cloudRes.json();
+            if (cloudData && cloudData.success && Array.isArray(cloudData.apks)) {
+              list = [...list, ...cloudData.apks];
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (list.length > 0) {
+        const seen = new Set<string>();
+        const unique = list.filter(item => {
+          if (seen.has(item.file.toLowerCase())) return false;
+          seen.add(item.file.toLowerCase());
+          return true;
+        });
+        setAvailableApks(unique);
+      }
+    } catch (e) {
+      console.warn("[v0-apk] loadAvailableApks error", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isApkModalOpen) {
+      loadAvailableApks();
+    }
+  }, [isApkModalOpen, loadAvailableApks]);
+
+  // --- POLLING LOGS APK ---
+  useEffect(() => {
+    let interval: any;
+    let failureCount = 0;
+    if (apkBuildStatus === 'building') {
+      interval = setInterval(async () => {
+        try {
+          const res = await safeFetch("http://localhost:5006/api/mobile/build-logs");
+          if (res && res.ok) {
+            failureCount = 0;
+            const data = await res.json();
+            if (data.logs && data.logs.length > 0) {
+              setApkLogs(data.logs);
+            }
+            if (data.isBuilding === false && data.result) {
+              if (data.result.success) {
+                setApkBuildStatus("success");
+                setApkOutputUrl(data.result.apkUrl);
+              } else {
+                setApkBuildStatus("error");
+              }
+              clearInterval(interval);
+            }
+          } else {
+            failureCount++;
+            if (failureCount >= 3) {
+              clearInterval(interval);
+              setApkBuildStatus("error");
+              setApkLogs(l => [
+                ...l,
+                `❌ Service de compilation mobile absent sur ce serveur (${res ? res.status : 'erreur réseau'}).`,
+                `📱 Option 1 (Cloud) : Déclenchez le build sans dépendance via GitHub Actions (.github/workflows/build-apk.yml).`,
+                `💻 Option 2 (Local) : Lancez 'python apk_builder.py --src ... --name ${selectedApkTarget || activeProject || 'app'} --build' dans E:\\v0reponses\\v0-apk.`
+              ]);
+            }
+          }
+        } catch (e) {
+          console.warn("Polling APK error", e);
+        }
+      }, 1500);
+
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [apkBuildStatus, selectedApkTarget, activeProject]);
 
   // Fetch initial project list
   useEffect(() => {
