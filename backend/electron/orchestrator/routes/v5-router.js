@@ -6548,6 +6548,61 @@ router.post(['/bridge/log', '/api/bridge/log'], (req, res) => {
   res.json({ success: true });
 });
 
+router.get(['/api/mobile/project-archive', '/mobile/project-archive'], (req, res) => {
+  const proj = (req.query.project || req.query.name || '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  if (!proj) return res.status(400).json({ error: 'Nom de projet requis' });
+
+  const candidateDirs = [
+    path.join('/var/projects', proj),
+    path.join(global.WORKSPACE_DIR || '', proj),
+    path.join(__dirname, '..', '..', 'v0saveprojets', proj),
+    path.join(process.cwd(), 'v0saveprojets', proj),
+    path.join('/var/www/tiger/backend/v0saveprojets', proj),
+    path.join('e:\\worldmodelv2\\boilerplates\\projets', proj),
+    path.join('e:\\v0reponses\\v0-moteur-electron\\v0saveprojets', proj)
+  ];
+
+  let targetDir = null;
+  for (const d of candidateDirs) {
+    if (d && fs.existsSync(d) && fs.statSync(d).isDirectory()) {
+      targetDir = d;
+      break;
+    }
+  }
+
+  if (!targetDir) {
+    return res.status(404).json({ error: `Projet "${proj}" introuvable sur le serveur.` });
+  }
+
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="${proj}.tar.gz"`);
+
+  const parentDir = path.dirname(targetDir);
+  const baseName = path.basename(targetDir);
+
+  const tarProc = cp.spawn('tar', [
+    '--exclude=node_modules',
+    '--exclude=.git',
+    '--exclude=android',
+    '-czf',
+    '-',
+    '-C',
+    parentDir,
+    baseName
+  ]);
+
+  tarProc.stdout.pipe(res);
+
+  tarProc.stderr.on('data', (d) => {
+    console.warn(`[ARCHIVE_TAR_WARN] ${d.toString()}`);
+  });
+
+  tarProc.on('error', (err) => {
+    console.error('[ARCHIVE_TAR_ERR]', err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  });
+});
+
 
 // GET /api/bridge/autonomous-status — État de l'orchestrateur Zero-Touch
 router.get(['/api/bridge/autonomous-status', '/bridge/autonomous-status'], (req, res) => {

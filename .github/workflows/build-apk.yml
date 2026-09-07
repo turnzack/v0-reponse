@@ -46,23 +46,48 @@ jobs:
           PROJ="${{ github.event.inputs.project_name }}"
           echo "Projet sélectionné : $PROJ"
           
-          # Chercher le dossier du projet
           TARGET_DIR=""
+          # 1. Chercher dans le dépôt local git
           if [ -d "boilerplates/projets/$PROJ" ]; then
             TARGET_DIR="boilerplates/projets/$PROJ"
           elif [ -d "v0saveprojets/$PROJ" ]; then
             TARGET_DIR="v0saveprojets/$PROJ"
-          elif [ -d "$PROJ" ]; then
+          elif [ -d "$PROJ" ] && [ "$PROJ" != "." ]; then
             TARGET_DIR="$PROJ"
-          else
-            TARGET_DIR="."
           fi
           
-          echo "Dossier cible : $TARGET_DIR"
+          # 2. Si le projet n'est pas dans le git, le récupérer en direct depuis le VPS Souverain (109.205.182.17)
+          if [ -z "$TARGET_DIR" ]; then
+            echo "Projet non présent dans le dépôt Git, téléchargement depuis le serveur VPS Cloud (109.205.182.17)..."
+            mkdir -p "/tmp/target_project"
+            if curl -fSL --connect-timeout 15 "http://109.205.182.17/api/mobile/project-archive?project=${PROJ}" -o /tmp/project.tar.gz; then
+              tar -xzf /tmp/project.tar.gz -C "/tmp/target_project"
+              if [ -d "/tmp/target_project/$PROJ" ]; then
+                TARGET_DIR="/tmp/target_project/$PROJ"
+              else
+                TARGET_DIR="/tmp/target_project"
+              fi
+              echo "✅ Code source de $PROJ récupéré avec succès depuis le VPS !"
+            else
+              echo "❌ ERREUR CRITIQUE : Projet $PROJ introuvable dans le Git ET sur le VPS !"
+              echo "Impossible de compiler un APK sans les sources du projet."
+              exit 1
+            fi
+          fi
+          
+          echo "Dossier cible validé : $TARGET_DIR"
           cd "$TARGET_DIR"
           
+          # S'assurer que vite.config utilise des chemins relatifs pour Capacitor (base: './')
+          if [ -f "vite.config.ts" ]; then
+            sed -i "s/base: *['\"][^'\"]*['\"]/base: '.\/'/g" vite.config.ts || true
+          fi
+          if [ -f "vite.config.js" ]; then
+            sed -i "s/base: *['\"][^'\"]*['\"]/base: '.\/'/g" vite.config.js || true
+          fi
+          
           # Installer dépendances et compiler le Web (dist)
-          pnpm install --no-frozen-lockfile || npm install
+          pnpm install --no-frozen-lockfile --config.ignore-scripts=false || npm install --legacy-peer-deps
           pnpm run build || npm run build
           
           echo "DIST_DIR=$(pwd)/dist" >> $GITHUB_ENV
