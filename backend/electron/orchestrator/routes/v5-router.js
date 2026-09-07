@@ -1241,7 +1241,7 @@ export default function App() {
     </div>
   );
 }
-\`;
+`;
     } else {
       // 🔍 Chercher s'il existe des composants dans src/components, components ou src/
       let compToMount = null;
