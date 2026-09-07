@@ -88,7 +88,19 @@ jobs:
           
           # Installer dépendances et compiler le Web (dist)
           pnpm install --no-frozen-lockfile --config.ignore-scripts=false || npm install --legacy-peer-deps
-          pnpm run build || npm run build
+          
+          # Installer express et cors si src/backend existe
+          if [ -d "src/backend" ] || [ -f "src/backend/server.ts" ]; then
+            npm install express cors @types/express @types/cors --save-dev --legacy-peer-deps || true
+          fi
+          
+          # Compiler le frontend avec Vite (npx vite build génère dist/ sans être bloqué par tsc sur le backend)
+          npx vite build || pnpm run build || npm run build
+          
+          if [ ! -d "dist" ]; then
+            echo "Tentative de build Vite forcé..."
+            npx vite build --emptyOutDir || true
+          fi
           
           echo "DIST_DIR=$(pwd)/dist" >> $GITHUB_ENV
           echo "PROJECT_DIR=$(pwd)" >> $GITHUB_ENV

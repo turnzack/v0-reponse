@@ -210,6 +210,7 @@ export async function launchCloudApkBuild(
           return;
         } else {
           broadcastLog(`> ❌ [📱 APK CLOUD] La compilation s'est terminée avec le statut : ${conclusion}`, onLog);
+          broadcastLog(`> 🔍 [📱 APK CLOUD] Logs détaillés du run : https://github.com/${GITHUB_REPO}/actions/runs/${runId}`, onLog);
           onStatusChange('error');
           return;
         }
