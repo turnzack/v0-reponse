@@ -3084,7 +3084,15 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
     };
 
     try {
-      // 1. Essai backend local / VPS
+      const isRemoteVps = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+      if (isRemoteVps) {
+        updateProgress("Compilation Cloud Souverain...");
+        await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
+        return;
+      }
+
+      // 1. Essai backend local (Windows)
       const localRes = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3119,7 +3127,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
             clearInterval(poller);
             await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
           }
-          if (attempts > 120) clearInterval(poller);
+          if (attempts > 60) clearInterval(poller);
         }, 2000);
       } else {
         updateProgress("Bascule Cloud Souverain...");
@@ -4288,7 +4296,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
         .then(res => res ? res.json() : null)
         .then(data => {
           if (data && data.success && data.logs) {
-            setMouchardLogs(data.logs);
+            setMouchardLogs((prev: string[]) => {
+              const localApk = prev.filter(l => (l.includes('[📱') || l.includes('v0-apk') || l.includes('[APK]')) && !data.logs.includes(l));
+              const combined = [...localApk, ...data.logs];
+              const seen = new Set();
+              const unique: string[] = [];
+              for (const item of combined) {
+                if (!seen.has(item)) {
+                  seen.add(item);
+                  unique.push(item);
+                }
+              }
+              return unique.slice(0, 50);
+            });
             const serverReadyLog = [...data.logs].reverse().find((log: string) => log.includes("URL_PREVIEW="));
             if (serverReadyLog) {
               let url = serverReadyLog.split('URL_PREVIEW=')[1]?.trim();

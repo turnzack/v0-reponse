@@ -3,6 +3,8 @@
 // Déclenche et supervise la compilation APK dans le Cloud sans ouvrir GitHub
 // ==============================================================================
 
+import { safeFetch } from './bridgeClient';
+
 const GITHUB_REPO = 'turnzack/v0-reponse';
 const GITHUB_WORKFLOW = 'build-apk.yml';
 
@@ -33,9 +35,9 @@ function broadcastLog(message: string, onLog?: (msg: string) => void) {
     window.dispatchEvent(new CustomEvent('kirov-mouchard-log', { detail: message }));
   }
 
-  // Notifier également le bridge backend pour persistance
+  // Notifier également le bridge backend pour persistance (compatible Local & VPS)
   try {
-    fetch('http://localhost:5006/api/bridge/log', {
+    safeFetch('http://localhost:5006/api/bridge/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
@@ -92,14 +94,14 @@ export async function launchCloudApkBuild(
 
       broadcastLog(`> ⚡ [📱 APK CLOUD] Job Dispatch validé. Initialisation du Runner Ubuntu 24.04...`, onLog);
 
-      // 2. Attente de la création du Run
+      // 2. Attente de la création du Run avec détection souple (gère aussi un run manuel)
       let attempts = 0;
-      while (!runId && attempts < 15) {
+      while (!runId && attempts < 20) {
         await new Promise(r => setTimeout(r, 2000));
         attempts++;
 
         const runsRes = await fetch(
-          `https://api.github.com/repos/${GITHUB_REPO}/actions/runs?event=workflow_dispatch&per_page=5`,
+          `https://api.github.com/repos/${GITHUB_REPO}/actions/runs?per_page=5`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -110,10 +112,17 @@ export async function launchCloudApkBuild(
 
         if (runsRes.ok) {
           const data = await runsRes.json();
-          const latestRun = data.workflow_runs?.[0];
-          if (latestRun && new Date(latestRun.created_at).getTime() >= startTime - 15000) {
-            runId = latestRun.id;
-            broadcastLog(`> 📋 [📱 APK CLOUD] Tâche assignée : Run #${runId} (https://github.com/${GITHUB_REPO}/actions/runs/${runId})`, onLog);
+          const runs = data.workflow_runs || [];
+          // Trouver le run actif le plus récent ou créé récemment (marge de 2 minutes pour écarts d'horloge)
+          const matched = runs.find((r: any) => 
+            r.status === 'in_progress' || 
+            r.status === 'queued' ||
+            new Date(r.created_at).getTime() >= startTime - 120000
+          ) || runs[0];
+
+          if (matched) {
+            runId = matched.id;
+            broadcastLog(`> 📋 [📱 APK CLOUD] Tâche assignée : Run #${runId} (Statut: ${matched.status})`, onLog);
           }
         }
       }
