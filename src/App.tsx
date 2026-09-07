@@ -1461,26 +1461,16 @@ const WidgetSettings = ({
                           : (selectedPacks && selectedPacks.length > 0 ? selectedPacks : []);
 
                         if (Number(selectedStartPhase) === 5) {
-                          // Lancer la Phase 5 (Backend)
-                          safeFetch("/api/bridge/trombone", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ 
-                              target_project: proj, 
-                              target_ai: activeTargetAi, 
-                              start_index: 1, 
-                              zip_mode: true, 
-                              start_phase: 5,
-                              auto_pilot: isAutoPilot,
-                              packs: activePacks
-                            })
-                          }).then(r => r ? r.json() : null).then(tData => {
-                            if (tData) alert("✅ PHASE 5 (INDUSTRIALISATION) LANCÉE !\nL'orchestrateur génère l'infrastructure et certifie le projet.");
-                            else alert("Mode Cloud SaaS : Bridge non disponible.");
-                          }).catch(e => {
-                            console.error(e);
-                            alert("Erreur lors du lancement de la Phase 5.");
-                          });
+                          // Déclencher l'audit interactif Phase 5 dans GuestIdeaPanel
+                          // L'utilisateur choisit dans les listes ses vrais métiers (Express, SQLite/Postgres, JWT, etc.)
+                          // et crée le Pack Industriel de remplacement des mocks !
+                          window.dispatchEvent(new CustomEvent('trigger_phase5_audit', { detail: { project: proj } }));
+                          
+                          // Focus sur le panneau droit
+                          const rightPanel = document.querySelector('.overflow-y-auto.hide-scrollbar');
+                          if (rightPanel) {
+                            rightPanel.scrollTop = 0;
+                          }
                           return;
                         }
 
