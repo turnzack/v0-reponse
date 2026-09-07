@@ -71,7 +71,7 @@ jobs:
       - name: ⚡ Intégration Capacitor & Android
         run: |
           cd "${{ env.PROJECT_DIR }}"
-          npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+          pnpm add -D @capacitor/core @capacitor/cli @capacitor/android || npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev --legacy-peer-deps
           
           # Initialiser capacitor si non existant
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
