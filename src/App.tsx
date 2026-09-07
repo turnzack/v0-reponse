@@ -2993,6 +2993,35 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [launchingProject, setLaunchingProject] = useState<string | null>(null);
+  const [availableApks, setAvailableApks] = useState<Record<string, { file: string, sizeMb: string, url: string }>>({});
+
+  const fetchApks = async () => {
+    try {
+      let list: any[] = [];
+      const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.apks)) list = data.apks;
+      } else {
+        const cRes = await fetch("/api/mobile/list-apks");
+        if (cRes && cRes.ok) {
+          const cData = await cRes.json();
+          if (cData && cData.success && Array.isArray(cData.apks)) list = cData.apks;
+        }
+      }
+      if (list.length > 0) {
+        const map: Record<string, { file: string, sizeMb: string, url: string }> = {};
+        list.forEach(a => {
+          map[a.name.toLowerCase()] = a;
+          map[a.file.toLowerCase()] = a;
+          map[a.name.toLowerCase().replace(/[^a-z0-9]/g, '')] = a;
+        });
+        setAvailableApks(map);
+      }
+    } catch (e) {
+      console.warn("[WidgetProjects] fetchApks error", e);
+    }
+  };
 
   const fetchProjects = (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -3047,8 +3076,12 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
 
   useEffect(() => {
     fetchProjects();
+    fetchApks();
     // Rafraîchissement automatique toutes les 5 secondes
-    const interval = setInterval(() => fetchProjects(true), 5000);
+    const interval = setInterval(() => {
+      fetchProjects(true);
+      fetchApks();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -3132,6 +3165,10 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
         }
       };
 
+      const cleanKey = targetProjName.toLowerCase();
+      const cleanSimple = cleanKey.replace(/[^a-z0-9]/g, '');
+      const projectApk = availableApks[cleanKey] || availableApks[cleanSimple] || availableApks[`${cleanKey}.apk`];
+
       return (
         <div
           key={i}
@@ -3139,6 +3176,20 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
           style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
           onClick={handleOpenProject}
         >
+          {/* Badge APK Prêt */}
+          {projectApk && (
+            <a
+              href={projectApk.url}
+              download={projectApk.file}
+              onClick={(e) => e.stopPropagation()}
+              className="z-20 absolute top-3 left-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-lg border border-emerald-400/50 transition-all hover:scale-105 cursor-pointer"
+              title={`Télécharger directement l'APK (${projectApk.sizeMb} Mo)`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+              <span>📱 APK PRÊT ({projectApk.sizeMb}M)</span>
+            </a>
+          )}
+
           {/* Bouton de suppression rouge direct depuis le carrousel */}
           <button
             onClick={handleDeleteProject}
@@ -3156,7 +3207,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
           </div>
           <div className="design-carte-desc z-10 relative text-sm text-white/90 font-medium drop-shadow-md pointer-events-none w-full">{p.desc}</div>
 
-          <div className="z-10 flex items-center gap-2 mt-3">
+          <div className="z-10 flex flex-wrap items-center justify-center gap-2 mt-3">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -3194,6 +3245,22 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
                 p.installed === false ? <>📦 INSTALL</> : <>🚀 PREVIEW</>
               )}
             </button>
+
+            {/* Bouton Téléchargement APK si créé */}
+            {projectApk && (
+              <a
+                href={projectApk.url}
+                download={projectApk.file}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold py-2 px-3.5 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-950/60 border border-emerald-400/50 cursor-pointer animate-pulse hover:scale-105"
+                title={`Télécharger l'APK Android compilé de ${targetProjName} (${projectApk.sizeMb} Mo)`}
+              >
+                <span>📥</span>
+                <span>APK</span>
+                <span className="text-[10px] opacity-90 font-mono">({projectApk.sizeMb}M)</span>
+              </a>
+            )}
+
             {p.installed !== false && (
               <>
                 <button
