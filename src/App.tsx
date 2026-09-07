@@ -2998,17 +2998,45 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
   const fetchApks = async () => {
     try {
       let list: any[] = [];
-      const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.apks)) list = data.apks;
-      } else {
-        const cRes = await fetch("/api/mobile/list-apks");
-        if (cRes && cRes.ok) {
-          const cData = await cRes.json();
-          if (cData && cData.success && Array.isArray(cData.apks)) list = cData.apks;
+      // 1. Récupération depuis GitHub Releases (accessible universellement en direct)
+      try {
+        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
+        if (ghRes.ok) {
+          const releases = await ghRes.json();
+          if (Array.isArray(releases)) {
+            releases.forEach((r: any) => {
+              if (Array.isArray(r.assets)) {
+                r.assets.forEach((ast: any) => {
+                  if (ast.name?.endsWith('.apk')) {
+                    list.push({
+                      file: ast.name,
+                      name: ast.name.replace('.apk', ''),
+                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
+                      url: ast.browser_download_url
+                    });
+                  }
+                });
+              }
+            });
+          }
         }
-      }
+      } catch (e) {}
+
+      // 2. Récupération depuis le backend local / VPS
+      try {
+        const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.apks)) list = [...list, ...data.apks];
+        } else {
+          const cRes = await fetch("/api/mobile/list-apks");
+          if (cRes && cRes.ok) {
+            const cData = await cRes.json();
+            if (cData && cData.success && Array.isArray(cData.apks)) list = [...list, ...cData.apks];
+          }
+        }
+      } catch (e) {}
+
       if (list.length > 0) {
         const map: Record<string, { file: string, sizeMb: string, url: string }> = {};
         list.forEach(a => {
@@ -3444,20 +3472,59 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
   const loadAvailableApks = useCallback(async () => {
     try {
-      const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.apks)) {
-          setAvailableApks(data.apks);
-          return;
+      let list: any[] = [];
+      // 1. Récupération universelle depuis GitHub Releases
+      try {
+        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
+        if (ghRes.ok) {
+          const releases = await ghRes.json();
+          if (Array.isArray(releases)) {
+            releases.forEach((r: any) => {
+              if (Array.isArray(r.assets)) {
+                r.assets.forEach((ast: any) => {
+                  if (ast.name?.endsWith('.apk')) {
+                    list.push({
+                      file: ast.name,
+                      name: ast.name.replace('.apk', ''),
+                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
+                      url: ast.browser_download_url
+                    });
+                  }
+                });
+              }
+            });
+          }
         }
-      }
-      const cloudRes = await fetch("/api/mobile/list-apks");
-      if (cloudRes && cloudRes.ok) {
-        const cloudData = await cloudRes.json();
-        if (cloudData && cloudData.success && Array.isArray(cloudData.apks)) {
-          setAvailableApks(cloudData.apks);
+      } catch (e) {}
+
+      // 2. Récupération locale / VPS
+      try {
+        const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.apks)) {
+            list = [...list, ...data.apks];
+          }
+        } else {
+          const cloudRes = await fetch("/api/mobile/list-apks");
+          if (cloudRes && cloudRes.ok) {
+            const cloudData = await cloudRes.json();
+            if (cloudData && cloudData.success && Array.isArray(cloudData.apks)) {
+              list = [...list, ...cloudData.apks];
+            }
+          }
         }
+      } catch (e) {}
+
+      if (list.length > 0) {
+        // Dédoublonnage par nom de fichier
+        const seen = new Set<string>();
+        const unique = list.filter(item => {
+          if (seen.has(item.file.toLowerCase())) return false;
+          seen.add(item.file.toLowerCase());
+          return true;
+        });
+        setAvailableApks(unique);
       }
     } catch (e) {
       console.warn("[v0-apk] loadAvailableApks error", e);
