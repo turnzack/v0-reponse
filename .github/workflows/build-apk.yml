@@ -29,7 +29,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: 📱 Configuration Android SDK
         uses: android-actions/setup-android@v3
@@ -41,7 +40,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
       - name: 🔍 Détection et Build Web du Projet
         run: |

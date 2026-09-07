@@ -11,6 +11,7 @@ import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 import { ProjectConfigurator } from './components/ProjectConfigurator';
 import { GuestIdeaPanel } from './components/GuestIdeaPanel';
 import { safeFetch, isLocalEnvironment } from './lib/bridgeClient';
+import { launchCloudApkBuild } from './lib/cloudApkBuilder';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -5906,18 +5907,34 @@ Format attendu:
                                     body: JSON.stringify({ project: target })
                                   });
                                   if (!res || !res.ok) {
-                                    setApkBuildStatus("error");
                                     setApkLogs(l => [
                                       ...l,
-                                      `❌ Erreur ${res ? res.status : 'réseau'} : le service de build mobile n'est pas actif sur ce serveur distant.`,
-                                      `📱 Option 1 (Recommandée) : Utilisez GitHub Actions pour compiler votre APK dans le Cloud sans dépendance.`,
-                                      `💻 Option 2 : Compilez en local via E:\\v0reponses\\v0-apk (déjà validé et fonctionnel).`
+                                      `> ℹ️ Détection environnement Cloud VPS (109.205.182.17)...`,
+                                      `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain (GitHub Actions Engine)...`
                                     ]);
+                                    await launchCloudApkBuild(
+                                      target,
+                                      (msg) => setApkLogs(l => [...l, msg]),
+                                      (status, url) => {
+                                        setApkBuildStatus(status);
+                                        if (url) setApkOutputUrl(url);
+                                      }
+                                    );
                                     return;
                                   }
                                 } catch (e: any) {
-                                  setApkBuildStatus("error");
-                                  setApkLogs(l => [...l, `❌ Erreur réseau: ${e.message}`]);
+                                  setApkLogs(l => [
+                                    ...l,
+                                    `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain...`
+                                  ]);
+                                  await launchCloudApkBuild(
+                                    target,
+                                    (msg) => setApkLogs(l => [...l, msg]),
+                                    (status, url) => {
+                                      setApkBuildStatus(status);
+                                      if (url) setApkOutputUrl(url);
+                                    }
+                                  );
                                 }
                               }}
                               className={`ml-auto px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md ${apkBuildStatus === 'building' ? 'bg-purple-900/50 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
