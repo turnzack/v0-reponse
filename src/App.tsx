@@ -3063,9 +3063,6 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
         ...prev,
         [projName]: { status: 'building', progress: msg }
       }));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('kirov-mouchard-log', { detail: `> [v0-apk] ${msg}` }));
-      }
     };
 
     const handleBuildResult = (status: 'building' | 'success' | 'error', apkUrl?: string) => {
@@ -6413,6 +6410,28 @@ Format attendu:
                                     if (!target) return alert("Veuillez sélectionner un projet !");
                                     setApkBuildStatus("building");
                                     setApkLogs([`> Initialisation build APK pour [${target}]...`]);
+                                    
+                                    const isRemoteVps = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+                                    if (isRemoteVps) {
+                                      setApkLogs(l => [
+                                        ...l,
+                                        `> ℹ️ Détection environnement Cloud VPS (109.205.182.17)...`,
+                                        `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain (GitHub Actions Engine)...`
+                                      ]);
+                                      await launchCloudApkBuild(
+                                        target,
+                                        (msg) => setApkLogs(l => [...l, msg]),
+                                        (status, url) => {
+                                          setApkBuildStatus(status);
+                                          if (url) {
+                                            setApkOutputUrl(url);
+                                            loadAvailableApks();
+                                          }
+                                        }
+                                      );
+                                      return;
+                                    }
+
                                     try {
                                       const res = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
                                         method: "POST",
@@ -6422,7 +6441,6 @@ Format attendu:
                                       if (!res || !res.ok) {
                                         setApkLogs(l => [
                                           ...l,
-                                          `> ℹ️ Détection environnement Cloud VPS (109.205.182.17)...`,
                                           `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain (GitHub Actions Engine)...`
                                         ]);
                                         await launchCloudApkBuild(
