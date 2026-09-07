@@ -3373,6 +3373,35 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const [apkLogs, setApkLogs] = useState<string[]>([]);
   const [selectedApkTarget, setSelectedApkTarget] = useState<string>("");
   const [apkOutputUrl, setApkOutputUrl] = useState<string | null>(null);
+  const [availableApks, setAvailableApks] = useState<Array<{ file: string, name: string, sizeMb: string, url: string }>>([]);
+
+  const loadAvailableApks = useCallback(async () => {
+    try {
+      const res = await safeFetch("http://localhost:5006/api/mobile/list-apks");
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.apks)) {
+          setAvailableApks(data.apks);
+          return;
+        }
+      }
+      const cloudRes = await fetch("/api/mobile/list-apks");
+      if (cloudRes && cloudRes.ok) {
+        const cloudData = await cloudRes.json();
+        if (cloudData && cloudData.success && Array.isArray(cloudData.apks)) {
+          setAvailableApks(cloudData.apks);
+        }
+      }
+    } catch (e) {
+      console.warn("[v0-apk] loadAvailableApks error", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isApkModalOpen) {
+      loadAvailableApks();
+    }
+  }, [isApkModalOpen, loadAvailableApks]);
 
   // --- POLLING LOGS APK ---
   useEffect(() => {
@@ -5886,62 +5915,139 @@ Format attendu:
                             </div>
                           </div>
 
-                          {/* Actions */}
-                          <div className="flex items-center justify-between pt-2 border-t border-purple-500/20">
-                            {apkOutputUrl && (
-                              <a href={apkOutputUrl} download className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-green-900/40 animate-bounce">
-                                <span>📥</span> Télécharger APK
-                              </a>
-                            )}
-                            <button
-                              disabled={apkBuildStatus === 'building'}
-                              onClick={async () => {
-                                const target = selectedApkTarget || activeProject;
-                                if (!target) return alert("Veuillez sélectionner un projet !");
-                                setApkBuildStatus("building");
-                                setApkLogs([`> Initialisation build APK pour [${target}]...`]);
-                                try {
-                                  const res = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ project: target })
-                                  });
-                                  if (!res || !res.ok) {
-                                    setApkLogs(l => [
-                                      ...l,
-                                      `> ℹ️ Détection environnement Cloud VPS (109.205.182.17)...`,
-                                      `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain (GitHub Actions Engine)...`
-                                    ]);
-                                    await launchCloudApkBuild(
-                                      target,
-                                      (msg) => setApkLogs(l => [...l, msg]),
-                                      (status, url) => {
-                                        setApkBuildStatus(status);
-                                        if (url) setApkOutputUrl(url);
-                                      }
-                                    );
-                                    return;
-                                  }
-                                } catch (e: any) {
-                                  setApkLogs(l => [
-                                    ...l,
-                                    `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain...`
-                                  ]);
-                                  await launchCloudApkBuild(
-                                    target,
-                                    (msg) => setApkLogs(l => [...l, msg]),
-                                    (status, url) => {
-                                      setApkBuildStatus(status);
-                                      if (url) setApkOutputUrl(url);
-                                    }
+                          {/* SECTION APK DISPONIBLES */}
+                          {availableApks.length > 0 && (
+                            <div className="bg-[#0b121e] p-3 rounded-2xl border border-emerald-500/30 flex flex-col gap-2 mb-3 shadow-inner">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                                  <span>📦</span> Fichiers APK Prêts ({availableApks.length})
+                                </span>
+                                <button
+                                  onClick={loadAvailableApks}
+                                  className="text-[11px] text-emerald-400 hover:text-emerald-200 transition-colors flex items-center gap-1 cursor-pointer font-bold"
+                                  title="Actualiser la liste des APK sur le serveur"
+                                >
+                                  🔄 Actualiser
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar pt-1">
+                                {availableApks.map((apk, idx) => {
+                                  const isSelected = (selectedApkTarget || activeProject || "").toLowerCase() === apk.name.toLowerCase();
+                                  return (
+                                    <a
+                                      key={idx}
+                                      href={apk.url}
+                                      download={apk.file}
+                                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all shadow-md cursor-pointer border ${
+                                        isSelected
+                                          ? "bg-emerald-600/30 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                                          : "bg-black/50 border-emerald-500/20 text-slate-300 hover:bg-emerald-950/40 hover:text-white hover:border-emerald-500/50"
+                                      }`}
+                                      title={`Télécharger ${apk.file} (${apk.sizeMb} Mo)`}
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <span className="text-base">📱</span>
+                                        <span className="font-mono truncate">{apk.name}</span>
+                                      </div>
+                                      <span className="text-[10px] bg-emerald-900/60 px-2 py-0.5 rounded-full text-emerald-300 font-mono shrink-0 ml-2">
+                                        📥 {apk.sizeMb} Mo
+                                      </span>
+                                    </a>
                                   );
-                                }
-                              }}
-                              className={`ml-auto px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md ${apkBuildStatus === 'building' ? 'bg-purple-900/50 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
-                            >
-                              {apkBuildStatus === 'building' ? '⚙️ Compilation...' : '📱 Compiler l\'APK'}
-                            </button>
-                          </div>
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Actions et Téléchargement Principal */}
+                          {(() => {
+                            const target = selectedApkTarget || activeProject || "figma";
+                            const matchingApk = availableApks.find(
+                              a => a.name.toLowerCase() === target.toLowerCase() || a.file.toLowerCase() === `${target}.apk`.toLowerCase()
+                            );
+                            const finalDownloadUrl = apkOutputUrl || (matchingApk ? matchingApk.url : `/api/mobile/download-apk?file=${encodeURIComponent(target + '.apk')}`);
+                            const isReady = !!(apkOutputUrl || matchingApk);
+
+                            return (
+                              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-purple-500/20">
+                                {isReady ? (
+                                  <a
+                                    href={finalDownloadUrl}
+                                    download={`${target}.apk`}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/50 border border-emerald-400/40 cursor-pointer animate-pulse hover:scale-105"
+                                  >
+                                    <span className="text-base">📥</span>
+                                    <span>TÉLÉCHARGER {target.toUpperCase()}.APK</span>
+                                    {matchingApk && <span className="text-[10px] opacity-90 font-mono">({matchingApk.sizeMb} Mo)</span>}
+                                  </a>
+                                ) : (
+                                  <a
+                                    href="https://github.com/turnzack/v0-reponse/actions/workflows/build-apk.yml"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-700"
+                                    title="Télécharger l'APK compilé par GitHub Actions"
+                                  >
+                                    <span>☁️</span> Téléchargements Cloud GitHub
+                                  </a>
+                                )}
+
+                                <button
+                                  disabled={apkBuildStatus === 'building'}
+                                  onClick={async () => {
+                                    if (!target) return alert("Veuillez sélectionner un projet !");
+                                    setApkBuildStatus("building");
+                                    setApkLogs([`> Initialisation build APK pour [${target}]...`]);
+                                    try {
+                                      const res = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ project: target })
+                                      });
+                                      if (!res || !res.ok) {
+                                        setApkLogs(l => [
+                                          ...l,
+                                          `> ℹ️ Détection environnement Cloud VPS (109.205.182.17)...`,
+                                          `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain (GitHub Actions Engine)...`
+                                        ]);
+                                        await launchCloudApkBuild(
+                                          target,
+                                          (msg) => setApkLogs(l => [...l, msg]),
+                                          (status, url) => {
+                                            setApkBuildStatus(status);
+                                            if (url) {
+                                              setApkOutputUrl(url);
+                                              loadAvailableApks();
+                                            }
+                                          }
+                                        );
+                                        return;
+                                      }
+                                    } catch (e: any) {
+                                      setApkLogs(l => [
+                                        ...l,
+                                        `> 🚀 Bascule automatique sur le Compilateur Cloud Souverain...`
+                                      ]);
+                                      await launchCloudApkBuild(
+                                        target,
+                                        (msg) => setApkLogs(l => [...l, msg]),
+                                        (status, url) => {
+                                          setApkBuildStatus(status);
+                                          if (url) {
+                                            setApkOutputUrl(url);
+                                            loadAvailableApks();
+                                          }
+                                        }
+                                      );
+                                    }
+                                  }}
+                                  className={`ml-auto px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all shadow-md ${apkBuildStatus === 'building' ? 'bg-purple-900/50 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer'}`}
+                                >
+                                  {apkBuildStatus === 'building' ? '⚙️ Compilation...' : '📱 Re-Compiler l\'APK'}
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>

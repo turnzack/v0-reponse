@@ -268,6 +268,31 @@ server.get(['/api/mobile/download-apk', '/mobile/download-apk'], (req, res) => {
   }
 });
 
+server.get(['/api/mobile/list-apks', '/mobile/list-apks'], (req, res) => {
+  const apkDir = process.platform === 'win32' ? 'e:\\v0reponses\\v0-apk' : path.join(__dirname, '..', 'v0-apk');
+  const outDir = path.join(apkDir, 'output');
+  if (!fs.existsSync(outDir)) {
+    return res.json({ success: true, apks: [] });
+  }
+  try {
+    const files = fs.readdirSync(outDir).filter(f => f.endsWith('.apk'));
+    const apks = files.map(file => {
+      const fullPath = path.join(outDir, file);
+      const stat = fs.statSync(fullPath);
+      return {
+        file,
+        name: file.replace('.apk', ''),
+        sizeMb: (stat.size / (1024 * 1024)).toFixed(1),
+        updatedAt: stat.mtime,
+        url: `/api/mobile/download-apk?file=${encodeURIComponent(file)}`
+      };
+    });
+    res.json({ success: true, apks });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ==============================================================================
 // GESTION DES ARCHIVES ZIP (STITCH / EXPORT UI / PACK PRD)
 // ==============================================================================
