@@ -3376,11 +3376,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   // --- POLLING LOGS APK ---
   useEffect(() => {
     let interval: any;
+    let failureCount = 0;
     if (apkBuildStatus === 'building') {
       interval = setInterval(async () => {
         try {
           const res = await safeFetch("http://localhost:5006/api/mobile/build-logs");
           if (res && res.ok) {
+            failureCount = 0;
             const data = await res.json();
             if (data.logs && data.logs.length > 0) {
               setApkLogs(data.logs);
@@ -3394,17 +3396,29 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
               }
               clearInterval(interval);
             }
+          } else {
+            failureCount++;
+            if (failureCount >= 3) {
+              clearInterval(interval);
+              setApkBuildStatus("error");
+              setApkLogs(l => [
+                ...l,
+                `❌ Service de compilation mobile absent sur ce serveur (${res ? res.status : 'erreur réseau'}).`,
+                `📱 Option 1 (Cloud) : Déclenchez le build sans dépendance via GitHub Actions (.github/workflows/build-apk.yml).`,
+                `💻 Option 2 (Local) : Lancez 'python apk_builder.py --src ... --name ${selectedApkTarget || activeProject || 'app'} --build' dans E:\\v0reponses\\v0-apk.`
+              ]);
+            }
           }
         } catch (e) {
           console.warn("Polling APK error", e);
         }
-      }, 1000);
+      }, 1500);
 
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [apkBuildStatus]);
+  }, [apkBuildStatus, selectedApkTarget, activeProject]);
 
 
   // --- WIDGET NEWS (LIVE API & FALLBACK RAPIDE) ---
@@ -5886,12 +5900,21 @@ Format attendu:
                                 setApkBuildStatus("building");
                                 setApkLogs([`> Initialisation build APK pour [${target}]...`]);
                                 try {
-                                  await safeFetch("http://localhost:5006/api/mobile/build-apk", {
+                                  const res = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ project: target })
                                   });
-                                  // Le useEffect de polling prend le relais pour afficher la suite !
+                                  if (!res || !res.ok) {
+                                    setApkBuildStatus("error");
+                                    setApkLogs(l => [
+                                      ...l,
+                                      `❌ Erreur ${res ? res.status : 'réseau'} : le service de build mobile n'est pas actif sur ce serveur distant.`,
+                                      `📱 Option 1 (Recommandée) : Utilisez GitHub Actions pour compiler votre APK dans le Cloud sans dépendance.`,
+                                      `💻 Option 2 : Compilez en local via E:\\v0reponses\\v0-apk (déjà validé et fonctionnel).`
+                                    ]);
+                                    return;
+                                  }
                                 } catch (e: any) {
                                   setApkBuildStatus("error");
                                   setApkLogs(l => [...l, `❌ Erreur réseau: ${e.message}`]);
