@@ -111,6 +111,53 @@ export const GuestIdeaPanel: React.FC<{
   const [isYouTube, setIsYouTube] = useState(false);
   const [phase5Folder, setPhase5Folder] = useState('');
   const [phase5Request, setPhase5Request] = useState('');
+  const [projectList, setProjectList] = useState<string[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+
+  const fetchProjects = async () => {
+    setIsLoadingProjects(true);
+    try {
+      let found: string[] = [];
+      const res = await safeFetch('http://localhost:5006/api/projects');
+      if (res && res.ok) {
+        const data = await res.json();
+        const raw = data.projects || (data.data && data.data.projects) || data;
+        if (Array.isArray(raw)) {
+          found = raw.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name)).filter(Boolean);
+        }
+      }
+
+      if (found.length === 0) {
+        const token = localStorage.getItem('kirov5_jwt_token') || '';
+        const cloudRes = await fetch('/api/projects', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (cloudRes && cloudRes.ok) {
+          const cloudData = await cloudRes.json();
+          const cloudRaw = cloudData.projects || cloudData;
+          if (Array.isArray(cloudRaw)) {
+            found = cloudRaw.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name)).filter(Boolean);
+          }
+        }
+      }
+
+      const unique = Array.from(new Set(found)).filter(n => n && !n.startsWith('.') && n !== 'node_modules');
+      setProjectList(unique);
+      if (unique.length > 0) {
+        setPhase5Folder(prev => (prev && unique.includes(prev)) ? prev : unique[0]);
+      }
+    } catch (e) {
+      console.warn('Impossible de charger la liste des projets:', e);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'phase5') {
+      fetchProjects();
+    }
+  }, [activeTab]);
 
   const [isPackMode, setIsPackMode] = useState(false);
   const [status, setStatus] = useState<PipelineStatus>('idle');
@@ -463,39 +510,66 @@ export const GuestIdeaPanel: React.FC<{
 
           {/* Phase 5 */}
           {activeTab === 'phase5' && (
-            <div className="space-y-4 p-4 bg-violet-950/10 rounded-xl border border-violet-500/30">
+            <div className="space-y-4 p-4 bg-violet-950/15 rounded-xl border border-violet-500/30">
               <div>
                 <div className="text-xs font-black text-violet-300 uppercase tracking-widest">⚙️ Phase 5 — Audit & Industrialisation</div>
                 <p className="text-[10px] text-zinc-400 leading-relaxed mt-1">Sélectionnez le projet. Hermes l'auditera pour détecter les mocks et proposer une architecture sécurisée.</p>
               </div>
               
-              <div>
-                <label className="text-xs font-semibold text-violet-300 block mb-1">📁 Projet à auditer :</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={phase5Folder}
-                    onChange={e => setPhase5Folder(e.target.value)}
-                    placeholder="Ex: E:\v0reponses\MonProjet"
-                    className="flex-1 bg-zinc-900 border border-violet-500/30 rounded-xl px-3 py-2 text-xs text-violet-200 font-mono"
-                  />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
+                    <span>📁</span> Projet à auditer :
+                  </label>
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await safeFetch('http://localhost:5006/api/bridge/select-folder');
-                        if (res && res.ok) {
-                          const d = await res.json();
-                          const data = d.data || d;
-                          if (data.success && data.path) setPhase5Folder(data.path);
-                        }
-                      } catch {}
-                    }}
-                    className="px-3 py-2 bg-violet-500/10 border border-violet-500/40 text-violet-300 rounded-xl text-xs font-bold hover:bg-violet-500/20 transition-colors"
+                    onClick={fetchProjects}
+                    disabled={isLoadingProjects}
+                    className="text-[10px] text-violet-400 hover:text-violet-200 flex items-center gap-1 font-bold transition-colors cursor-pointer bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 px-2 py-0.5 rounded-lg"
+                    title="Actualiser la liste des projets créés"
                   >
-                    📂 Choisir
+                    <span>{isLoadingProjects ? 'Scan...' : '🔄 Rafraîchir'}</span>
                   </button>
                 </div>
+
+                {/* Menu dépliant / dropdown des projets créés */}
+                <div className="relative">
+                  <select
+                    value={phase5Folder}
+                    onChange={e => setPhase5Folder(e.target.value)}
+                    className="w-full bg-zinc-900 border border-violet-500/40 hover:border-violet-500/60 rounded-xl px-4 py-2.5 text-xs text-violet-200 font-bold focus:outline-none focus:border-violet-400 cursor-pointer shadow-inner appearance-none transition-colors"
+                  >
+                    <option value="" disabled>-- Sélectionnez un projet créé à auditer --</option>
+                    {projectList.map(proj => (
+                      <option key={proj} value={proj} className="bg-zinc-950 text-white font-medium py-1">
+                        📁 {proj}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-violet-400 text-xs font-bold">
+                    ▼
+                  </div>
+                </div>
+
+                {projectList.length > 0 ? (
+                  <div className="flex items-center justify-between text-[10px] text-zinc-400 px-1">
+                    <span>✅ {projectList.length} projet(s) créé(s) disponible(s)</span>
+                    {phase5Folder && <span className="text-violet-300 font-mono">Sélection : <strong>{phase5Folder}</strong></span>}
+                  </div>
+                ) : !isLoadingProjects ? (
+                  <div className="p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-lg flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-amber-300">
+                      Aucun projet détecté automatiquement. Entrez le nom manuellement :
+                    </p>
+                    <input
+                      type="text"
+                      value={phase5Folder}
+                      onChange={e => setPhase5Folder(e.target.value)}
+                      placeholder="Ex: BLOG ou AUDIO"
+                      className="bg-zinc-900 border border-amber-500/40 rounded-lg px-2.5 py-1 text-xs text-amber-200 font-mono w-44"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div>

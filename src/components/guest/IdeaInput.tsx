@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Send, Gamepad2, HeartPulse, ShoppingBag, Lightbulb, Zap, FolderOpen, Globe, FileCode, Youtube, Mic, Cpu } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sparkles, Send, Gamepad2, HeartPulse, ShoppingBag, Lightbulb, Zap, FolderOpen, Globe, FileCode, Youtube, Mic, Cpu, RefreshCw } from 'lucide-react';
 import { PackCategory } from '../../types/pack';
 import { safeFetch } from '../../lib/bridgeClient';
 
@@ -11,13 +11,60 @@ interface IdeaInputProps {
 export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }) => {
   const [activeTab, setActiveTab] = useState<'prompt' | 'folder' | 'web' | 'designrip' | 'phase5'>('prompt');
   const [phase5Folder, setPhase5Folder] = useState('');
-  const [phase5Request, setPhase5Request] = useState('Faire un audit complet du projet pour l\'industrialiser à 100%. Détecter tous les composants mockés (fausses données) et le stockage local temporaire, puis proposer un contrat de migration pour les remplacer par un backend de production sécurisé. Implémenter les bonnes pratiques manquantes (gestion globale des erreurs, routage sécurisé, authentification si pertinente) pour que le projet soit prêt pour un déploiement en production (Production Candidate).');
+  const [phase5Request, setPhase5Request] = useState('');
+  const [projectList, setProjectList] = useState<string[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [idea, setIdea] = useState('');
   const [isPackMode, setIsPackMode] = useState(false);
   const [category, setCategory] = useState<PackCategory>('other');
   const [sourceFolder, setSourceFolder] = useState('');
   const [webUrl, setWebUrl] = useState('');
   const [isYouTube, setIsYouTube] = useState(false);
+
+  const fetchProjects = useCallback(async () => {
+    setIsLoadingProjects(true);
+    try {
+      let found: string[] = [];
+      const res = await safeFetch('http://localhost:5006/api/projects');
+      if (res && res.ok) {
+        const data = await res.json();
+        const raw = data.projects || (data.data && data.data.projects) || data;
+        if (Array.isArray(raw)) {
+          found = raw.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name)).filter(Boolean);
+        }
+      }
+
+      if (found.length === 0) {
+        const token = localStorage.getItem('kirov5_jwt_token') || '';
+        const cloudRes = await fetch('/api/projects', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (cloudRes && cloudRes.ok) {
+          const cloudData = await cloudRes.json();
+          const cloudRaw = cloudData.projects || cloudData;
+          if (Array.isArray(cloudRaw)) {
+            found = cloudRaw.map((p: any) => typeof p === 'string' ? p : (p.project_id || p.title || p.name)).filter(Boolean);
+          }
+        }
+      }
+
+      const unique = Array.from(new Set(found)).filter(n => n && !n.startsWith('.') && n !== 'node_modules');
+      setProjectList(unique);
+      if (unique.length > 0) {
+        setPhase5Folder(prev => (prev && unique.includes(prev)) ? prev : unique[0]);
+      }
+    } catch (e) {
+      console.warn('Impossible de charger la liste des projets:', e);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'phase5') {
+      fetchProjects();
+    }
+  }, [activeTab, fetchProjects]);
 
   useEffect(() => {
     try {
@@ -55,8 +102,9 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
     e.preventDefault();
     // Mode Phase 5 : flux dédié
     if (activeTab === 'phase5') {
-      if (!phase5Folder.trim() || !phase5Request.trim() || isGenerating) return;
-      onGenerate(phase5Request.trim(), 'phase5', phase5Folder.trim(), undefined);
+      if (!phase5Folder.trim() || isGenerating) return;
+      const finalPrompt = phase5Request.trim() || "Faire un audit complet du projet pour l'industrialiser à 100%. Détecter tous les composants mockés (fausses données) et le stockage local temporaire, puis proposer un contrat de migration pour les remplacer par un backend de production sécurisé. Implémenter les bonnes pratiques manquantes (gestion globale des erreurs, routage sécurisé, authentification si pertinente) pour que le projet soit prêt pour un déploiement en production (Production Candidate).";
+      onGenerate(finalPrompt, 'phase5', phase5Folder.trim(), undefined);
       return;
     }
     let processedIdea = idea.trim();
@@ -148,7 +196,7 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
           }`}
         >
           <Cpu className="w-4 h-4" />
-          5. 🔌 Phase 5
+          ⚙️ 5. 🔌 Phase 5
         </button>
       </div>
 
@@ -302,50 +350,84 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
 
         {/* TAB 5: PHASE 5 — INDUSTRIALISATION */}
         {activeTab === 'phase5' && (
-          <div className="space-y-3 p-4 bg-violet-950/10 rounded-xl border border-violet-500/30">
-            <div className="flex items-center gap-2 mb-2">
-              <Cpu className="w-4 h-4 text-violet-400" />
-              <span className="text-xs font-black text-violet-300 uppercase tracking-widest">Phase 5 — Audit & Industrialisation</span>
+          <div className="space-y-4 p-4 bg-violet-950/15 rounded-xl border border-violet-500/30">
+            <div className="flex items-center gap-2 mb-1">
+              <Cpu className="w-5 h-5 text-violet-400" />
+              <span className="text-xs font-black text-violet-300 uppercase tracking-widest">⚙️ Phase 5 — Audit & Industrialisation</span>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Hermes audite votre projet existant et produit un contrat de migration sécurisé. Kirov5 exécutera les mutations dans un staging isolé.
+              Sélectionnez le projet. Hermes l'auditera pour détecter les mocks et proposer une architecture sécurisée.
             </p>
 
-            <label className="block text-xs font-semibold text-violet-300">📁 Projet à auditer :</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={phase5Folder}
-                onChange={(e) => setPhase5Folder(e.target.value)}
-                placeholder="Ex: E:\v0reponses\N8N"
-                className="flex-1 bg-zinc-900 border border-violet-500/30 rounded-xl px-3 py-2 text-xs text-violet-200 font-mono placeholder-zinc-600 focus:outline-none focus:border-violet-400"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await safeFetch('http://localhost:5006/api/bridge/select-folder');
-                    if (res && res.ok) {
-                      const payload = await res.json();
-                      const data = payload.data || payload;
-                      if (data.success && data.path) setPhase5Folder(data.path);
-                    }
-                  } catch { console.warn('Bridge select-folder indisponible'); }
-                }}
-                className="px-3 py-2 bg-violet-500/10 border border-violet-500/40 hover:bg-violet-500/20 text-violet-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-              >
-                <FolderOpen className="w-3.5 h-3.5" /> Choisir
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-violet-300 flex items-center gap-1.5">
+                  <span>📁</span> Projet à auditer :
+                </label>
+                <button
+                  type="button"
+                  onClick={fetchProjects}
+                  disabled={isLoadingProjects}
+                  className="text-[11px] text-violet-400 hover:text-violet-200 flex items-center gap-1.5 font-bold transition-colors cursor-pointer bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 px-2.5 py-1 rounded-lg"
+                  title="Actualiser la liste des projets créés"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingProjects ? 'animate-spin text-violet-300' : ''}`} />
+                  <span>{isLoadingProjects ? 'Scan en cours...' : '🔄 Rafraîchir les projets'}</span>
+                </button>
+              </div>
+
+              {/* Menu dépliant / dropdown des projets créés */}
+              <div className="relative">
+                <select
+                  value={phase5Folder}
+                  onChange={(e) => setPhase5Folder(e.target.value)}
+                  className="w-full bg-zinc-900 border border-violet-500/40 hover:border-violet-500/60 rounded-xl px-4 py-3 text-xs text-violet-200 font-bold focus:outline-none focus:border-violet-400 cursor-pointer shadow-inner appearance-none transition-colors"
+                >
+                  <option value="" disabled>-- Sélectionnez un projet créé à auditer --</option>
+                  {projectList.map((proj) => (
+                    <option key={proj} value={proj} className="bg-zinc-950 text-white font-medium py-1.5">
+                      📁 {proj}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-violet-400 text-xs font-bold">
+                  ▼
+                </div>
+              </div>
+
+              {projectList.length > 0 ? (
+                <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
+                  <span>✅ {projectList.length} projet(s) disponible(s) pour l'audit</span>
+                  {phase5Folder && <span className="text-violet-300 font-mono">Sélection : <strong>{phase5Folder}</strong></span>}
+                </div>
+              ) : !isLoadingProjects ? (
+                <div className="p-3 bg-amber-950/30 border border-amber-500/30 rounded-lg flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-amber-300">
+                    Aucun projet détecté automatiquement. Entrez le nom manuellement :
+                  </p>
+                  <input
+                    type="text"
+                    value={phase5Folder}
+                    onChange={(e) => setPhase5Folder(e.target.value)}
+                    placeholder="Ex: BLOG ou AUDIO"
+                    className="bg-zinc-900 border border-amber-500/40 rounded-lg px-2.5 py-1 text-xs text-amber-200 font-mono w-48"
+                  />
+                </div>
+              ) : null}
             </div>
 
-            <label className="block text-xs font-semibold text-violet-300 mt-2">🎯 Évolution souhaitée :</label>
-            <textarea
-              value={phase5Request}
-              onChange={(e) => setPhase5Request(e.target.value)}
-              placeholder="Ex: Ajouter une authentification réelle, remplacer le localStorage par Supabase et intégrer les paiements Stripe."
-              rows={3}
-              className="w-full bg-zinc-900 border border-violet-500/20 rounded-xl p-3 text-zinc-200 text-xs focus:outline-none focus:border-violet-400 resize-none"
-            />
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-xs font-semibold text-violet-300">
+                🎯 Instructions supplémentaires (optionnel) :
+              </label>
+              <textarea
+                value={phase5Request}
+                onChange={(e) => setPhase5Request(e.target.value)}
+                placeholder="Ex: S'assurer que les modèles de données incluent une table 'Utilisateur' avec un rôle administrateur..."
+                rows={3}
+                className="w-full bg-zinc-900 border border-violet-500/20 hover:border-violet-500/40 rounded-xl p-3 text-zinc-200 text-xs focus:outline-none focus:border-violet-400 resize-none placeholder-zinc-600 transition-colors"
+              />
+            </div>
           </div>
         )}
 
@@ -404,11 +486,11 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
           <button
             type="submit"
             disabled={activeTab === 'phase5'
-              ? (!phase5Folder.trim() || !phase5Request.trim() || isGenerating)
+              ? (!phase5Folder.trim() || isGenerating)
               : ((!idea.trim() && !sourceFolder && !webUrl) || isGenerating)
             }
             className={`px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg ${
-              (activeTab === 'phase5' ? (!phase5Folder.trim() || !phase5Request.trim()) : (!idea.trim() && !sourceFolder && !webUrl)) || isGenerating
+              (activeTab === 'phase5' ? !phase5Folder.trim() : (!idea.trim() && !sourceFolder && !webUrl)) || isGenerating
                 ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
                 : activeTab === 'phase5'
                   ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500 shadow-violet-500/25 active:scale-[0.98]'
@@ -423,7 +505,7 @@ export const IdeaInput: React.FC<IdeaInputProps> = ({ onGenerate, isGenerating }
             ) : activeTab === 'phase5' ? (
               <>
                 <Cpu className="w-4 h-4" />
-                🔍 Auditer le Projet
+                ⚙️ Auditer le Projet
               </>
             ) : (
               <>

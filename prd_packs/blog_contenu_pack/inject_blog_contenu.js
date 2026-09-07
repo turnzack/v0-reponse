@@ -42,10 +42,10 @@ MISSION: Page auteur pour blog.
 STYLE & DESIGN: Bio, social links, articles.
 MAPPING VFS: AuthorHeader.tsx, AuthorPosts.tsx
 [FIN DU CONTEXTE CACHÉ]`,
-        tmpl_blog_podcast_blog: `[CONTEXTE CACHÉ - PRD TMPL_BLOG_PODCAST_BLOG]
-MISSION: Blog + podcast hybride.
-STYLE & DESIGN: Mix articles/épisodes.
-MAPPING VFS: MixedFeed.tsx, TypeBadge.tsx
+        tmpl_blog_curated_digest: `[CONTEXTE CACHÉ - PRD TMPL_BLOG_CURATED_DIGEST]
+MISSION: Revue de presse, curation d'articles et digest éditorial.
+STYLE & DESIGN: Grille de synthèse, temps de lecture, citations clés.
+MAPPING VFS: CuratedDigest.tsx, DigestCard.tsx
 [FIN DU CONTEXTE CACHÉ]`,
         tmpl_blog_event_recaps: `[CONTEXTE CACHÉ - PRD TMPL_BLOG_EVENT_RECAPS]
 MISSION: Template pour recaps d’événements répétés.
@@ -86,7 +86,7 @@ MAPPING VFS: EventRecapCard.tsx, RecapGrid.tsx
             <button id="btn-prd-tmpl_blog_resource_library-5" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_resource_library</button>
             <button id="btn-prd-tmpl_blog_changelog_mini-6" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_changelog_mini</button>
             <button id="btn-prd-tmpl_blog_author_profile-7" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_author_profile</button>
-            <button id="btn-prd-tmpl_blog_podcast_blog-8" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_podcast_blog</button>
+            <button id="btn-prd-tmpl_blog_curated_digest-8" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_curated_digest</button>
             <button id="btn-prd-tmpl_blog_event_recaps-9" style="display:block; width:100%; margin-bottom:5px; padding:8px; background:#112; border:1px solid #FFCC00; color:#FFCC00; cursor:pointer; border-radius:5px;">🚀 tmpl_blog_event_recaps</button>
 
         `;
@@ -100,7 +100,7 @@ MAPPING VFS: EventRecapCard.tsx, RecapGrid.tsx
         document.getElementById('btn-prd-tmpl_blog_resource_library-5').onclick = () => injectText(PRDS.tmpl_blog_resource_library, 'tmpl_blog_resource_library');
         document.getElementById('btn-prd-tmpl_blog_changelog_mini-6').onclick = () => injectText(PRDS.tmpl_blog_changelog_mini, 'tmpl_blog_changelog_mini');
         document.getElementById('btn-prd-tmpl_blog_author_profile-7').onclick = () => injectText(PRDS.tmpl_blog_author_profile, 'tmpl_blog_author_profile');
-        document.getElementById('btn-prd-tmpl_blog_podcast_blog-8').onclick = () => injectText(PRDS.tmpl_blog_podcast_blog, 'tmpl_blog_podcast_blog');
+        document.getElementById('btn-prd-tmpl_blog_curated_digest-8').onclick = () => injectText(PRDS.tmpl_blog_curated_digest, 'tmpl_blog_curated_digest');
         document.getElementById('btn-prd-tmpl_blog_event_recaps-9').onclick = () => injectText(PRDS.tmpl_blog_event_recaps, 'tmpl_blog_event_recaps');
 
     }

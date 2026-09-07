@@ -907,7 +907,7 @@ export default function App() {
       <header style={{ borderBottom: '1px solid rgba(56, 189, 248, 0.2)', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)', padding: '12px 24px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'sticky', top: 0, zIndex: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(56, 189, 248, 0.4)' }}>
-            <span style={{ fontSize: '22px' }}>🎵</span>
+            <span style={{ fontSize: '22px' }}>✨</span>
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1321,19 +1321,31 @@ body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background:
     } catch (_) {}
   }
 
-  // Vérifier ou créer vite.config.ts
+  // Vérifier ou créer vite.config.ts (version complète avec path alias et CORS pour preview)
   const viteConfigPath = path.join(projectRoot, 'vite.config.ts');
   const viteConfigJsPath = path.join(projectRoot, 'vite.config.js');
   if (!fs.existsSync(viteConfigPath) && !fs.existsSync(viteConfigJsPath)) {
     const defaultViteConfig = `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
-    host: '0.0.0.0',
     port: 5173,
-    strictPort: false
+    host: true,
+    strictPort: true,
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Security-Policy': "frame-ancestors *;"
+    }
   }
 });
 `;
@@ -1342,6 +1354,254 @@ export default defineConfig({
       if (global.addLog) global.addLog(`[📦] vite.config.ts configuré pour ${cleanId}`);
     } catch (_) {}
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📂 GÉNÉRATION DU BOILERPLATE COMPLET (structure hiérarchique des projets)
+  // Crée tous les fichiers et dossiers nécessaires si absents
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // tailwind.config.js
+  const tailwindConfigPath = path.join(projectRoot, 'tailwind.config.js');
+  if (!fs.existsSync(tailwindConfigPath)) {
+    const tailwindConfig = `/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: "#7dd3fc",
+        secondary: "#88b4cc",
+        background: "#0a0e1a",
+        surface: "#0f1524",
+        "on-surface": "#e0e8f0",
+        "surface-container": "#141c2e",
+        "surface-container-high": "#1a2438",
+        outline: "#4a6070",
+        "outline-variant": "#2a3a48",
+        error: "#ff6b6b",
+        tertiary: "#c8a0f0",
+      },
+      borderRadius: {
+        DEFAULT: "0.5rem",
+        lg: "1rem",
+        xl: "1.5rem",
+        full: "9999px",
+      },
+      fontFamily: {
+        display: ["Inter", "system-ui", "sans-serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+        mono: ["'Geist Mono'", "monospace"],
+      },
+    },
+  },
+  plugins: [],
+};
+`;
+    try {
+      fs.writeFileSync(tailwindConfigPath, tailwindConfig, 'utf8');
+      if (global.addLog) global.addLog(`[📦] tailwind.config.js généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // postcss.config.js
+  const postcssConfigPath = path.join(projectRoot, 'postcss.config.js');
+  if (!fs.existsSync(postcssConfigPath)) {
+    const postcssConfig = `export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+`;
+    try {
+      fs.writeFileSync(postcssConfigPath, postcssConfig, 'utf8');
+      if (global.addLog) global.addLog(`[📦] postcss.config.js généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // tsconfig.json
+  const tsconfigPath = path.join(projectRoot, 'tsconfig.json');
+  if (!fs.existsSync(tsconfigPath)) {
+    const tsconfig = `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+`;
+    try {
+      fs.writeFileSync(tsconfigPath, tsconfig, 'utf8');
+      if (global.addLog) global.addLog(`[📦] tsconfig.json généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // tsconfig.node.json
+  const tsconfigNodePath = path.join(projectRoot, 'tsconfig.node.json');
+  if (!fs.existsSync(tsconfigNodePath)) {
+    const tsconfigNode = `{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+`;
+    try {
+      fs.writeFileSync(tsconfigNodePath, tsconfigNode, 'utf8');
+      if (global.addLog) global.addLog(`[📦] tsconfig.node.json généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // src/vite-env.d.ts
+  const viteEnvDtsPath = path.join(srcDir, 'vite-env.d.ts');
+  if (!fs.existsSync(viteEnvDtsPath)) {
+    try {
+      fs.writeFileSync(viteEnvDtsPath, `/// <reference types="vite/client" />\n`, 'utf8');
+      if (global.addLog) global.addLog(`[📦] src/vite-env.d.ts généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // src/design.css (classes utilitaires neon/glass)
+  const designCssPath = path.join(srcDir, 'design.css');
+  if (!fs.existsSync(designCssPath)) {
+    const designCss = `/* ── Design System ${cleanId} ── */
+body {
+  background-color: #0a0e1a;
+  color: #e0e8f0;
+}
+
+.glass-panel {
+  background-color: rgba(20, 28, 46, 0.6);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.neon-text-primary {
+  text-shadow: 0 0 10px rgba(125, 211, 252, 0.5);
+}
+
+.neon-shadow-primary {
+  box-shadow: 0 0 20px rgba(125, 211, 252, 0.3);
+}
+
+.neon-shadow-secondary {
+  box-shadow: 0 0 20px rgba(136, 180, 204, 0.3);
+}
+
+@keyframes pulse-neon {
+  0% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(125, 211, 252, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0); }
+}
+.animate-pulse-neon {
+  animation: pulse-neon 2s infinite;
+}
+`;
+    try {
+      fs.writeFileSync(designCssPath, designCss, 'utf8');
+      if (global.addLog) global.addLog(`[📦] src/design.css généré pour ${cleanId}`);
+    } catch (_) {}
+  }
+
+  // Mettre à jour src/index.css pour utiliser tailwind si ce n'est pas déjà le cas
+  const idxCssPath = path.join(srcDir, 'index.css');
+  if (fs.existsSync(idxCssPath)) {
+    try {
+      const cssContent = fs.readFileSync(idxCssPath, 'utf8');
+      if (!cssContent.includes('@tailwind')) {
+        fs.writeFileSync(idxCssPath, `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n`, 'utf8');
+        if (global.addLog) global.addLog(`[📦] src/index.css mis à jour avec Tailwind pour ${cleanId}`);
+      }
+    } catch (_) {}
+  }
+
+  // Mettre à jour src/main.tsx pour importer design.css
+  if (fs.existsSync(mainTsxPath)) {
+    try {
+      const mainContent = fs.readFileSync(mainTsxPath, 'utf8');
+      if (!mainContent.includes('design.css')) {
+        const updated = mainContent.replace(
+          /import ['"]\.\/index\.css['"]/,
+          `import './index.css';\nimport './design.css'`
+        );
+        if (updated !== mainContent) {
+          fs.writeFileSync(mainTsxPath, updated, 'utf8');
+          if (global.addLog) global.addLog(`[📦] src/main.tsx mis à jour avec design.css pour ${cleanId}`);
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Créer les dossiers de la structure hiérarchique
+  const srcSubDirs = ['pages', 'components', 'api', 'lib', 'services', 'store', 'types', 'workflows', 'tests', 'config'];
+  for (const dir of srcSubDirs) {
+    const dirPath = path.join(srcDir, dir);
+    if (!fs.existsSync(dirPath)) {
+      try {
+        fs.mkdirSync(dirPath, { recursive: true });
+        // Créer un fichier .gitkeep pour garder le dossier dans git
+        fs.writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf8');
+        if (global.addLog) global.addLog(`[📦] Dossier src/${dir}/ créé pour ${cleanId}`);
+      } catch (_) {}
+    }
+  }
+
+  // Ajouter les dépendances manquantes pour le boilerplate complet
+  try {
+    const pkgContent = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    let pkgUpdated = false;
+
+    const ensureDep = (deps, key, version) => {
+      if (!deps[key]) { deps[key] = version; pkgUpdated = true; }
+    };
+
+    pkgContent.dependencies = pkgContent.dependencies || {};
+    ensureDep(pkgContent.dependencies, 'react-router-dom', '^6.22.0');
+    ensureDep(pkgContent.dependencies, 'framer-motion', '^11.0.8');
+    ensureDep(pkgContent.dependencies, 'clsx', '^2.1.0');
+    ensureDep(pkgContent.dependencies, 'tailwind-merge', '^2.2.1');
+    ensureDep(pkgContent.dependencies, 'zustand', '^4.5.2');
+    ensureDep(pkgContent.dependencies, 'lucide-react', '^0.344.0');
+
+    pkgContent.devDependencies = pkgContent.devDependencies || {};
+    ensureDep(pkgContent.devDependencies, '@types/node', '^20.0.0');
+    ensureDep(pkgContent.devDependencies, 'tailwindcss', '^3.4.0');
+    ensureDep(pkgContent.devDependencies, 'autoprefixer', '^10.4.14');
+    ensureDep(pkgContent.devDependencies, 'postcss', '^8.4.27');
+
+    if (pkgUpdated) {
+      fs.writeFileSync(pkgPath, JSON.stringify(pkgContent, null, 2), 'utf8');
+      if (global.addLog) global.addLog(`[📦] package.json complété avec dépendances boilerplate pour ${cleanId}`);
+    }
+  } catch (_) {}
+
+  if (global.addLog) global.addLog(`[✅ BOILERPLATE] Structure complète générée pour ${cleanId}`);
 }
 
 // 🚀 AUTOMATISATION POST-PHASE 5 : Installation dépendances + Lancement Dev Server + Preview
@@ -1564,7 +1824,7 @@ function buildStitchPrompt(basePrompt, packs = [], projectId = 'GAME') {
       const cleanName = packName.replace(/_/g, ' ').toUpperCase();
       packDetails.push(`• PACK : ${cleanName} (#${packName})
 Spécifications UI/UX & Fonctionnalités Clés :
-- Conception d'un module interactif complet dédié à ${cleanName} avec des composants visuels haute fidélité (lecteurs audio, cartes, listes, visualisations, modales et tiroirs d'actions).
+- Conception d'un module interactif complet dédié à ${cleanName} avec des composants visuels haute fidélité (cartes interactives, tableaux de bord, formulaires, listes dynamiques, modales et tiroirs d'actions).
 - Ergonomie soignée, boutons réactifs avec micro-animations et design dark-mode moderne.
 - Zéro placeholder : intégration d'échantillons de données réalistes et immersives.`);
     }
@@ -1579,7 +1839,7 @@ Initialisation du projet ${projName.toUpperCase()}
 • DÉPENDANCES STRICTES : Tu es AUTORISÉ UNIQUEMENT à utiliser les librairies suivantes (déjà installées) : \`react\`, \`react-dom\`, \`react-router-dom\`, \`lucide-react\`, \`framer-motion\`, \`zustand\`, \`clsx\`, \`tailwind-merge\`. INTERDICTION ABSOLUE d'inventer ou d'importer d'autres librairies (ex: \`axios\`, \`date-fns\`, \`recharts\`), car tu ne peux pas modifier \`package.json\`.
 • ICÔNES : Tu ne peux PAS utiliser les Material Symbols car tu ne peux pas modifier \`index.html\` pour importer la police. Utilise EXCLUSIVEMENT \`lucide-react\` pour TOUTES tes icônes.
 • CHEMINS APLATIS (OBLIGATOIRE) : Tu DOIS placer TOUTES les pages directement à la racine de \`src/pages/\` (ex: \`src/pages/HomePage.tsx\`). NE CRÉE JAMAIS de sous-dossiers imbriqués ni de fichiers \`code.tsx\` profonds.
-• ANTI-DOUBLON : Ne crée pas la même page en double (ex: n'écris pas \`Analyzer.tsx\` ET \`AnalyzerPage.tsx\`). Génère un seul fichier par page avec le suffixe 'Page'.
+• ANTI-DOUBLON : Ne crée pas la même page en double (ex: n'écris pas \`Post.tsx\` ET \`PostPage.tsx\`). Génère un seul fichier par page avec le suffixe 'Page'.
 • TON RÔLE : Tu dois EXCLUSIVEMENT créer les composants UI dans \`src/components/\`, les pages dans \`src/pages/\`, et assembler le tout dans \`src/App.tsx\`. Utilise uniquement les classes de Tailwind CSS. NOTE: Les variables CSS standards de type shadcn SONT DÉJÀ CONFIGURÉES.
 • ROUTAGE STRICT : Dans \`src/App.tsx\`, vérifie que chaque import correspond EXACTEMENT au nom du fichier plat que tu as généré dans \`src/pages/\`. N'invente pas de routes fantômes ni de dépendances externes.
 

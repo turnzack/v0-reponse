@@ -52,10 +52,10 @@ Si l'utilisateur demande à implémenter ce pack, voici les 10 briques métiers 
 **Design Requis :** En-tête avec biographie, liens sociaux, avatar, suivi de la grille infinie de ses publications.
 **Composants à générer :** `AuthorHeader.tsx`, `AuthorPosts.tsx`
 
-### 🎙️ 9. Blog Hybride (Audio + Texte) (`tmpl_blog_podcast_blog`)
-**Mission :** Flux mixant articles écrits et épisodes de podcast.
-**Design Requis :** Fil d'actualité avec des badges distinctifs (TypeBadge) pour différencier immédiatement un post à lire d'un post à écouter.
-**Composants à générer :** `MixedFeed.tsx`, `TypeBadge.tsx`
+### 📰 9. Revue de Presse & Digest Éditorial (`tmpl_blog_curated_digest`)
+**Mission :** Curation d'articles, revue de presse et synthèses hebdomadaires.
+**Design Requis :** Grille de synthèse avec extraits clés, temps de lecture estimé, tags thématiques et mise en avant des citations percutantes.
+**Composants à générer :** `CuratedDigest.tsx`, `DigestCard.tsx`
 
 ### 🎟️ 10. Récapitulatifs d'Événements (`tmpl_blog_event_recaps`)
 **Mission :** Gérer les archives de conférences, meetups ou webinars passés.
@@ -74,4 +74,4 @@ Si l'utilisateur demande à implémenter ce pack, voici les 10 briques métiers 
 
 ---
 ### 🔄 INSTRUCTION DE FUSION (Pour l'Orchestrateur API)
-*Si l'utilisateur demande "Je veux lancer un média Tech avec des tutos et un podcast", tu dois fusionner l'intelligence de `tmpl_blog_magazine_modern`, `tmpl_blog_podcast_blog` et `tmpl_blog_single_post_longform`. Ton output final doit structurer une architecture Next.js/React complète capable d'afficher cette richesse éditoriale dès le premier rendu.*
+*Si l'utilisateur demande "Je veux lancer un média Tech avec des tutos et des analyses", tu dois fusionner l'intelligence de `tmpl_blog_magazine_modern`, `tmpl_blog_curated_digest` et `tmpl_blog_single_post_longform`. Ton output final doit structurer une architecture Next.js/React complète capable d'afficher cette richesse éditoriale dès le premier rendu.*
