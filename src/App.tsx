@@ -3029,7 +3029,7 @@ const WidgetPrdPacks = ({
   );
 };
 
-const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) => {
+const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenProject }: any) => {
   const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string, installed?: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -3179,32 +3179,22 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject }: any) 
       const targetProjName = p.name || 'AUDIO';
       const handleOpenProject = async () => {
         setLaunchingProject(targetProjName);
-        setActiveProject(targetProjName);
+        if (onOpenProject) {
+          onOpenProject(targetProjName);
+          setTimeout(() => setLaunchingProject(null), 1000);
+          return;
+        }
+        if (setActiveProject) setActiveProject(targetProjName);
         try {
-          window.dispatchEvent(new CustomEvent('open-mouchard'));
-          // Démarre le serveur Vite de dev en arrière-plan
-          safeFetch("http://localhost:5006/api/bridge/manual-pnpm-run", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ project_id: targetProjName })
-          }).then(async r => {
-            if (r) {
-              const d = await r.json().catch(() => null);
-              if (d?.previewUrl) {
-                window.open(d.previewUrl, "_blank");
-              }
-            }
-          }).catch(() => {});
-
-          await safeFetch(`http://localhost:5006/api/projects/${encodeURIComponent(targetProjName)}/launch-design`, {
+          safeFetch("http://localhost:5006/api/bridge/launch-project", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ project_id: targetProjName, open_explorer: false })
-          }).catch(err => console.error("Erreur de lancement :", err));
+          }).catch(() => {});
         } catch (err: any) {
           console.error("Erreur de lancement :", err);
         } finally {
-          setTimeout(() => setLaunchingProject(null), 2000);
+          setTimeout(() => setLaunchingProject(null), 1000);
         }
       };
 
@@ -4178,6 +4168,58 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleOpenProjectFromCarousel = (projName: string) => {
+    setActiveProject(projName);
+    setActiveFile(null);
+    setFileContent("");
+    setIsDesignMode(false);
+    setIsRightSidebarOpen(false); // Ferme le mouchard latéral pour laisser toute la place à l'explorateur
+    setIsIdeFullscreen(false);    // Conserve le header et ouvre l'explorateur avec l'IDE intégrée
+
+    // Démarrage du serveur Vite en arrière-plan et mise à jour de la live preview intégrée
+    safeFetch("http://localhost:5006/api/bridge/launch-project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projName, open_explorer: false })
+    }).then(async res => {
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.previewUrl) {
+          setPreviewUrl(data.previewUrl);
+          setPreviewInput(data.previewUrl);
+        }
+      }
+    }).catch(err => console.error("Erreur de lancement preview:", err));
+
+    // Chargement immédiat de l'arborescence du projet pour l'explorateur
+    safeFetch(`http://localhost:5006/api/fs/tree?project=${encodeURIComponent(projName)}`)
+      .then(res => res ? res.json() : null)
+      .then(data => {
+        if (data && data.success && data.tree) {
+          setFsTree(data.tree);
+          // Ouvre automatiquement le fichier d'entrée principal s'il existe
+          const findMainFile = (node: any): string | null => {
+            if (!node) return null;
+            if (node.type === 'file') {
+              if (node.path === 'src/App.tsx' || node.path === 'src/App.jsx' || node.name === 'App.tsx' || node.name === 'index.html') {
+                return node.path;
+              }
+            }
+            if (node.children && Array.isArray(node.children)) {
+              for (const child of node.children) {
+                const found = findMainFile(child);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const mainFile = findMainFile(data.tree);
+          if (mainFile) setActiveFile(mainFile);
+        }
+      })
+      .catch(err => console.error("Erreur chargement arborescence:", err));
   };
 
 
@@ -5903,7 +5945,7 @@ Format attendu:
                         />
                       )}
                       {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "projects" && (
-                        <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />
+                        <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} onOpenProject={handleOpenProjectFromCarousel} />
                       )}
                       {!isColorModalOpen && !isApkModalOpen && !showPacksCarousel && activeWidgetType === "news" && (
                         WidgetNews()
@@ -6237,7 +6279,7 @@ Format attendu:
                             </div>
                             {index === lastWidgetIndex && msg.widget === "settings" && <WidgetSettings isClient={isClient} getCachedGradient={getCachedGradient} mouchardLogs={mouchardLogs} activePhase={activePhase} availableProjects={availableProjects} setAvailableProjects={setAvailableProjects} selectedLaunchProject={selectedLaunchProject} setSelectedLaunchProject={setSelectedLaunchProject} isMobileNative={isMobileNative} isAutoPilot={isAutoPilot} setIsAutoPilot={setIsAutoPilot} reuseActiveTab={reuseActiveTab} setReuseActiveTab={setReuseActiveTab} selectedStartPhase={selectedStartPhase} setSelectedStartPhase={setSelectedStartPhase} selectedPacks={selectedPacks} />}
                             {index === lastWidgetIndex && msg.widget === "phases" && WidgetPhases()}
-                            {index === lastWidgetIndex && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} />}
+                            {index === lastWidgetIndex && msg.widget === "projects" && <WidgetProjects isClient={isClient} getCachedGradient={getCachedGradient} setActiveProject={setActiveProject} onOpenProject={handleOpenProjectFromCarousel} />}
                           </div>
                         );
                       })}
