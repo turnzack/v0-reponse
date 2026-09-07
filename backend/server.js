@@ -718,10 +718,11 @@ const handleProjectRemoval = async (req, res) => {
       }
     }
 
-    // 2. Suppression physique du dossier sur le disque dur (VPS Linux & Local Windows)
     const dirsToDelete = [
       path.join('/var/projects', cleanId),
       path.join(process.cwd(), 'v0saveprojets', cleanId),
+      path.join(__dirname, 'v0saveprojets', cleanId),
+      path.join(__dirname, '..', 'v0saveprojets', cleanId),
       global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
       path.join('/tmp/target_project', cleanId)
     ].filter(Boolean);
@@ -759,6 +760,90 @@ const handleProjectRemoval = async (req, res) => {
 
 server.delete(['/api/projects', '/api/projects/remove-project', '/projects/remove-project'], handleProjectRemoval);
 server.post(['/api/projects/remove-project', '/projects/remove-project'], handleProjectRemoval);
+
+// GET /api/projects/download-zip : Télécharger l'archive ZIP complète d'un projet créé (sans node_modules/.git)
+server.get(['/api/projects/download-zip', '/projects/download-zip', '/api/projects/:projectId/download-zip'], async (req, res) => {
+  try {
+    const rawId = req.params.projectId || req.query.projectId || req.query.project_id || req.query.project || req.query.file;
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: "Nom de projet requis (?project_id=...)" });
+    }
+
+    const cleanId = rawId.replace(/[^a-zA-Z0-9_\-]/g, '');
+    if (!cleanId || cleanId === '.' || cleanId === '..') {
+      return res.status(400).json({ success: false, error: "Nom de projet invalide" });
+    }
+
+    const candidates = [
+      path.join('/var/projects', cleanId),
+      path.join(process.cwd(), 'v0saveprojets', cleanId),
+      path.join(__dirname, 'v0saveprojets', cleanId),
+      path.join(__dirname, '..', 'v0saveprojets', cleanId),
+      global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+      path.join('/tmp/target_project', cleanId)
+    ].filter(Boolean);
+
+    let projectDir = null;
+    for (const cand of candidates) {
+      if (fs.existsSync(cand) && fs.statSync(cand).isDirectory()) {
+        projectDir = cand;
+        break;
+      }
+    }
+
+    if (!projectDir) {
+      return res.status(404).json({ success: false, error: `Projet "${cleanId}" introuvable sur le disque.` });
+    }
+
+    console.log(`[ZIP-DOWNLOAD] 📦 Préparation de l'archive ZIP pour "${cleanId}" depuis ${projectDir}...`);
+
+    const JSZip = require('jszip');
+    const zip = new JSZip();
+
+    // Ajout récursif de l'arborescence en ignorant node_modules et .git
+    const addDirToZip = (currentPath, zipFolder) => {
+      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // Ignorer les répertoires volumineux
+          if (['node_modules', '.git', '.turbo', '.cache'].includes(entry.name)) {
+            continue;
+          }
+          const subFolder = zipFolder.folder(entry.name);
+          addDirToZip(fullPath, subFolder);
+        } else if (entry.isFile()) {
+          try {
+            const data = fs.readFileSync(fullPath);
+            zipFolder.file(entry.name, data);
+          } catch (_) {}
+        }
+      }
+    };
+
+    addDirToZip(projectDir, zip);
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanId}.zip"`);
+
+    const stream = zip.generateNodeStream({
+      type: 'nodebuffer',
+      streamFiles: true,
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    stream.pipe(res);
+    stream.on('finish', () => {
+      console.log(`[ZIP-DOWNLOAD] ✅ Archive ZIP téléchargée avec succès pour "${cleanId}".`);
+      if (global.addLog) global.addLog(`[PROJECTS] 📦 Archive ZIP téléchargée pour "${cleanId}".`);
+    });
+  } catch (err) {
+    console.error('[ZIP-DOWNLOAD] ❌ Erreur téléchargement ZIP:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // POST /api/projects/:projectId/launch-design : Lancement de l'IDE/preview pour un projet
 server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/launch-design'], (req, res) => {

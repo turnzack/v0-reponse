@@ -3488,6 +3488,18 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
               </button>
             )}
 
+            {/* Téléchargement de l'archive ZIP complète du code source du projet */}
+            <a
+              href={`/api/projects/download-zip?project_id=${encodeURIComponent(targetProjName)}`}
+              download={`${targetProjName}.zip`}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gradient-to-r from-amber-600/90 to-yellow-600/90 hover:from-amber-500 hover:to-yellow-500 text-white font-extrabold py-2 px-3 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-amber-950/60 border border-amber-400/50 hover:border-amber-300 cursor-pointer hover:scale-105"
+              title={`Télécharger l'archive ZIP du projet "${targetProjName}" (code source complet sans node_modules)`}
+            >
+              <span>📦</span>
+              <span>ZIP</span>
+            </a>
+
             {p.installed !== false && (
               <>
                 <button
@@ -6406,6 +6418,19 @@ Format attendu:
                                     <span>⏳</span> APK non encore généré
                                   </div>
                                 )}
+
+                                  {/* Téléchargement de l'archive ZIP complète du code source du projet */}
+                                  {target && (
+                                    <a
+                                      href={`/api/projects/download-zip?project_id=${encodeURIComponent(target)}`}
+                                      download={`${target}.zip`}
+                                      className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-amber-950/50 border border-amber-400/40 cursor-pointer hover:scale-105"
+                                      title={`Télécharger l'archive ZIP du code source de "${target}" (sans node_modules)`}
+                                    >
+                                      <span className="text-base">📦</span>
+                                      <span>TÉLÉCHARGER {target.toUpperCase()}.ZIP</span>
+                                    </a>
+                                  )}
 
                                 <button
                                   disabled={apkBuildStatus === 'building'}
