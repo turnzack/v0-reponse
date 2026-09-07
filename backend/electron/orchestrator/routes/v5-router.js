@@ -890,137 +890,203 @@ interface StitchScreen {
   url: string;
 }
 
+function getScreenUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('/')) return '.' + url;
+  return url;
+}
+
 const SCREENS: StitchScreen[] = ${screensJson};
 
 export default function App() {
   const [activeScreenIndex, setActiveScreenIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'device' | 'gallery'>('device');
-  const [zoom, setZoom] = useState<number>(1);
+  const [viewMode, setViewMode] = useState<'fullscreen' | 'canvas'>('fullscreen');
   const [reloadKey, setReloadKey] = useState(0);
 
   const currentScreen = SCREENS[activeScreenIndex] || SCREENS[0];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%)', color: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      minHeight: '100vh',
+      height: '100vh',
+      background: '#090d16',
+      color: '#f8fafc',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
       
-      {/* ── BARRE SUPÉRIEURE STITCH STUDIO ── */}
-      <header style={{ borderBottom: '1px solid rgba(56, 189, 248, 0.2)', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)', padding: '12px 24px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', position: 'sticky', top: 0, zIndex: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(56, 189, 248, 0.4)' }}>
-            <span style={{ fontSize: '22px' }}>✨</span>
+      {/* ── BARRE DE NAVIGATION & CONTRÔLE STITCH ── */}
+      <header style={{
+        background: 'rgba(15, 23, 42, 0.95)',
+        borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+        backdropFilter: 'blur(16px)',
+        padding: '8px 16px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        zIndex: 50,
+        flexShrink: 0
+      }}>
+        {/* Identité du projet */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 14px rgba(56, 189, 248, 0.4)',
+            fontSize: '16px'
+          }}>
+            🎨
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em', background: 'linear-gradient(to right, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                ${cleanId} — Stitch Sovereign Studio
+              <span style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '-0.02em', color: '#fff' }}>
+                ${cleanId}
               </span>
-              <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700 }}>
-                {SCREENS.length} Écrans UI/UX Stitch
+              <span style={{
+                background: 'rgba(56, 189, 248, 0.15)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                padding: '1px 6px',
+                borderRadius: '6px',
+                fontSize: '10px',
+                fontWeight: 700
+              }}>
+                {SCREENS.length} Écrans Stitch
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-              Interface haute-fidélité Stitch active • Serveur Vite (Port 5173)
-            </p>
           </div>
         </div>
 
-        {/* Boutons de mode : Vue Smartphone vs Galerie Panorama */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', background: 'rgba(30, 41, 59, 0.7)', borderRadius: '10px', padding: '3px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* Sélecteur de Mode : Plein Écran Natif vs Toile Stitch */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            display: 'flex',
+            background: 'rgba(30, 41, 59, 0.8)',
+            borderRadius: '8px',
+            padding: '2px',
+            border: '1px solid rgba(255,255,255,0.08)'
+          }}>
             <button
-              onClick={() => setViewMode('device')}
+              onClick={() => setViewMode('fullscreen')}
               style={{
-                background: viewMode === 'device' ? '#38bdf8' : 'transparent',
-                color: viewMode === 'device' ? '#0f172a' : '#94a3b8',
+                background: viewMode === 'fullscreen' ? '#38bdf8' : 'transparent',
+                color: viewMode === 'fullscreen' ? '#090d16' : '#94a3b8',
                 border: 'none',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px',
+                transition: 'all 0.15s ease'
               }}
             >
-              <span>📱</span> Vue Mobile Interactive
+              <span>⚡</span> Plein Écran
             </button>
             <button
-              onClick={() => setViewMode('gallery')}
+              onClick={() => setViewMode('canvas')}
               style={{
-                background: viewMode === 'gallery' ? '#38bdf8' : 'transparent',
-                color: viewMode === 'gallery' ? '#0f172a' : '#94a3b8',
+                background: viewMode === 'canvas' ? '#38bdf8' : 'transparent',
+                color: viewMode === 'canvas' ? '#090d16' : '#94a3b8',
                 border: 'none',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px',
+                transition: 'all 0.15s ease'
               }}
             >
-              <span>🖼️</span> Galerie Studio ({SCREENS.length} Écrans)
+              <span>🖼️</span> Vue Toile ({SCREENS.length})
             </button>
           </div>
 
-          {currentScreen && (
-            <a
-              href={currentScreen.url}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                background: 'rgba(56, 189, 248, 0.1)',
-                color: '#38bdf8',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>↗</span> Plein écran
-            </a>
-          )}
+          {/* Outils rapides */}
+          <button
+            onClick={() => setReloadKey(k => k + 1)}
+            title="Recharger l'écran"
+            style={{
+              background: 'rgba(56, 189, 248, 0.1)',
+              color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              padding: '5px 9px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            🔄
+          </button>
         </div>
       </header>
 
-      {/* ── BARRE DES ONGLETS ÉCRANS ── */}
-      <nav style={{ background: 'rgba(15, 23, 42, 0.6)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '8px 24px', display: 'flex', gap: '8px', overflowX: 'auto', zIndex: 30 }}>
+      {/* ── BARRE DES ONGLETS ÉCRANS STITCH (DÉFILEMENT FLUIDE) ── */}
+      <nav style={{
+        background: 'rgba(15, 23, 42, 0.75)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        padding: '6px 16px',
+        display: 'flex',
+        gap: '8px',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        zIndex: 40,
+        flexShrink: 0
+      }}>
         {SCREENS.map((screen, idx) => {
           const isActive = idx === activeScreenIndex;
           return (
             <button
               key={screen.id}
-              onClick={() => { setActiveScreenIndex(idx); }}
+              onClick={() => {
+                setActiveScreenIndex(idx);
+                if (viewMode === 'canvas') setViewMode('fullscreen');
+              }}
               style={{
-                background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'rgba(30, 41, 59, 0.4)',
+                background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(30, 41, 59, 0.5)',
                 color: isActive ? '#38bdf8' : '#94a3b8',
-                border: isActive ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255,255,255,0.05)',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontSize: '13px',
+                border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.05)',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
                 fontWeight: isActive ? 700 : 500,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '6px',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
-                boxShadow: isActive ? '0 0 12px rgba(56, 189, 248, 0.2)' : 'none'
+                boxShadow: isActive ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none'
               }}
             >
               <span>{screen.icon}</span>
               <span>{screen.title}</span>
               {isActive && (
-                <span style={{ fontSize: '10px', background: '#38bdf8', color: '#090d16', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                <span style={{
+                  fontSize: '9px',
+                  background: '#38bdf8',
+                  color: '#090d16',
+                  padding: '1px 5px',
+                  borderRadius: '3px',
+                  fontWeight: 800
+                }}>
                   ACTIF
                 </span>
               )}
@@ -1029,180 +1095,153 @@ export default function App() {
         })}
       </nav>
 
-      {/* ── CONTENU PRINCIPAL ── */}
-      <main style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        
-        {viewMode === 'device' ? (
-          /* 📱 MODE 1 : SMARTPHONE INTERACTIF */
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            {/* Contrôles d'affichage du smartphone */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(15, 23, 42, 0.8)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', fontSize: '12px' }}>
-              <span style={{ color: '#94a3b8' }}>Écran actif : <strong style={{ color: '#fff' }}>{currentScreen ? currentScreen.title : ''}</strong></span>
-              <span style={{ color: '#475569' }}>•</span>
-              <button
-                onClick={() => setReloadKey(k => k + 1)}
-                style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                🔄 Recharger
-              </button>
-              <span style={{ color: '#475569' }}>•</span>
-              <span style={{ color: '#94a3b8' }}>Zoom :</span>
-              {[0.85, 1, 1.15].map(z => (
-                <button
-                  key={z}
-                  onClick={() => setZoom(z)}
-                  style={{
-                    background: zoom === z ? '#38bdf8' : 'transparent',
-                    color: zoom === z ? '#090d16' : '#94a3b8',
-                    border: 'none',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {Math.round(z * 100)}%
-                </button>
-              ))}
-            </div>
-
-            {/* Cadre de Smartphone iPhone Style */}
-            <div
-              style={{
-                width: '390px',
-                height: '844px',
-                transform: \`scale(\${zoom})\`,
-                transformOrigin: 'top center',
-                borderRadius: '50px',
-                border: '10px solid #1e293b',
-                boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9), 0 0 40px rgba(56, 189, 248, 0.25), inset 0 0 0 2px rgba(255,255,255,0.1)',
-                background: '#090d16',
-                position: 'relative',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              {/* Dynamic Island / Notch */}
-              <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', width: '110px', height: '24px', background: '#000', borderRadius: '20px', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1e293b' }} />
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#0f172a', border: '1px solid #38bdf8' }} />
-              </div>
-
-              {/* Iframe interactif de l'écran Stitch */}
-              {currentScreen && (
-                <iframe
-                  key={\`\${currentScreen.id}-\${reloadKey}\`}
-                  src={currentScreen.url}
-                  title={currentScreen.title}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    background: '#090d16'
-                  }}
-                  allow="autoplay; camera; microphone; clipboard-read; clipboard-write"
-                />
-              )}
-
-              {/* Home indicator bar (iPhone) */}
-              <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', width: '120px', height: '4px', background: 'rgba(255,255,255,0.4)', borderRadius: '9999px', pointerEvents: 'none', zIndex: 20 }} />
-            </div>
+      {/* ── ZONE D'AFFICHAGE PRINCIPALE ── */}
+      <main style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'hidden',
+        width: '100%',
+        height: '100%'
+      }}>
+        {viewMode === 'fullscreen' ? (
+          /* ⚡ MODE 1 : PLEIN ÉCRAN NATIF (AUCUN CADRE DE TÉLÉPHONE, 100% RESPONSIVE) */
+          <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {currentScreen && (
+              <iframe
+                key={\`\${currentScreen.id}-\${reloadKey}\`}
+                src={getScreenUrl(currentScreen.url)}
+                title={currentScreen.title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  flex: 1,
+                  border: 'none',
+                  background: '#0f131b'
+                }}
+                allow="autoplay; camera; microphone; clipboard-read; clipboard-write"
+              />
+            )}
           </div>
         ) : (
-          /* 🖼️ MODE 2 : GALERIE PANORAMA (5 ÉCRANS CÔTE À CÔTE COMME DANS STITCH) */
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '0 12px' }}>
+          /* 🖼️ MODE 2 : VUE TOILE STITCH (LES 4 ÉCRANS ALIGNÉS CÔTE À CÔTE COMME DANS STITCH) */
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            padding: '16px'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px',
+              padding: '0 4px'
+            }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>
-                  Vue Studio d'Ensemble ({SCREENS.length} Écrans Conçus dans Stitch)
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
+                  Vue Panoramique Stitch ({SCREENS.length} Écrans Conçus)
                 </h2>
-                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                  Faites défiler horizontalement pour inspecter tous les flux d'écrans du projet.
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>
+                  Défilement horizontal pour inspecter l'ensemble des flux du projet côte à côte.
                 </p>
               </div>
-              <span style={{ fontSize: '12px', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
-                ⬅ Défilement Horizontal ➡
+              <span style={{
+                fontSize: '11px',
+                color: '#38bdf8',
+                background: 'rgba(56, 189, 248, 0.1)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                border: '1px solid rgba(56, 189, 248, 0.2)'
+              }}>
+                ⬅ Balayer Horizontalement ➡
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '24px', overflowX: 'auto', padding: '16px 12px 32px 12px', width: '100%' }}>
+            {/* Rangée horizontale des écrans complets */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              gap: '20px',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              paddingBottom: '16px',
+              WebkitOverflowScrolling: 'touch'
+            }}>
               {SCREENS.map((s, idx) => (
                 <div
                   key={s.id}
                   style={{
+                    width: '380px',
+                    minWidth: '380px',
+                    height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '10px',
+                    background: '#111827',
+                    borderRadius: '12px',
+                    border: idx === activeScreenIndex ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    overflow: 'hidden',
                     flexShrink: 0
                   }}
                 >
-                  {/* Titre au-dessus de chaque smartphone */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '360px', padding: '0 4px' }}>
+                  {/* En-tête de la colonne */}
+                  <div style={{
+                    padding: '8px 12px',
+                    background: 'rgba(17, 24, 39, 0.95)',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>{s.icon}</span>
-                      <strong style={{ fontSize: '13px', color: '#f8fafc' }}>{s.title}</strong>
+                      <strong style={{ fontSize: '12px', color: '#f8fafc' }}>{s.title}</strong>
                     </div>
                     <button
-                      onClick={() => { setActiveScreenIndex(idx); setViewMode('device'); }}
+                      onClick={() => {
+                        setActiveScreenIndex(idx);
+                        setViewMode('fullscreen');
+                      }}
                       style={{
                         background: 'rgba(56, 189, 248, 0.15)',
                         color: '#38bdf8',
                         border: '1px solid rgba(56, 189, 248, 0.3)',
                         borderRadius: '6px',
-                        padding: '2px 8px',
+                        padding: '3px 8px',
                         fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer'
                       }}
                     >
-                      Interagir ↗
+                      Ouvrir ↗
                     </button>
                   </div>
 
-                  {/* Cadre mockup pour chaque écran */}
-                  <div
+                  {/* Vue iframe complète */}
+                  <iframe
+                    src={getScreenUrl(s.url)}
+                    title={s.title}
                     style={{
-                      width: '360px',
-                      height: '740px',
-                      borderRadius: '36px',
-                      border: '6px solid #1e293b',
-                      boxShadow: '0 15px 35px rgba(0,0,0,0.8), 0 0 25px rgba(56, 189, 248, 0.15)',
-                      background: '#090d16',
-                      position: 'relative',
-                      overflow: 'hidden'
+                      flex: 1,
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                      background: '#0f131b'
                     }}
-                  >
-                    <iframe
-                      src={s.url}
-                      title={s.title}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        background: '#090d16'
-                      }}
-                    />
-                  </div>
+                  />
                 </div>
               ))}
             </div>
           </div>
         )}
       </main>
-
-      {/* ── BADGE G5 CONNECTÉ FLOTTANT ── */}
-      <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '12px', padding: '8px 14px', fontSize: '11px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 0 20px rgba(56, 189, 248, 0.25)' }}>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
-        <span style={{ fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.05em' }}>MOTEUR G5 CONNECTÉ</span>
-        <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>[${cleanId}]</span>
-      </div>
     </div>
   );
 }
-`;
+\`;
     } else {
       // 🔍 Chercher s'il existe des composants dans src/components, components ou src/
       let compToMount = null;
