@@ -3035,6 +3035,89 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [launchingProject, setLaunchingProject] = useState<string | null>(null);
   const [availableApks, setAvailableApks] = useState<Record<string, { file: string, sizeMb: string, url: string }>>({});
+  const [apkBuildStates, setApkBuildStates] = useState<Record<string, { status: 'idle' | 'building' | 'success' | 'error', progress?: string, apkUrl?: string }>>({});
+
+  const handleTriggerApkBuild = async (e: React.MouseEvent, projName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setApkBuildStates(prev => ({
+      ...prev,
+      [projName]: { status: 'building', progress: 'Initialisation...' }
+    }));
+
+    const updateProgress = (msg: string) => {
+      setApkBuildStates(prev => ({
+        ...prev,
+        [projName]: { status: 'building', progress: msg }
+      }));
+    };
+
+    const handleBuildResult = (status: 'building' | 'success' | 'error', apkUrl?: string) => {
+      setApkBuildStates(prev => ({
+        ...prev,
+        [projName]: {
+          status,
+          apkUrl: apkUrl || prev[projName]?.apkUrl,
+          progress: status === 'success' ? 'APK prêt !' : 'Échec compilation'
+        }
+      }));
+      if (status === 'success') {
+        fetchApks();
+      }
+    };
+
+    try {
+      // 1. Essai backend local / VPS
+      const localRes = await safeFetch("http://localhost:5006/api/mobile/build-apk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: projName })
+      });
+
+      if (localRes && localRes.ok) {
+        updateProgress("Compilation locale...");
+        let attempts = 0;
+        const poller = setInterval(async () => {
+          attempts++;
+          try {
+            const logsRes = await safeFetch("http://localhost:5006/api/mobile/build-logs");
+            if (logsRes && logsRes.ok) {
+              const data = await logsRes.json();
+              if (data.logs && data.logs.length > 0) {
+                const lastLog = data.logs[data.logs.length - 1];
+                updateProgress(lastLog.replace(/\[.*?\]/g, '').trim().substring(0, 30));
+              }
+              if (data.isBuilding === false && data.result) {
+                clearInterval(poller);
+                if (data.result.success) {
+                  const url = data.result.apkUrl || `/api/mobile/download-apk?file=${encodeURIComponent(projName + '.apk')}`;
+                  handleBuildResult('success', url);
+                } else {
+                  updateProgress("Bascule Cloud...");
+                  await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
+                }
+              }
+            }
+          } catch {
+            clearInterval(poller);
+            await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
+          }
+          if (attempts > 120) clearInterval(poller);
+        }, 2000);
+      } else {
+        updateProgress("Bascule Cloud Souverain...");
+        await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
+      }
+    } catch (err: any) {
+      updateProgress("Bascule Cloud Souverain...");
+      try {
+        await launchCloudApkBuild(projName, updateProgress, handleBuildResult);
+      } catch (cloudErr: any) {
+        handleBuildResult('error');
+      }
+    }
+  };
 
   const fetchApks = async () => {
     try {
@@ -3224,9 +3307,16 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
         }
       };
 
+      const buildState = apkBuildStates[targetProjName];
+      const isBuildingApk = buildState?.status === 'building';
+      const isBuildSuccess = buildState?.status === 'success';
+
       const cleanKey = targetProjName.toLowerCase();
       const cleanSimple = cleanKey.replace(/[^a-z0-9]/g, '');
-      const projectApk = availableApks[cleanKey] || availableApks[cleanSimple] || availableApks[`${cleanKey}.apk`];
+      const existingApk = availableApks[cleanKey] || availableApks[cleanSimple] || availableApks[`${cleanKey}.apk`];
+
+      const effectiveApkUrl = (isBuildSuccess && buildState?.apkUrl) ? buildState.apkUrl : (existingApk ? existingApk.url : null);
+      const effectiveApkSize = existingApk?.sizeMb ? `${existingApk.sizeMb}M` : 'Prêt';
 
       return (
         <div
@@ -3235,19 +3325,28 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
           style={{ background: isClient ? getCachedGradient('proj-' + i, 0.7) : 'rgba(0,0,0,0.5)' }}
           onClick={handleOpenProject}
         >
-          {/* Badge APK Prêt */}
-          {projectApk && (
+          {/* Badge APK Prêt ou en cours */}
+          {effectiveApkUrl ? (
             <a
-              href={projectApk.url}
-              download={projectApk.file}
+              href={effectiveApkUrl}
+              download={`${targetProjName}.apk`}
               onClick={(e) => e.stopPropagation()}
-              className="z-20 absolute top-3 left-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-lg border border-emerald-400/50 transition-all hover:scale-105 cursor-pointer"
-              title={`Télécharger directement l'APK (${projectApk.sizeMb} Mo)`}
+              className="z-20 absolute top-3 left-3 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-lg border border-emerald-400/50 transition-all hover:scale-105 cursor-pointer animate-pulse"
+              title={`Télécharger directement l'APK (${effectiveApkSize})`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-              <span>📱 APK PRÊT ({projectApk.sizeMb}M)</span>
+              <span>📱 APK PRÊT ({effectiveApkSize})</span>
             </a>
-          )}
+          ) : isBuildingApk ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="z-20 absolute top-3 left-3 bg-purple-700/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-lg border border-purple-400/60 animate-pulse select-none"
+              title={buildState?.progress || "Compilation de l'APK en cours..."}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+              <span>⏳ APK EN COURS...</span>
+            </div>
+          ) : null}
 
           {/* Bouton de suppression rouge direct depuis le carrousel */}
           <button
@@ -3305,19 +3404,46 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
               )}
             </button>
 
-            {/* Bouton Téléchargement APK si créé */}
-            {projectApk && (
-              <a
-                href={projectApk.url}
-                download={projectApk.file}
+            {/* Gestionnaire d'APK Souverain : Bouton v0-apk action ou Téléchargement direct */}
+            {effectiveApkUrl ? (
+              <div className="flex items-center gap-1">
+                <a
+                  href={effectiveApkUrl}
+                  download={`${targetProjName}.apk`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold py-2 px-3.5 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-950/60 border border-emerald-400/50 cursor-pointer animate-pulse hover:scale-105"
+                  title={`Télécharger l'APK Android compilé de ${targetProjName} (${effectiveApkSize}) directement`}
+                >
+                  <span>📥</span>
+                  <span>APK</span>
+                  <span className="text-[10px] opacity-90 font-mono">({effectiveApkSize})</span>
+                </a>
+                <button
+                  onClick={(e) => handleTriggerApkBuild(e, targetProjName)}
+                  className="bg-purple-600/30 hover:bg-purple-600/60 text-purple-200 hover:text-white font-bold py-2 px-2 rounded-xl text-xs transition-colors flex items-center justify-center border border-purple-400/40 cursor-pointer"
+                  title="Re-compiler une nouvelle version de l'APK"
+                >
+                  🔄
+                </button>
+              </div>
+            ) : isBuildingApk ? (
+              <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold py-2 px-3.5 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-950/60 border border-emerald-400/50 cursor-pointer animate-pulse hover:scale-105"
-                title={`Télécharger l'APK Android compilé de ${targetProjName} (${projectApk.sizeMb} Mo)`}
+                className="bg-purple-900/70 border border-purple-500/60 text-purple-200 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/60 cursor-wait animate-pulse"
+                title={buildState?.progress || "Compilation APK en cours..."}
               >
-                <span>📥</span>
-                <span>APK</span>
-                <span className="text-[10px] opacity-90 font-mono">({projectApk.sizeMb}M)</span>
-              </a>
+                <span className="animate-spin inline-block text-xs">⏳</span>
+                <span className="max-w-[110px] truncate text-[11px]">{buildState?.progress || "v0-apk..."}</span>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => handleTriggerApkBuild(e, targetProjName)}
+                className="bg-gradient-to-r from-purple-700/90 to-indigo-600/90 hover:from-purple-600 hover:to-indigo-500 text-white font-bold py-2 px-3 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-purple-950/60 border border-purple-400/50 hover:border-purple-300 cursor-pointer hover:scale-105"
+                title={`Lancer la création du fichier APK pour "${targetProjName}" directement depuis le carrousel`}
+              >
+                <span>📱</span>
+                <span>v0-apk action</span>
+              </button>
             )}
 
             {p.installed !== false && (

@@ -91,11 +91,30 @@ jobs:
           cd "${{ env.PROJECT_DIR }}/android"
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
+          
+          # Renommer l'APK généré avec le nom officiel du projet
+          APK_SRC=$(find "${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug" -name "*.apk" | head -n 1)
+          if [ -f "$APK_SRC" ]; then
+            PROJ_CLEAN="${{ github.event.inputs.project_name }}"
+            cp "$APK_SRC" "${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/${PROJ_CLEAN}.apk"
+            echo "APK_FINAL_PATH=${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/${PROJ_CLEAN}.apk" >> $GITHUB_ENV
+          fi
 
-      - name: 📤 Découverte et Publication de l'APK
+      - name: 📤 Découverte et Publication de l'APK en Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.inputs.project_name }}-debug-apk
           path: |
             ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/*.apk
           retention-days: 14
+
+      - name: 📱 Publication Directe dans les Releases Publiques Souveraines
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v1.0-apk
+          name: "📱 Fichiers APK Android Souverains"
+          files: |
+            ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
