@@ -23,93 +23,126 @@ export interface CloudBuildStatus {
 }
 
 /**
- * Lance automatiquement la compilation Cloud et suit sa progression
+ * Diffuse un log dans l'UI, ouvre la console noire et synchronise le mouchard
+ */
+function broadcastLog(message: string, onLog?: (msg: string) => void) {
+  if (onLog) onLog(message);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('open-mouchard'));
+    window.dispatchEvent(new CustomEvent('kirov-mouchard-log', { detail: message }));
+
+    const terminalLogs = document.getElementById('mouchard-terminal-logs');
+    if (terminalLogs) {
+      const isErr = message.includes('❌') || message.includes('Erreur');
+      const isSuccess = message.includes('✅') || message.includes('🎉');
+      const color = isErr ? 'text-red-400' : isSuccess ? 'text-emerald-400' : 'text-purple-300';
+      terminalLogs.innerHTML = `<div class="mb-1 opacity-90 break-words ${color}">${message}</div>` + terminalLogs.innerHTML;
+    }
+  }
+
+  // Notifier également le bridge backend pour persistance
+  try {
+    fetch('http://localhost:5006/api/bridge/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+/**
+ * Lance automatiquement la compilation Cloud et suit sa progression pas-à-pas
  */
 export async function launchCloudApkBuild(
   projectName: string,
   onLog: (message: string) => void,
-  onStatusChange: (status: 'building' | 'success' | 'error', apkUrl?: string) => void
+  onStatusChange: (status: 'building' | 'success' | 'error', apkUrl?: string) => void,
+  existingRunId?: number
 ): Promise<void> {
   const cleanProject = projectName || 'AUDIO';
   const startTime = Date.now();
 
-  onLog(`> 🚀 Initialisation de la compilation Cloud pour [${cleanProject}]...`);
-  onLog(`> 🌐 Connexion au cluster de build souverain (GitHub Cloud Engine)...`);
+  broadcastLog(`> 🚀 [📱 APK CLOUD] Démarrage du pipeline pour [${cleanProject}]...`, onLog);
+  broadcastLog(`> 🌐 [📱 APK CLOUD] Connexion à l'infrastructure GitHub Actions...`, onLog);
 
   const token = getGithubToken();
 
   try {
-    // 1. Déclenchement du workflow GitHub Actions via l'API REST
-    const dispatchRes = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW}/dispatches`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'Tiger-Auto-Apk-Engine'
-        },
-        body: JSON.stringify({
-          ref: 'main',
-          inputs: {
-            project_name: cleanProject,
-            app_label: cleanProject
-          }
-        })
-      }
-    );
+    let runId: number | null = existingRunId || null;
 
-    if (!dispatchRes.ok && dispatchRes.status !== 204) {
-      const err = await dispatchRes.text();
-      throw new Error(`Erreur API Cloud (${dispatchRes.status}): ${err}`);
-    }
-
-    onLog(`> ⚡ Ordre de compilation validé par le Cloud (Job Dispatch OK).`);
-    onLog(`> ⏳ Attribution d'un conteneur dédié (Ubuntu 22.04 LTS + JDK 17 + Android SDK)...`);
-
-    // 2. Attente de la création du Run
-    let runId: number | null = null;
-    let attempts = 0;
-
-    while (!runId && attempts < 15) {
-      await new Promise(r => setTimeout(r, 2000));
-      attempts++;
-
-      const runsRes = await fetch(
-        `https://api.github.com/repos/${GITHUB_REPO}/actions/runs?event=workflow_dispatch&per_page=5`,
+    if (!runId) {
+      // 1. Déclenchement du workflow GitHub Actions via l'API REST
+      const dispatchRes = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW}/dispatches`,
         {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'Tiger-Auto-Apk-Engine'
+          },
+          body: JSON.stringify({
+            ref: 'main',
+            inputs: {
+              project_name: cleanProject,
+              app_label: cleanProject
+            }
+          })
         }
       );
 
-      if (runsRes.ok) {
-        const data = await runsRes.json();
-        const latestRun = data.workflow_runs?.[0];
-        if (latestRun && new Date(latestRun.created_at).getTime() >= startTime - 10000) {
-          runId = latestRun.id;
-          onLog(`> 📋 Tâche Cloud assignée : Run #${runId}`);
+      if (!dispatchRes.ok && dispatchRes.status !== 204) {
+        const err = await dispatchRes.text();
+        throw new Error(`Erreur API Cloud (${dispatchRes.status}): ${err}`);
+      }
+
+      broadcastLog(`> ⚡ [📱 APK CLOUD] Job Dispatch validé. Initialisation du Runner Ubuntu 24.04...`, onLog);
+
+      // 2. Attente de la création du Run
+      let attempts = 0;
+      while (!runId && attempts < 15) {
+        await new Promise(r => setTimeout(r, 2000));
+        attempts++;
+
+        const runsRes = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/actions/runs?event=workflow_dispatch&per_page=5`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+
+        if (runsRes.ok) {
+          const data = await runsRes.json();
+          const latestRun = data.workflow_runs?.[0];
+          if (latestRun && new Date(latestRun.created_at).getTime() >= startTime - 15000) {
+            runId = latestRun.id;
+            broadcastLog(`> 📋 [📱 APK CLOUD] Tâche assignée : Run #${runId} (https://github.com/${GITHUB_REPO}/actions/runs/${runId})`, onLog);
+          }
         }
       }
     }
 
     if (!runId) {
-      onLog(`> ℹ️ Compilation lancée en arrière-plan dans le Cloud.`);
+      broadcastLog(`> ℹ️ [📱 APK CLOUD] Compilation active en arrière-plan dans le Cloud.`, onLog);
       onStatusChange('building');
       return;
     }
 
-    // 3. Polling du statut et des étapes
+    // 3. Polling du statut et inspection temps réel des étapes (Jobs & Steps)
     let completed = false;
     let pollCount = 0;
+    const seenSteps = new Set<string>();
 
     while (!completed && pollCount < 120) {
-      await new Promise(r => setTimeout(r, 4000));
+      await new Promise(r => setTimeout(r, 3500));
       pollCount++;
 
+      // A. Récupérer l'état global du Run
       const checkRes = await fetch(
         `https://api.github.com/repos/${GITHUB_REPO}/actions/runs/${runId}`,
         {
@@ -125,25 +158,57 @@ export async function launchCloudApkBuild(
       const status = runData.status; // queued, in_progress, completed
       const conclusion = runData.conclusion; // success, failure, cancelled
 
+      // B. Récupérer les étapes détaillées (steps) en direct
+      try {
+        const jobsRes = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/actions/runs/${runId}/jobs`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+        if (jobsRes.ok) {
+          const jobsData = await jobsRes.json();
+          const firstJob = jobsData.jobs?.[0];
+          if (firstJob && Array.isArray(firstJob.steps)) {
+            for (const step of firstJob.steps) {
+              const stepKey = `${step.number}_${step.status}_${step.conclusion || 'running'}`;
+              if (!seenSteps.has(stepKey)) {
+                seenSteps.add(stepKey);
+                if (step.status === 'in_progress') {
+                  broadcastLog(`> ⏳ [📱 APK STEP] En cours : ${step.name}...`, onLog);
+                } else if (step.status === 'completed') {
+                  if (step.conclusion === 'success') {
+                    broadcastLog(`> ✅ [📱 APK STEP] ${step.name} (Validé)`, onLog);
+                  } else if (step.conclusion === 'failure') {
+                    broadcastLog(`> ❌ [📱 APK STEP] ${step.name} (Échec)`, onLog);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
       if (status === 'queued') {
-        onLog(`> ⏳ En file d'attente sur les serveurs de build...`);
-      } else if (status === 'in_progress') {
-        if (pollCount % 3 === 0) {
-          onLog(`> ⚙️ Compilation native en cours (Assemblage Gradle Dex + Assets)...`);
+        if (pollCount === 1) {
+          broadcastLog(`> ⏳ [📱 APK CLOUD] En file d'attente sur les runners GitHub...`, onLog);
         }
       } else if (status === 'completed') {
         completed = true;
         if (conclusion === 'success') {
-          onLog(`> ✅ Compilation native réussie à 100 % !`);
-          onLog(`> 📦 Génération du lien de téléchargement direct de l'APK...`);
+          broadcastLog(`> ✅ [📱 APK CLOUD] Compilation native réussie à 100 % !`, onLog);
+          broadcastLog(`> 📦 [📱 APK CLOUD] Fichier APK déployé sur GitHub Releases souveraines.`, onLog);
 
           // 4. Lien direct release souveraine prioritaire
           const directReleaseUrl = `https://github.com/${GITHUB_REPO}/releases/download/v1.0-apk/${encodeURIComponent(cleanProject)}.apk`;
-          onLog(`> 🎉 APK prêt ! Téléchargez votre application ci-dessous.`);
+          broadcastLog(`> 🎉 [📱 APK CLOUD] Téléchargement disponible : ${directReleaseUrl}`, onLog);
           onStatusChange('success', directReleaseUrl);
           return;
         } else {
-          onLog(`> ❌ La compilation Cloud s'est terminée avec le statut : ${conclusion}`);
+          broadcastLog(`> ❌ [📱 APK CLOUD] La compilation s'est terminée avec le statut : ${conclusion}`, onLog);
           onStatusChange('error');
           return;
         }
@@ -151,7 +216,7 @@ export async function launchCloudApkBuild(
     }
 
   } catch (err: any) {
-    onLog(`> ❌ Erreur lors du déclenchement Cloud : ${err.message}`);
+    broadcastLog(`> ❌ [📱 APK CLOUD] Erreur : ${err.message}`, onLog);
     onStatusChange('error');
   }
 }

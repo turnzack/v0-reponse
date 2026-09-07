@@ -3041,6 +3041,14 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
     e.preventDefault();
     e.stopPropagation();
 
+    // Ouverture automatique de la console mouchard pour suivre les logs en direct
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-mouchard'));
+      window.dispatchEvent(new CustomEvent('kirov-mouchard-log', {
+        detail: `> 📱 [v0-apk] Lancement compilation APK pour "${projName}"...`
+      }));
+    }
+
     setApkBuildStates(prev => ({
       ...prev,
       [projName]: { status: 'building', progress: 'Initialisation...' }
@@ -3051,6 +3059,9 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
         ...prev,
         [projName]: { status: 'building', progress: msg }
       }));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kirov-mouchard-log', { detail: `> [v0-apk] ${msg}` }));
+      }
     };
 
     const handleBuildResult = (status: 'building' | 'success' | 'error', apkUrl?: string) => {
@@ -4172,7 +4183,13 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
   useEffect(() => {
     const handleOpenMouchard = () => setIsRightSidebarOpen(true);
+    const handleKirovLog = (event: any) => {
+      if (event && event.detail) {
+        setMouchardLogs((prev: string[]) => [event.detail, ...prev.slice(0, 49)]);
+      }
+    };
     window.addEventListener('open-mouchard', handleOpenMouchard);
+    window.addEventListener('kirov-mouchard-log', handleKirovLog);
 
     // Écouteur pour le Moteur Mobile (WebView Fantôme Java)
     const handleNativeMessage = (event: MessageEvent) => {
@@ -4203,6 +4220,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
 
     return () => {
       window.removeEventListener('open-mouchard', handleOpenMouchard);
+      window.removeEventListener('kirov-mouchard-log', handleKirovLog);
       window.removeEventListener('message', handleNativeMessage);
     };
   }, [activeProject, activeFile]);

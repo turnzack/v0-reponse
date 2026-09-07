@@ -91,6 +91,14 @@ server.get(['/api/logs', '/api/bridge/logs', '/bridge/logs'], (req, res) => {
   res.json({ success: true, logs: globalLogs });
 });
 
+server.post(['/api/logs', '/api/bridge/log', '/bridge/log'], (req, res) => {
+  const msg = req.body && req.body.message;
+  if (msg && global.addLog) {
+    global.addLog(msg);
+  }
+  res.json({ success: true });
+});
+
 // ==============================================================================
 // GESTION DU COMPILATEUR MOBILE APK (v0-apk)
 // ==============================================================================

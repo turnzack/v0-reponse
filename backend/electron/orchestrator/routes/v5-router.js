@@ -6540,6 +6540,14 @@ router.get(['/bridge/logs', '/api/bridge/logs', '/api/logs'], (req, res) => {
   res.json({ success: true, logs });
 });
 
+router.post(['/bridge/log', '/api/bridge/log'], (req, res) => {
+  const msg = req.body && req.body.message;
+  if (msg && global.addLog) {
+    global.addLog(msg);
+  }
+  res.json({ success: true });
+});
+
 
 // GET /api/bridge/autonomous-status — État de l'orchestrateur Zero-Touch
 router.get(['/api/bridge/autonomous-status', '/bridge/autonomous-status'], (req, res) => {
