@@ -6,7 +6,7 @@
 const GITHUB_REPO = 'turnzack/v0-reponse';
 const GITHUB_WORKFLOW = 'build-apk.yml';
 
-const getGithubToken = (): string => {
+export const getGithubToken = (): string => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('tiger_github_pat');
     if (saved && saved.length > 20) return saved;

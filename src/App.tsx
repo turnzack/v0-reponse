@@ -11,7 +11,7 @@ import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 import { ProjectConfigurator } from './components/ProjectConfigurator';
 import { GuestIdeaPanel } from './components/GuestIdeaPanel';
 import { safeFetch, isLocalEnvironment } from './lib/bridgeClient';
-import { launchCloudApkBuild } from './lib/cloudApkBuilder';
+import { launchCloudApkBuild, getGithubToken } from './lib/cloudApkBuilder';
 
 type WidgetType = "projects" | "settings" | "news" | "youtube" | "phases" | null;
 
@@ -3029,6 +3029,10 @@ const WidgetPrdPacks = ({
   );
 };
 
+// Cache global pour les releases GitHub afin d'éviter le rate-limit (403 Forbidden)
+let lastGhReleaseFetch = 0;
+let cachedGhReleaseList: Array<{ file: string, name: string, sizeMb: string, url: string }> = [];
+
 const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenProject }: any) => {
   const [liveProjects, setLiveProjects] = useState<{ name: string, desc: string, bg: string, installed?: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -3074,6 +3078,7 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
         }
       }));
       if (status === 'success') {
+        lastGhReleaseFetch = 0; // Forcer le rafraîchissement
         fetchApks();
       }
     };
@@ -3133,29 +3138,47 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
   const fetchApks = async () => {
     try {
       let list: any[] = [];
-      // 1. Récupération depuis GitHub Releases (accessible universellement en direct)
-      try {
-        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
-        if (ghRes.ok) {
-          const releases = await ghRes.json();
-          if (Array.isArray(releases)) {
-            releases.forEach((r: any) => {
-              if (Array.isArray(r.assets)) {
-                r.assets.forEach((ast: any) => {
-                  if (ast.name?.endsWith('.apk')) {
-                    list.push({
-                      file: ast.name,
-                      name: ast.name.replace('.apk', ''),
-                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
-                      url: ast.browser_download_url
-                    });
-                  }
-                });
-              }
-            });
+      const now = Date.now();
+
+      // 1. Récupération depuis GitHub Releases (avec cache 30s + token d'authentification)
+      if (now - lastGhReleaseFetch < 30000 && cachedGhReleaseList.length > 0) {
+        list = [...cachedGhReleaseList];
+      } else {
+        try {
+          const token = getGithubToken();
+          const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases", {
+            headers: token ? {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            } : {
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          });
+          if (ghRes.ok) {
+            const releases = await ghRes.json();
+            if (Array.isArray(releases)) {
+              const ghList: any[] = [];
+              releases.forEach((r: any) => {
+                if (Array.isArray(r.assets)) {
+                  r.assets.forEach((ast: any) => {
+                    if (ast.name?.endsWith('.apk')) {
+                      ghList.push({
+                        file: ast.name,
+                        name: ast.name.replace('.apk', ''),
+                        sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
+                        url: ast.browser_download_url
+                      });
+                    }
+                  });
+                }
+              });
+              cachedGhReleaseList = ghList;
+              lastGhReleaseFetch = now;
+              list = [...ghList];
+            }
           }
-        }
-      } catch (e) {}
+        } catch (_) {}
+      }
 
       // 2. Récupération depuis le backend local / VPS
       try {
@@ -3850,29 +3873,46 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const loadAvailableApks = useCallback(async () => {
     try {
       let list: any[] = [];
-      // 1. Récupération universelle depuis GitHub Releases
-      try {
-        const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases");
-        if (ghRes.ok) {
-          const releases = await ghRes.json();
-          if (Array.isArray(releases)) {
-            releases.forEach((r: any) => {
-              if (Array.isArray(r.assets)) {
-                r.assets.forEach((ast: any) => {
-                  if (ast.name?.endsWith('.apk')) {
-                    list.push({
-                      file: ast.name,
-                      name: ast.name.replace('.apk', ''),
-                      sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
-                      url: ast.browser_download_url
-                    });
-                  }
-                });
-              }
-            });
+      // 1. Récupération universelle depuis GitHub Releases (avec cache 30s + token d'authentification)
+      const now = Date.now();
+      if (now - lastGhReleaseFetch < 30000 && cachedGhReleaseList.length > 0) {
+        list = [...cachedGhReleaseList];
+      } else {
+        try {
+          const token = getGithubToken();
+          const ghRes = await fetch("https://api.github.com/repos/turnzack/v0-reponse/releases", {
+            headers: token ? {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            } : {
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          });
+          if (ghRes.ok) {
+            const releases = await ghRes.json();
+            if (Array.isArray(releases)) {
+              const ghList: any[] = [];
+              releases.forEach((r: any) => {
+                if (Array.isArray(r.assets)) {
+                  r.assets.forEach((ast: any) => {
+                    if (ast.name?.endsWith('.apk')) {
+                      ghList.push({
+                        file: ast.name,
+                        name: ast.name.replace('.apk', ''),
+                        sizeMb: (ast.size / (1024 * 1024)).toFixed(1),
+                        url: ast.browser_download_url
+                      });
+                    }
+                  });
+                }
+              });
+              cachedGhReleaseList = ghList;
+              lastGhReleaseFetch = now;
+              list = [...ghList];
+            }
           }
-        }
-      } catch (e) {}
+        } catch (_) {}
+      }
 
       // 2. Récupération locale / VPS
       try {
