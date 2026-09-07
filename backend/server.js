@@ -723,6 +723,8 @@ const handleProjectRemoval = async (req, res) => {
       path.join(process.cwd(), 'v0saveprojets', cleanId),
       path.join(__dirname, 'v0saveprojets', cleanId),
       path.join(__dirname, '..', 'v0saveprojets', cleanId),
+      path.join(__dirname, '..', 'v0-moteur-electron', 'v0saveprojets', cleanId),
+      path.join(process.cwd(), '..', 'v0-moteur-electron', 'v0saveprojets', cleanId),
       global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
       path.join('/tmp/target_project', cleanId)
     ].filter(Boolean);
@@ -779,6 +781,8 @@ server.get(['/api/projects/download-zip', '/projects/download-zip', '/api/projec
       path.join(process.cwd(), 'v0saveprojets', cleanId),
       path.join(__dirname, 'v0saveprojets', cleanId),
       path.join(__dirname, '..', 'v0saveprojets', cleanId),
+      path.join(__dirname, '..', 'v0-moteur-electron', 'v0saveprojets', cleanId),
+      path.join(process.cwd(), '..', 'v0-moteur-electron', 'v0saveprojets', cleanId),
       global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
       path.join('/tmp/target_project', cleanId)
     ].filter(Boolean);
