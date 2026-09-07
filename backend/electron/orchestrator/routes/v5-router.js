@@ -1868,17 +1868,17 @@ function resolvePackExpertise(packs = [], projName = '') {
             } catch (_) {}
           }
 
-          // 2. Extraire la documentation README.md
+          // 2. Extraire la documentation README.md complète (incluant la Vision UI/UX & Design System)
           if (files.includes('README.md')) {
             try {
               const readme = fs.readFileSync(path.join(targetDir, 'README.md'), 'utf8');
               result.readmes.push({ packName, content: readme });
-              packBlocks.push(readme.slice(0, 1500));
+              packBlocks.push(readme.slice(0, 8000));
             } catch (_) {}
           } else if (files.includes('prd.md')) {
             try {
               const prd = fs.readFileSync(path.join(targetDir, 'prd.md'), 'utf8');
-              packBlocks.push(prd.slice(0, 1500));
+              packBlocks.push(prd.slice(0, 8000));
             } catch (_) {}
           }
 
