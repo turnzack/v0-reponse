@@ -752,7 +752,7 @@ function setupStitchPages(projectRoot, cleanId) {
       title,
       icon: getScreenIcon(title),
       badge: 'STITCH ACTIVE',
-      url: `/stitch/${dirName}/code.html`
+      url: `./stitch/${dirName}/code.html`
     });
   }
 
