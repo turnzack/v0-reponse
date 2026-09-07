@@ -2138,12 +2138,12 @@ const WidgetSettings = ({
                   </div>
                   
                   {/* Queue List */}
-                  <div id="kirov-radar-queue" className={`flex-1 bg-[#050505] rounded-xl p-4 flex flex-col gap-4 min-h-[150px] transition-all duration-1000 ${isPipelineRunning ? 'border-2 border-cyan shadow-[0_0_30px_rgba(8,179,201,0.2)]' : 'border border-white/5'}`}>
+                  <div id="kirov-radar-queue" className={`flex-1 bg-[#080808] rounded-2xl p-5 flex flex-col gap-4 min-h-[220px] transition-all duration-1000 ${isPipelineRunning ? 'border-2 border-cyan shadow-[0_0_30px_rgba(8,179,201,0.25)]' : 'border border-white/10'}`}>
                     {/* Tâche Actuelle */}
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-cyan font-bold text-[11px] flex items-center gap-2">
-                           <span className="w-1 h-3 bg-cyan inline-block rounded-sm"></span> Tâche Actuelle
+                        <span className="text-cyan font-black text-sm flex items-center gap-2.5">
+                           <span className="w-1.5 h-4 bg-cyan inline-block rounded-sm shadow-[0_0_8px_rgba(0,240,255,0.6)]"></span> Tâche Actuelle
                         </span>
                         <button 
                           onClick={async () => {
@@ -2170,30 +2170,35 @@ const WidgetSettings = ({
                             }).catch(() => null);
                             alert(`Prompt [${task.phase_name || task.phase_num || 'Lot 1'}] poussé manuellement dans la zone texte KIROV5 (${targetAi}) !`);
                           }}
-                          className="bg-[#0f2a2a] text-cyan text-[8px] font-bold px-2 py-1 rounded transition-colors"
+                          className="bg-gradient-to-r from-cyan-950 to-cyan-900 hover:from-cyan-900 hover:to-cyan-800 text-cyan-200 border border-cyan-500/40 text-xs font-black px-3.5 py-1.5 rounded-lg shadow-md transition-all cursor-pointer hover:scale-105"
                         >
-                          FORCER ENVOI
+                          ⚡ FORCER ENVOI
                         </button>
                       </div>
                       
                       {bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0 ? Object.entries(bridgeQueueData.current).map(([ai, task]: [string, any]) => {
                         const promptStr = typeof task.prompt === 'string' ? task.prompt : JSON.stringify(task.prompt);
                         return (
-                          <div key={ai} className="bg-[#111] p-3 rounded-lg text-[9px] text-gray-400 font-mono">
-                            <div className="text-pink font-bold mb-1">[{ai.toUpperCase()}] {task.phase_name || 'Tâche'}</div>
-                            <div className="truncate opacity-80">{promptStr ? promptStr.substring(0, 80) : ''}...</div>
+                          <div key={ai} className="bg-zinc-900/90 border border-purple-500/30 p-3.5 rounded-xl text-xs md:text-sm text-zinc-200 font-mono shadow-md">
+                            <div className="text-pink-400 font-extrabold text-sm mb-1.5 flex items-center gap-2">
+                              <span>🚀 [{ai.toUpperCase()}]</span>
+                              <span>{task.phase_name || 'Tâche active'}</span>
+                            </div>
+                            <div className="text-zinc-300 text-xs leading-relaxed max-h-20 overflow-y-auto custom-scrollbar font-mono opacity-90">
+                              {promptStr ? promptStr.substring(0, 200) : ''}...
+                            </div>
                           </div>
                         );
                       }) : (
-                        <div className="text-[10px] text-gray-500 italic pl-3">Aucune tâche en cours.</div>
+                        <div className="text-xs text-zinc-500 italic pl-2 py-1">Aucune tâche active pour le moment.</div>
                       )}
                     </div>
 
-                    <div className="w-full h-px bg-white/5"></div>
+                    <div className="w-full h-px bg-white/10"></div>
 
-                    <div className="flex flex-col gap-2 flex-1 min-h-0">
+                    <div className="flex flex-col gap-2.5 flex-1 min-h-0">
                        <div className="flex items-center justify-between">
-                         <span className="text-orange-400 font-bold text-[10px] flex items-center gap-2">
+                         <span className="text-amber-400 font-bold text-xs md:text-sm flex items-center gap-2">
                             <span>⏳</span> En attente ({bridgeQueueData.queue.length})
                          </span>
                          <div className="flex gap-2">
@@ -2207,7 +2212,7 @@ const WidgetSettings = ({
                                  }).catch(() => null);
                                }
                              }}
-                             className="text-[9px] text-red-500 hover:text-red-400 border border-red-500/30 px-2 py-0.5 rounded"
+                             className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1 rounded-lg hover:bg-red-950/30 font-bold transition-colors cursor-pointer"
                            >
                              🗑️ Vider
                            </button>
@@ -2220,48 +2225,84 @@ const WidgetSettings = ({
                                  body: JSON.stringify({ project_id: proj }) 
                                }).catch(() => null);
                              }}
-                             className="text-[9px] text-gray-500 hover:text-gray-300"
+                             className="text-xs text-zinc-400 hover:text-white border border-zinc-700 px-2.5 py-1 rounded-lg hover:bg-zinc-800 font-bold transition-colors cursor-pointer"
                            >
                              Passer (Skip)
                            </button>
                          </div>
                        </div>
 
-                       <div className="flex-1 overflow-y-auto pr-1 space-y-2 hide-scrollbar">
+                       <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-44 custom-scrollbar">
                          {bridgeQueueData.queue.length > 0 ? bridgeQueueData.queue.map((task: any, i: number) => {
                            const promptStr = typeof task.prompt === 'string' ? task.prompt : JSON.stringify(task.prompt);
                            return (
-                             <div key={i} className="bg-[#111] border border-white/5 p-2 rounded flex flex-col gap-1">
-                               <div className="text-[9px] font-bold text-gray-400 flex justify-between">
+                             <div key={i} className="bg-zinc-900/80 border border-white/10 p-3 rounded-xl flex flex-col gap-1.5 hover:border-white/20 transition-all">
+                               <div className="text-xs font-bold text-zinc-200 flex justify-between">
                                  <span>[{i+1}] {task.phase_name || 'Action'}</span>
-                                 <span className="text-purple-400">{task.target_ai?.toUpperCase()}</span>
+                                 <span className="text-purple-400 font-extrabold">{task.target_ai?.toUpperCase()}</span>
                                </div>
-                               <div className="text-[8px] text-gray-600 font-mono truncate">{promptStr ? promptStr.substring(0, 60) : ''}...</div>
+                               <div className="text-xs text-zinc-400 font-mono truncate">{promptStr ? promptStr.substring(0, 100) : ''}...</div>
                              </div>
                            );
                          }) : (
-                           <div className="text-[10px] text-gray-600 italic p-2 text-center border border-dashed border-white/5 rounded">File vide.</div>
+                           <div className="text-xs text-zinc-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">File vide.</div>
                          )}
                        </div>
                     </div>
                   </div>
                 </div>
                 
-                {/* 📝 NOUVEAU LOG VIEWER EN DESSOUS DU RADAR */}
-                <div className="bg-black border border-white/10 rounded-xl p-3 flex flex-col gap-2 shadow-inner h-32 mt-4">
-                   <div className="text-[10px] text-green-500 font-mono font-bold flex items-center justify-between border-b border-white/5 pb-1">
-                     <span>&gt; Moteur Kirov5 - Terminal Temps Réel</span>
-                     <span className="animate-pulse">_</span>
+                {/* 📝 GRAND TERMINAL TEMPS RÉEL SOUS LE RADAR */}
+                <div className="bg-[#050505] border-2 border-emerald-500/30 rounded-2xl p-4 flex flex-col gap-3 shadow-[0_0_35px_rgba(16,185,129,0.15)] min-h-[440px] h-[520px] max-h-[850px] resize-y overflow-hidden mt-4">
+                   <div className="text-xs md:text-sm text-emerald-400 font-mono font-black flex items-center justify-between border-b border-emerald-500/20 pb-2.5">
+                     <div className="flex items-center gap-2.5">
+                       <span className="relative flex h-3 w-3">
+                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                       </span>
+                       <span>&gt; Moteur Kirov5 - Terminal Temps Réel</span>
+                     </div>
+                     <div className="flex items-center gap-3">
+                       <span className="text-[11px] font-mono text-emerald-300/80 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                         {engineLogs.length} logs
+                       </span>
+                       <span className="animate-pulse text-emerald-400 text-base font-bold">_</span>
+                     </div>
                    </div>
-                   <div className="flex-1 overflow-y-auto font-mono text-[9px] text-gray-300 hide-scrollbar flex flex-col justify-end">
+                   <div className="flex-1 overflow-y-auto font-mono text-xs md:text-sm text-zinc-200 bg-black/80 p-4 rounded-xl border border-white/5 space-y-2 leading-relaxed custom-scrollbar flex flex-col">
                      {engineLogs.length === 0 ? (
-                       <span className="text-gray-600 italic">En attente d'activité système...</span>
+                       <span className="text-zinc-600 italic py-4 text-center">En attente d'activité système...</span>
                      ) : (
-                       engineLogs.slice(-15).map((log, i) => (
-                         <div key={i} className={log.includes("❌") ? "text-red-400" : log.includes("✅") ? "text-green-400" : log.includes("✍️") ? "text-cyan" : ""}>
-                           {log}
-                         </div>
-                       ))
+                       engineLogs.slice(-150).map((log, i) => {
+                         const isError = log.includes("❌") || log.toLowerCase().includes("erreur") || log.toLowerCase().includes("error");
+                         const isSuccess = log.includes("✅") || log.includes("terminé") || log.includes("réussie");
+                         const isBox = log.includes("[📦]");
+                         const isWorker = log.includes("[API WORKER]") || log.includes("[CLOUDFLARE-HERMES]");
+                         const isTrombone = log.includes("[TROMBONE]") || log.includes("🏁");
+
+                         return (
+                           <div 
+                             key={i} 
+                             className={`px-2 py-1 rounded font-mono text-xs md:text-sm break-all transition-colors ${
+                               isError 
+                                 ? "text-red-300 bg-red-950/40 border border-red-500/30 font-bold" 
+                                 : isSuccess 
+                                 ? "text-emerald-300 bg-emerald-950/20 font-semibold" 
+                                 : isWorker
+                                 ? "text-cyan-300 bg-cyan-950/20 font-medium"
+                                 : isTrombone
+                                 ? "text-purple-300 bg-purple-950/20 font-bold"
+                                 : isBox
+                                 ? "text-amber-300 bg-amber-950/10"
+                                 : log.includes("✍️") 
+                                 ? "text-cyan-400 font-semibold" 
+                                 : "text-zinc-300 hover:bg-white/5"
+                             }`}
+                           >
+                             {log}
+                           </div>
+                         );
+                       })
                      )}
                    </div>
                 </div>
