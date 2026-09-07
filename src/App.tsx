@@ -3776,7 +3776,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
               setApkLogs(l => [
                 ...l,
                 `❌ Service de compilation mobile absent sur ce serveur (${res ? res.status : 'erreur réseau'}).`,
-                `📱 Option 1 (Cloud) : Déclenchez le build sans dépendance via GitHub Actions (.github/workflows/build-apk.yml).`,
+                `📱 Option 1 (Cloud) : Déclenchez le compilateur automatique Cloud Souverain.`,
                 `💻 Option 2 (Local) : Lancez 'python apk_builder.py --src ... --name ${selectedApkTarget || activeProject || 'app'} --build' dans E:\\v0reponses\\v0-apk.`
               ]);
             }
@@ -6115,15 +6115,9 @@ Format attendu:
                                     {matchingApk && <span className="text-[10px] opacity-90 font-mono">({matchingApk.sizeMb} Mo)</span>}
                                   </a>
                                 ) : (
-                                  <a
-                                    href="https://github.com/turnzack/v0-reponse/actions/workflows/build-apk.yml"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-700"
-                                    title="Télécharger l'APK compilé par GitHub Actions"
-                                  >
-                                    <span>☁️</span> Téléchargements Cloud GitHub
-                                  </a>
+                                  <div className="px-4 py-2 bg-slate-900/70 text-slate-500 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-800/80 select-none">
+                                    <span>⏳</span> APK non encore généré
+                                  </div>
                                 )}
 
                                 <button
