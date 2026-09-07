@@ -38,6 +38,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { spawn } = require('child_process');
 
 // Configuration de l'environnement de travail Linux / VPS
 global.WORKSPACE_DIR = process.env.WORKSPACE_DIR || path.join(__dirname, 'v0saveprojets');
@@ -88,6 +89,183 @@ server.use(express.json({ limit: '50mb' }));
 // Logs Endpoint
 server.get(['/api/logs', '/api/bridge/logs', '/bridge/logs'], (req, res) => {
   res.json({ success: true, logs: globalLogs });
+});
+
+// ==============================================================================
+// GESTION DU COMPILATEUR MOBILE APK (v0-apk)
+// ==============================================================================
+let mobileBuildLogs = [];
+let isMobileBuilding = false;
+let mobileBuildResult = null;
+
+server.post(['/api/mobile/build-apk', '/mobile/build-apk'], async (req, res) => {
+  const { project } = req.body || {};
+  console.log(`[MOBILE_ENGINE] 🚀 Demande de compilation APK (v0-apk) pour "${project}"...`);
+
+  const cleanProject = (project || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const WORKSPACE = global.WORKSPACE_DIR || path.join(__dirname, 'v0saveprojets');
+  const apkDir = process.platform === 'win32' ? 'e:\\v0reponses\\v0-apk' : path.join(__dirname, '..', 'v0-apk');
+  const apkScript = path.join(apkDir, 'apk_builder.py');
+
+  // Détection du dossier réel du projet
+  let actualDir = null;
+  const candidateDirs = [
+    path.join(WORKSPACE, cleanProject),
+    path.join('/var/projects', cleanProject),
+    path.join(process.cwd(), 'v0saveprojets', cleanProject),
+    path.join(__dirname, '..', 'boilerplates', 'projets', cleanProject),
+    path.join('e:\\worldmodelv2\\boilerplates\\projets', cleanProject),
+    path.join('e:\\v0reponses\\boilerplates\\projets', cleanProject)
+  ];
+  for (const c of candidateDirs) {
+    if (fs.existsSync(c)) {
+      actualDir = c;
+      break;
+    }
+  }
+
+  mobileBuildLogs = [`[v0-apk] 🚀 Initialisation du build natif pour "${cleanProject}"...`];
+  isMobileBuilding = true;
+  mobileBuildResult = null;
+
+  res.json({
+    success: true,
+    message: `Pipeline v0-apk démarré pour ${cleanProject}.`,
+    apkPath: path.join(apkDir, 'output', `${cleanProject}.apk`)
+  });
+
+  if (!actualDir) {
+    isMobileBuilding = false;
+    mobileBuildResult = { success: false, message: `Dossier projet "${cleanProject}" introuvable.` };
+    mobileBuildLogs.push(`[v0-apk] ❌ Projet "${cleanProject}" introuvable sur le disque (${WORKSPACE}).`);
+    return;
+  }
+
+  // Si apk_builder.py n'existe pas (ex: sur le VPS cloud Linux)
+  if (!fs.existsSync(apkScript)) {
+    isMobileBuilding = false;
+    mobileBuildResult = {
+      success: false,
+      message: `Compilateur mobile v0-apk absent du VPS Cloud.`
+    };
+    mobileBuildLogs.push(`[v0-apk] ℹ️ Projet "${cleanProject}" détecté avec succès dans ${actualDir}.`);
+    mobileBuildLogs.push(`[v0-apk] ℹ️ Environnement Cloud VPS Linux (109.205.182.17) actif.`);
+    mobileBuildLogs.push(`[v0-apk] 📱 La chaîne complète de compilation Java JDK 17 + Android SDK est configurée sur votre machine Windows locale (E:\\v0reponses\\v0-apk).`);
+    mobileBuildLogs.push(`[v0-apk] 💡 Pour obtenir le fichier APK final : lancez la commande locale "python apk_builder.py --src <dist> --name ${cleanProject} --build".`);
+    return;
+  }
+
+  // Détection du dossier de distribution web (dist ou out ou build)
+  let webBuildDir = path.join(actualDir, 'dist');
+  if (fs.existsSync(path.join(actualDir, 'out'))) {
+    webBuildDir = path.join(actualDir, 'out');
+  } else if (fs.existsSync(path.join(actualDir, 'build'))) {
+    webBuildDir = path.join(actualDir, 'build');
+  }
+
+  // 1. Configurer Vite pour Capacitor (base: './')
+  const viteConfigPath = path.join(actualDir, 'vite.config.ts');
+  const viteConfigJsPath = path.join(actualDir, 'vite.config.js');
+  const targetVitePath = fs.existsSync(viteConfigPath) ? viteConfigPath : (fs.existsSync(viteConfigJsPath) ? viteConfigJsPath : null);
+
+  if (targetVitePath) {
+    try {
+      let content = fs.readFileSync(targetVitePath, 'utf8');
+      if (!content.includes("base:") && !content.includes("base :")) {
+        content = content.replace("defineConfig({", "defineConfig({\n  base: './',");
+        fs.writeFileSync(targetVitePath, content, 'utf8');
+        mobileBuildLogs.push(`[v0-apk] 🔧 Configuration Vite mise à jour (base: './') pour Capacitor.`);
+      }
+    } catch (e) {
+      console.warn("[v0-apk] Erreur mise à jour vite.config:", e);
+    }
+  }
+
+  // 2. Compilation Web
+  mobileBuildLogs.push(`[v0-apk] 📦 Compilation des assets Web (pnpm run build)...`);
+  const buildCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  const buildProcess = spawn(buildCmd, ['run', 'build'], { cwd: actualDir, shell: true });
+
+  buildProcess.stdout.on('data', (d) => {
+    const text = d.toString('utf-8');
+    text.split(/\r?\n/).filter(Boolean).forEach(line => mobileBuildLogs.push(`[VITE] ${line}`));
+  });
+
+  buildProcess.stderr.on('data', (d) => {
+    const text = d.toString('utf-8');
+    text.split(/\r?\n/).filter(Boolean).forEach(line => mobileBuildLogs.push(`[VITE ERR] ${line}`));
+  });
+
+  buildProcess.on('close', (buildCode) => {
+    if (buildCode !== 0) {
+      isMobileBuilding = false;
+      mobileBuildResult = { success: false, message: `Échec pnpm build (Code: ${buildCode})` };
+      mobileBuildLogs.push(`[v0-apk] ❌ Échec de la compilation Web (Code retour: ${buildCode})`);
+      return;
+    }
+
+    mobileBuildLogs.push(`[v0-apk] ✅ Compilation Web terminée. Dossier dist prêt.`);
+
+    // 3. Lancer la compilation souveraine v0-apk
+    mobileBuildLogs.push(`[v0-apk] 🤖 Lancement du compilateur natif apk_builder.py...`);
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const py = spawn(pythonCmd, [apkScript, '--src', webBuildDir, '--name', cleanProject, '--build'], {
+      cwd: apkDir,
+      shell: process.platform === 'win32'
+    });
+
+    py.stdout.on('data', (d) => {
+      const text = d.toString('utf-8');
+      text.split(/\r?\n/).filter(Boolean).forEach(line => {
+        console.log(`[v0-apk] ${line}`);
+        mobileBuildLogs.push(`[v0-apk] ${line}`);
+      });
+    });
+
+    py.stderr.on('data', (d) => {
+      const text = d.toString('utf-8');
+      text.split(/\r?\n/).filter(Boolean).forEach(line => {
+        console.log(`[v0-apk ERR] ${line}`);
+        mobileBuildLogs.push(`[v0-apk ERR] ${line}`);
+      });
+    });
+
+    py.on('close', (code) => {
+      isMobileBuilding = false;
+      if (code === 0) {
+        const finalApkPath = path.join(apkDir, 'output', `${cleanProject}.apk`);
+        mobileBuildResult = {
+          success: true,
+          apkPath: finalApkPath,
+          apkUrl: `/api/mobile/download-apk?file=${encodeURIComponent(cleanProject + '.apk')}`
+        };
+        mobileBuildLogs.push(`[v0-apk] ✅ Compilation Gradle terminée avec succès ! APK généré : ${finalApkPath}`);
+      } else {
+        mobileBuildResult = { success: false, message: `Échec build Gradle (Code retour: ${code})` };
+        mobileBuildLogs.push(`[v0-apk] ❌ Échec de la compilation (Code retour: ${code})`);
+      }
+    });
+  });
+});
+
+server.get(['/api/mobile/build-logs', '/mobile/build-logs'], (req, res) => {
+  res.json({
+    isBuilding: isMobileBuilding,
+    building: isMobileBuilding,
+    logs: mobileBuildLogs,
+    result: mobileBuildResult
+  });
+});
+
+server.get(['/api/mobile/download-apk', '/mobile/download-apk'], (req, res) => {
+  const fileName = req.query.file || 'app.apk';
+  const apkDir = process.platform === 'win32' ? 'e:\\v0reponses\\v0-apk' : path.join(__dirname, '..', 'v0-apk');
+  const apkPath = path.join(apkDir, 'output', fileName);
+  if (fs.existsSync(apkPath)) {
+    res.download(apkPath);
+  } else {
+    res.status(404).json({ error: "Fichier APK introuvable sur le disque." });
+  }
 });
 
 // ==============================================================================
