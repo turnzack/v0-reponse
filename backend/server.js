@@ -681,8 +681,8 @@ server.post('/api/projects/set-active', (req, res) => {
   }
 });
 
-// Endpoint DELETE /api/projects
-server.delete('/api/projects', async (req, res) => {
+// Endpoint DELETE et POST /api/projects/remove-project : Suppression d'un projet (Base + Disque dur physique)
+const handleProjectRemoval = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     let user = null;
@@ -690,24 +690,75 @@ server.delete('/api/projects', async (req, res) => {
       user = verifyJwt(authHeader.split(' ')[1]);
     }
 
-    const { projectId, targetUserId } = req.body || {};
-    if (!projectId) {
-      return res.status(400).json({ success: false, error: 'projectId requis' });
+    const { targetUserId } = req.body || {};
+    const rawId = req.body?.projectId || req.body?.project_id || req.query?.projectId || req.query?.project_id;
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: 'projectId requis pour la suppression' });
     }
 
-    if (neonSql && user) {
-      if (user.isSuperAdmin && targetUserId) {
-        await neonSql`DELETE FROM user_projects WHERE user_id = ${Number(targetUserId)} AND project_id = ${projectId}`;
-      } else {
-        await neonSql`DELETE FROM user_projects WHERE user_id = ${user.userId} AND project_id = ${projectId}`;
+    const cleanId = rawId.replace(/[^a-zA-Z0-9_\-]/g, '');
+    if (!cleanId || cleanId.length === 0 || cleanId === '.' || cleanId === '..') {
+      return res.status(400).json({ success: false, error: 'Nom de projet invalide' });
+    }
+
+    // 1. Suppression dans la base Neon PostgreSQL
+    if (neonSql) {
+      try {
+        if (user && user.isSuperAdmin && targetUserId) {
+          await neonSql`DELETE FROM user_projects WHERE user_id = ${Number(targetUserId)} AND (project_id = ${cleanId} OR title = ${cleanId})`;
+        } else if (user) {
+          await neonSql`DELETE FROM user_projects WHERE user_id = ${user.userId} AND (project_id = ${cleanId} OR title = ${cleanId})`;
+        } else {
+          // Suppression sans utilisateur spécifique (mode local ou fallback)
+          await neonSql`DELETE FROM user_projects WHERE project_id = ${cleanId} OR title = ${cleanId}`;
+        }
+        console.log(`[PROJECTS] 🗑️ Projet "${cleanId}" supprimé de la base de données Neon.`);
+      } catch (dbErr) {
+        console.warn(`[PROJECTS] Avertissement suppression DB Neon pour "${cleanId}":`, dbErr.message);
       }
     }
 
-    return res.json({ success: true, message: 'Projet supprimé avec succès' });
+    // 2. Suppression physique du dossier sur le disque dur (VPS Linux & Local Windows)
+    const dirsToDelete = [
+      path.join('/var/projects', cleanId),
+      path.join(process.cwd(), 'v0saveprojets', cleanId),
+      global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
+      path.join('/tmp/target_project', cleanId)
+    ].filter(Boolean);
+
+    let deletedFromDisk = false;
+    for (const dir of dirsToDelete) {
+      // Protection stricte : ne jamais supprimer un répertoire racine
+      if (dir === '/' || dir === '/var' || dir === '/var/projects' || dir === process.cwd()) continue;
+      if (fs.existsSync(dir)) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+          deletedFromDisk = true;
+          console.log(`[PROJECTS] 🗑️ Dossier supprimé physiquement du disque : ${dir}`);
+        } catch (fsErr) {
+          console.warn(`[PROJECTS] Erreur suppression dossier ${dir}:`, fsErr.message);
+        }
+      }
+    }
+
+    if (global.addLog) {
+      global.addLog(`[PROJECTS] 🗑️ Projet "${cleanId}" supprimé avec succès (Disque: ${deletedFromDisk ? 'Oui' : 'Non'}).`);
+    }
+
+    return res.json({
+      success: true,
+      message: `Projet "${cleanId}" supprimé avec succès.`,
+      projectId: cleanId,
+      deletedFromDisk
+    });
   } catch (err) {
+    console.error('[PROJECTS] Erreur lors de la suppression du projet:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+
+server.delete(['/api/projects', '/api/projects/remove-project', '/projects/remove-project'], handleProjectRemoval);
+server.post(['/api/projects/remove-project', '/projects/remove-project'], handleProjectRemoval);
 
 // POST /api/projects/:projectId/launch-design : Lancement de l'IDE/preview pour un projet
 server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/launch-design'], (req, res) => {

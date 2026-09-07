@@ -3339,8 +3339,9 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
             const data = await res.json();
             if (data.success) {
               setLiveProjects(prev => prev.filter(proj => proj.name !== targetProjName));
+              fetchProjects(true);
             } else {
-              alert(`Erreur lors de la suppression : ${data.message || 'Échec server'}`);
+              alert(`Erreur lors de la suppression : ${data.message || data.error || 'Échec server'}`);
             }
           } catch (err: any) {
             alert(`Erreur réseau lors de la suppression : ${err.message}`);
