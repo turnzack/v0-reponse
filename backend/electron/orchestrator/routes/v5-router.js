@@ -815,8 +815,17 @@ function ensureVitePackageJson(projectRoot, cleanId) {
     pkg.devDependencies["@types/react-dom"] = "^18.3.0";
   }
 
+  // ⚡ Autoriser nativement esbuild pour pnpm 9+ / 10+
+  pkg.pnpm = pkg.pnpm || {};
+  pkg.pnpm.onlyBuiltDependencies = Array.from(new Set([...(pkg.pnpm.onlyBuiltDependencies || []), 'esbuild', '@esbuild/linux-x64']));
+
   try {
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2), 'utf8');
+    // Création .npmrc local pour forcer l'exécution des scripts de build essentiels (esbuild)
+    const npmrcPath = path.join(projectRoot, '.npmrc');
+    if (!fs.existsSync(npmrcPath)) {
+      fs.writeFileSync(npmrcPath, "ignore-scripts=false\nside-effects-cache=false\n", 'utf8');
+    }
     if (global.addLog) global.addLog(`[📦] package.json vérifié & script "dev" garanti pour ${cleanId}`);
   } catch (e) {
     console.error(`[PACKAGE_JSON] Erreur:`, e);
@@ -1692,7 +1701,7 @@ function autoInstallAndLaunchDevServer(projectId) {
 
     if (!isWin) {
       try {
-        cp.execSync('fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
+        cp.execSync('fuser -k 5173/tcp 2>/dev/null || fuser -k 5174/tcp 2>/dev/null || pkill -9 -f "5173" 2>/dev/null || true', { stdio: 'ignore' });
       } catch (_) {}
     }
 
@@ -1749,7 +1758,7 @@ function autoInstallAndLaunchDevServer(projectId) {
   if (global.addLog) global.addLog(`[AUTO-PILOT] 📦 Début de l'installation automatique des dépendances (pnpm install) pour ${cleanId}...`);
 
   const installCmd = isWin ? 'cmd.exe' : '/bin/sh';
-  const installShell = 'pnpm install --force || npm install --force';
+  const installShell = 'pnpm install --force --config.ignore-scripts=false || pnpm rebuild || npm install --force';
   const installArgs = isWin ? ['/c', installShell] : ['-c', installShell];
 
   const installProc = cp.spawn(installCmd, installArgs, {
@@ -5709,7 +5718,7 @@ router.post(['/api/bridge/install-dependencies', '/bridge/install-dependencies']
   // Exécuter l'installation en arrière-plan avec streaming dans les logs
   const isWin = process.platform === 'win32';
   const cmd = isWin ? 'cmd.exe' : '/bin/sh';
-  const shellCmd = 'pnpm install --force || npm install --force';
+  const shellCmd = 'pnpm install --force --config.ignore-scripts=false || pnpm rebuild || npm install --force';
   const args = isWin ? ['/c', shellCmd] : ['-c', shellCmd];
   
   const installProc = cp.spawn(cmd, args, {
@@ -5805,7 +5814,7 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
 
   if (process.platform !== 'win32') {
     try {
-      cp.execSync('fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
+      cp.execSync('fuser -k 5173/tcp 2>/dev/null || fuser -k 5174/tcp 2>/dev/null || pkill -9 -f "5173" 2>/dev/null || true', { stdio: 'ignore' });
     } catch (_) {}
   }
 
