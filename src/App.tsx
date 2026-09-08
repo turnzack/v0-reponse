@@ -414,6 +414,8 @@ const WidgetSettings = ({
   // --- Push UI/UX State ---
   const [uiTargetFile, setUiTargetFile] = useState("src/pages/ShoppingCartDrawer.tsx");
   const [uiSelectedPages, setUiSelectedPages] = useState<string[]>([]);
+  const [uiAllPages, setUiAllPages] = useState(false);
+  const [isUiPushLoading, setIsUiPushLoading] = useState(false);
   const [uiZipName, setUiZipName] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('tiger_uiZipName') || "";
