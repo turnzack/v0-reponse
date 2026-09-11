@@ -2394,413 +2394,172 @@ if (rootEl) {
 
   let shouldGenerateApp = !fs.existsSync(appTsxPath) && !fs.existsSync(appJsxPath);
 
-  // Si des écrans Stitch existent, vérifier si App.tsx actuel n'est qu'un placeholder ou LogicIntegration
-  if (stitchScreens && stitchScreens.length > 0 && fs.existsSync(appTsxPath)) {
-    try {
-      const currentApp = fs.readFileSync(appTsxPath, 'utf8');
-      if (!currentApp.includes('Stitch Sovereign Studio') && (currentApp.includes('LogicIntegration') || currentApp.includes('initialisée avec succès'))) {
+  // 🎨 CÂBLAGE SOUVERAIN STITCH PRIORITAIRE :
+  // Si des maquettes Stitch existent, TOUJOURS garantir l'interface Stitch dans App.tsx
+  if (stitchScreens && stitchScreens.length > 0) {
+    const screensJson = stitchScreens.map(s => ({
+      id: s.id,
+      label: s.title || s.label || s.id.replace(/[_-]+/g, ' '),
+      icon: s.icon || '📱',
+      url: s.url || `./stitch/${s.id}/code.html`
+    }));
+
+    if (fs.existsSync(appTsxPath)) {
+      try {
+        const currentApp = fs.readFileSync(appTsxPath, 'utf8');
+        if (currentApp.includes('STITCH-AUTO-WIRED')) {
+          // Mise à jour de la liste des écrans
+          const screensJsonStr = JSON.stringify(screensJson, null, 4);
+          const updated = currentApp.replace(
+            /\/\/ STITCH-AUTO-SCREENS-START[\s\S]*?\/\/ STITCH-AUTO-SCREENS-END/,
+            `// STITCH-AUTO-SCREENS-START\n  const SCREENS = ${screensJsonStr};\n  // STITCH-AUTO-SCREENS-END`
+          );
+          if (updated !== currentApp) {
+            fs.writeFileSync(appTsxPath, updated, 'utf8');
+          }
+          shouldGenerateApp = false;
+        } else {
+          // App.tsx existe mais n'affiche pas Stitch -> Câbler pour afficher les écrans Stitch
+          shouldGenerateApp = true;
+        }
+      } catch (_) {
         shouldGenerateApp = true;
       }
-    } catch (_) {}
+    } else {
+      shouldGenerateApp = true;
+    }
   }
 
   if (shouldGenerateApp) {
     let defaultAppCode = '';
 
     if (stitchScreens && stitchScreens.length > 0) {
-      const screensJson = JSON.stringify(stitchScreens, null, 2);
-      defaultAppCode = `import React, { useState, useEffect } from 'react';
-import { appStore } from './stores/appStore';
-import { initializeBusinessWiring } from './wiring/businessWiring';
-import { LogicIntegration } from './components/LogicIntegration';
+      const screensJson = stitchScreens.map(s => ({
+        id: s.id,
+        label: s.title || s.label || s.id.replace(/[_-]+/g, ' '),
+        icon: s.icon || '📱',
+        url: s.url || `./stitch/${s.id}/code.html`
+      }));
+      const initialScreen = screensJson[0]?.id || 'ecran';
+      const screensJsonStr = JSON.stringify(screensJson, null, 4);
 
-interface StitchScreen {
-  id: string;
-  title: string;
-  badge: string;
-  icon: string;
-  url: string;
-}
+      defaultAppCode = `// STITCH-AUTO-WIRED — Interface Générée Automatiquement pour ${cleanId}
+import React, { useState } from 'react';
 
-function getScreenUrl(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('/')) return '.' + url;
-  return url;
-}
+// STITCH-AUTO-SCREENS-START
+  const SCREENS = ${screensJsonStr};
+  // STITCH-AUTO-SCREENS-END
 
-const SCREENS: StitchScreen[] = ${screensJson};
+type Viewport = 'desktop' | 'tablet' | 'mobile';
 
 export default function App() {
-  const [activeScreenIndex, setActiveScreenIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'fullscreen' | 'canvas'>('fullscreen');
-  const [reloadKey, setReloadKey] = useState(0);
-  const [appState, setAppState] = useState<any>(() => (appStore ? appStore.getState() : {}));
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeScreen, setActiveScreen] = useState('${initialScreen}');
+  const [viewport, setViewport] = useState<Viewport>('mobile');
+  const [activeTab, setActiveTab] = useState<'stitch' | 'live'>('stitch');
 
-  useEffect(() => {
-    if (typeof initializeBusinessWiring === 'function') {
-      initializeBusinessWiring();
-    }
-    if (appStore && typeof appStore.subscribe === 'function') {
-      const unsub = appStore.subscribe(setAppState);
-      const handleToast = (e: any) => {
-        const detail = e.detail || {};
-        setToastMessage(detail.message || 'Action complétée !');
-        setTimeout(() => setToastMessage(null), 3000);
-      };
-      window.addEventListener('${cleanId}:reward_toast', handleToast);
-      window.addEventListener('gamefik:reward_toast', handleToast);
-      return () => {
-        unsub();
-        window.removeEventListener('${cleanId}:reward_toast', handleToast);
-        window.removeEventListener('gamefik:reward_toast', handleToast);
-      };
-    }
-  }, []);
-
-  const currentScreen = SCREENS[activeScreenIndex] || SCREENS[0];
+  const currentScreen = SCREENS.find(s => s.id === activeScreen) || SCREENS[0];
+  const viewportWidth = viewport === 'mobile' ? '390px' : viewport === 'tablet' ? '768px' : '100%';
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      height: '100vh',
-      background: '#090d16',
-      color: '#f8fafc',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      
-      {/* ── BARRE DE NAVIGATION & CONTRÔLE STITCH ── */}
-      <header style={{
-        background: 'rgba(15, 23, 42, 0.95)',
-        borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
-        backdropFilter: 'blur(16px)',
-        padding: '8px 16px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '12px',
-        zIndex: 50,
-        flexShrink: 0
-      }}>
-        {/* Identité du projet */}
+    <div style={{ width: '100vw', height: '100dvh', background: '#0d0e13', color: '#e3e1e9', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif', overflow: 'hidden' }}>
+
+      {/* ── Top Bar Souveraine ── */}
+      <header style={{ height: '52px', background: 'rgba(13,14,19,0.97)', borderBottom: '1px solid rgba(78,222,163,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 14px rgba(56, 189, 248, 0.4)',
-            fontSize: '16px'
-          }}>
-            🎨
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '-0.02em', color: '#fff' }}>
-                ${cleanId}
-              </span>
-              <span style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                color: '#38bdf8',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                padding: '1px 6px',
-                borderRadius: '6px',
-                fontSize: '10px',
-                fontWeight: 700
-              }}>
-                {SCREENS.length} Écrans Stitch
-              </span>
-            </div>
-          </div>
+          <span style={{ fontSize: '20px' }}>⚡</span>
+          <span style={{ fontWeight: '800', fontSize: '15px', color: '#fff', letterSpacing: '-0.02em' }}>${cleanId}</span>
+          <span style={{ fontSize: '10px', background: 'rgba(78,222,163,0.12)', color: '#4edea3', border: '1px solid rgba(78,222,163,0.25)', borderRadius: '20px', padding: '2px 8px', fontFamily: 'monospace', fontWeight: '700' }}>STITCH LIVE</span>
         </div>
-
-        {/* Sélecteur de Mode : Plein Écran Natif vs Toile Stitch */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            display: 'flex',
-            background: 'rgba(30, 41, 59, 0.8)',
-            borderRadius: '8px',
-            padding: '2px',
-            border: '1px solid rgba(255,255,255,0.08)'
-          }}>
-            <button
-              onClick={() => setViewMode('fullscreen')}
-              style={{
-                background: viewMode === 'fullscreen' ? '#38bdf8' : 'transparent',
-                color: viewMode === 'fullscreen' ? '#090d16' : '#94a3b8',
-                border: 'none',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>⚡</span> Plein Écran
-            </button>
-            <button
-              onClick={() => setViewMode('canvas')}
-              style={{
-                background: viewMode === 'canvas' ? '#38bdf8' : 'transparent',
-                color: viewMode === 'canvas' ? '#090d16' : '#94a3b8',
-                border: 'none',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>🖼️</span> Vue Toile ({SCREENS.length})
-            </button>
-          </div>
-
-          {/* Outils rapides */}
-          <button
-            onClick={() => setReloadKey(k => k + 1)}
-            title="Recharger l'écran"
-            style={{
-              background: 'rgba(56, 189, 248, 0.1)',
-              color: '#38bdf8',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              padding: '5px 9px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            🔄
-          </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setActiveTab('stitch')} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px', background: activeTab === 'stitch' ? '#4f46e5' : '#1e1f25', color: activeTab === 'stitch' ? '#fff' : '#86948a', transition: 'all 0.2s', boxShadow: activeTab === 'stitch' ? '0 0 12px rgba(79,70,229,0.4)' : 'none' }}>🎨 Designs Stitch</button>
+          <button onClick={() => setActiveTab('live')} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px', background: activeTab === 'live' ? '#4edea3' : '#1e1f25', color: activeTab === 'live' ? '#003824' : '#86948a', transition: 'all 0.2s' }}>⚡ Application</button>
         </div>
       </header>
 
-      {/* ── BARRE DES ONGLETS ÉCRANS STITCH (DÉFILEMENT FLUIDE) ── */}
-      <nav style={{
-        background: 'rgba(15, 23, 42, 0.75)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        padding: '6px 16px',
-        display: 'flex',
-        gap: '8px',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        zIndex: 40,
-        flexShrink: 0
-      }}>
-        {SCREENS.map((screen, idx) => {
-          const isActive = idx === activeScreenIndex;
-          return (
-            <button
-              key={screen.id}
-              onClick={() => {
-                setActiveScreenIndex(idx);
-                if (viewMode === 'canvas') setViewMode('fullscreen');
-              }}
-              style={{
-                background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(30, 41, 59, 0.5)',
-                color: isActive ? '#38bdf8' : '#94a3b8',
-                border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.05)',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: isActive ? 700 : 500,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-                boxShadow: isActive ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none'
-              }}
-            >
-              <span>{screen.icon}</span>
-              <span>{screen.title}</span>
-              {isActive && (
-                <span style={{
-                  fontSize: '9px',
-                  background: '#38bdf8',
-                  color: '#090d16',
-                  padding: '1px 5px',
-                  borderRadius: '3px',
-                  fontWeight: 800
-                }}>
-                  ACTIF
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      {/* ── Contenu Principal ── */}
+      {activeTab === 'stitch' ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── ZONE D'AFFICHAGE PRINCIPALE ── */}
-      <main style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        overflow: 'hidden',
-        width: '100%',
-        height: '100%'
-      }}>
-        {viewMode === 'fullscreen' ? (
-          /* ⚡ MODE 1 : PLEIN ÉCRAN NATIF (AUCUN CADRE DE TÉLÉPHONE, 100% RESPONSIVE) */
-          <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {currentScreen && (
-              <iframe
-                key={\`\${currentScreen.id}-\${reloadKey}\`}
-                src={getScreenUrl(currentScreen.url)}
-                title={currentScreen.title}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  flex: 1,
-                  border: 'none',
-                  background: '#0f131b'
-                }}
-                allow="autoplay; camera; microphone; clipboard-read; clipboard-write"
-              />
-            )}
-          </div>
-        ) : (
-          /* 🖼️ MODE 2 : VUE TOILE STITCH (LES 4 ÉCRANS ALIGNÉS CÔTE À CÔTE COMME DANS STITCH) */
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            padding: '16px'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px',
-              padding: '0 4px'
-            }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
-                  Vue Panoramique Stitch ({SCREENS.length} Écrans Conçus)
-                </h2>
-                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>
-                  Défilement horizontal pour inspecter l'ensemble des flux du projet côte à côte.
-                </p>
-              </div>
-              <span style={{
-                fontSize: '11px',
-                color: '#38bdf8',
-                background: 'rgba(56, 189, 248, 0.1)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                border: '1px solid rgba(56, 189, 248, 0.2)'
-              }}>
-                ⬅ Balayer Horizontalement ➡
-              </span>
+          {/* Barre d'onglets écrans + sélecteur viewport */}
+          <div style={{ background: 'rgba(13,14,19,0.92)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', overflowX: 'auto', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, overflowX: 'auto' }}>
+              {SCREENS.map(s => {
+                const isActive = activeScreen === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setActiveScreen(s.id)}
+                    style={{ padding: '6px 14px', borderRadius: '8px', border: isActive ? '1px solid #4f46e5' : '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontWeight: isActive ? '700' : '500', fontSize: '12px', whiteSpace: 'nowrap', background: isActive ? '#4f46e5' : '#1e1f25', color: isActive ? '#fff' : '#86948a', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>{s.icon}</span>
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
             </div>
-
-            {/* Rangée horizontale des écrans complets */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              gap: '20px',
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              paddingBottom: '16px',
-              WebkitOverflowScrolling: 'touch'
-            }}>
-              {SCREENS.map((s, idx) => (
-                <div
-                  key={s.id}
-                  style={{
-                    width: '380px',
-                    minWidth: '380px',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    background: '#111827',
-                    borderRadius: '12px',
-                    border: idx === activeScreenIndex ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                    overflow: 'hidden',
-                    flexShrink: 0
-                  }}
-                >
-                  {/* En-tête de la colonne */}
-                  <div style={{
-                    padding: '8px 12px',
-                    background: 'rgba(17, 24, 39, 0.95)',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>{s.icon}</span>
-                      <strong style={{ fontSize: '12px', color: '#f8fafc' }}>{s.title}</strong>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setActiveScreenIndex(idx);
-                        setViewMode('fullscreen');
-                      }}
-                      style={{
-                        background: 'rgba(56, 189, 248, 0.15)',
-                        color: '#38bdf8',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Ouvrir ↗
-                    </button>
-                  </div>
-
-                  {/* Vue iframe complète */}
-                  <iframe
-                    src={getScreenUrl(s.url)}
-                    title={s.title}
-                    style={{
-                      flex: 1,
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                      background: '#0f131b'
-                    }}
-                  />
-                </div>
+            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+              {(['mobile', 'tablet', 'desktop'] as Viewport[]).map(vp => (
+                <button key={vp} onClick={() => setViewport(vp)} title={vp} style={{ padding: '5px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '700', background: viewport === vp ? '#4edea3' : '#292a2f', color: viewport === vp ? '#003824' : '#86948a', transition: 'all 0.15s' }}>
+                  {vp === 'mobile' ? '📱 Mobile' : vp === 'tablet' ? '📟 Tablette' : '🖥️ Bureau'}
+                </button>
               ))}
             </div>
           </div>
-        )}
-      </main>
 
-      {/* Module d'intégration logique souverain */}
-      <LogicIntegration />
+          {/* Iframe Viewer Stitch */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#06080e', padding: '16px', overflow: 'auto' }}>
+            <div style={{ width: viewportWidth, height: '100%', maxHeight: '100%', borderRadius: viewport === 'mobile' ? '24px' : '12px', overflow: 'hidden', border: '1px solid rgba(78,222,163,0.25)', boxShadow: '0 12px 48px rgba(0,0,0,0.7)', transition: 'width 0.3s ease', background: '#fff' }}>
+              <iframe
+                key={activeScreen}
+                src={currentScreen?.url || ('./stitch/' + activeScreen + '/code.html')}
+                title={'Stitch — ' + (currentScreen?.label || activeScreen)}
+                style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }}
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            </div>
+          </div>
+
+          {/* Barre de navigation inférieure Stitch */}
+          {SCREENS.length > 1 && (
+            <nav style={{ height: '60px', background: 'rgba(13,14,19,0.98)', borderTop: '1px solid rgba(78,222,163,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 12px', flexShrink: 0 }}>
+              {SCREENS.map((s) => {
+                const isActive = activeScreen === s.id;
+                return (
+                  <button key={s.id} onClick={() => setActiveScreen(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '6px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: isActive ? 'rgba(78,222,163,0.12)' : 'transparent', color: isActive ? '#4edea3' : '#86948a', fontSize: '11px', fontWeight: isActive ? '700' : '500', transition: 'all 0.15s' }}>
+                    <span style={{ fontSize: '18px' }}>{s.icon}</span>
+                    <span>{s.label.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+        </div>
+      ) : (
+        /* ── Onglet Application Live ── */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '32px', textAlign: 'center' }}>
+          <div style={{ fontSize: '52px' }}>⚡</div>
+          <h1 style={{ fontSize: '26px', fontWeight: '800', margin: 0, color: '#fff' }}>${cleanId}</h1>
+          <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0, maxWidth: '440px', lineHeight: '1.6' }}>
+            Tous les ${SCREENS.length} écrans UI/UX Stitch sont importés et prêts à l'utilisation dans l'onglet <strong>Designs Stitch</strong>.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', width: '100%', maxWidth: '640px' }}>
+            {SCREENS.map(s => (
+              <div key={s.id} onClick={() => { setActiveScreen(s.id); setActiveTab('stitch'); }} style={{ background: '#181b22', borderRadius: '12px', padding: '16px', border: '1px solid rgba(78,222,163,0.15)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                <div style={{ fontSize: '20px', marginBottom: '4px' }}>{s.icon}</div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{s.label}</div>
+                <div style={{ fontSize: '11px', color: '#4edea3', marginTop: '4px' }}>Voir l'écran →</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setActiveTab('stitch')} style={{ marginTop: '8px', padding: '12px 28px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: '#4f46e5', color: '#fff', fontWeight: '700', fontSize: '14px', boxShadow: '0 4px 16px rgba(79,70,229,0.4)' }}>
+            🎨 Voir les Designs Stitch
+          </button>
+        </div>
+      )}
     </div>
   );
-}
-`;
-    } else {
+}`;
+} else {
       // 🔍 Chercher s'il existe des composants dans src/components, components ou src/
       let compToMount = null;
       const possibleDirs = [
@@ -3492,28 +3251,44 @@ function autoInstallAndLaunchDevServer(projectId) {
 
   // Lancement du serveur Vite de développement
   const launchVite = () => {
+    // ── KILL ALL : Tuer TOUS les serveurs Vite actifs (pas seulement le même projet) ──
     global.activeDevServers = global.activeDevServers || new Map();
-    if (global.activeDevServers.has(cleanId)) {
+
+    const allServers = Array.from(global.activeDevServers.entries());
+    for (const [sid, oldProc] of allServers) {
       try {
-        const oldProc = global.activeDevServers.get(cleanId);
         if (oldProc && !oldProc.killed) {
-          if (isWin) cp.exec(`taskkill /pid ${oldProc.pid} /T /F`, () => {});
-          else oldProc.kill('SIGTERM');
+          if (global.addLog) global.addLog(`[🔪 KILL] Arrêt du serveur Vite "${sid}" pour libérer le port...`);
+          console.log(`[KILL-ALL-VITE] Arrêt de ${sid} (PID: ${oldProc.pid})`);
+          if (isWin) {
+            cp.exec(`taskkill /pid ${oldProc.pid} /T /F`, () => {});
+          } else {
+            try { oldProc.kill('SIGKILL'); } catch (_) {}
+          }
         }
       } catch (_) {}
-      global.activeDevServers.delete(cleanId);
+      global.activeDevServers.delete(sid);
     }
 
+    // Libérer le port 5173 au niveau système (Linux)
     if (!isWin) {
       try {
         cp.execSync('fuser -k 5173/tcp 2>/dev/null || true; sleep 1; fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
       } catch (_) {}
     }
 
+    // Petit délai pour laisser le port se libérer
+    const killDelay = allServers.length > 0 ? 800 : 0;
+    if (killDelay > 0) {
+      if (global.addLog) global.addLog(`[🔪 KILL] ${allServers.length} serveur(s) arrêté(s). Libération du port dans ${killDelay}ms...`);
+    }
+
     const cmd = isWin ? 'cmd.exe' : '/bin/sh';
     const devCommand = 'pnpm run dev || npm run dev || npx vite --host 0.0.0.0 --port 5173';
     const args = isWin ? ['/c', devCommand] : ['-c', devCommand];
 
+    // Délai pour laisser le port se libérer après kill
+    setTimeout(() => {
     const devProc = cp.spawn(cmd, args, {
       cwd: projectRoot,
       shell: false,
@@ -3545,12 +3320,13 @@ function autoInstallAndLaunchDevServer(projectId) {
       }
     });
 
-    devProc.on('close', (code) => {
-      if (global.activeDevServers.get(cleanId) === devProc) {
-        global.activeDevServers.delete(cleanId);
-      }
-      if (global.addLog) global.addLog(`[VITE] Serveur arrêté pour ${cleanId} (code ${code})`);
-    });
+      devProc.on('close', (code) => {
+        if (global.activeDevServers.get(cleanId) === devProc) {
+          global.activeDevServers.delete(cleanId);
+        }
+        if (global.addLog) global.addLog(`[VITE] Serveur arrêté pour ${cleanId} (code ${code})`);
+      });
+    }, killDelay);
   };
 
   const hasNodeModules = fs.existsSync(path.join(projectRoot, 'node_modules'));
@@ -7765,25 +7541,39 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
   // Toujours garantir le package.json complet et valide avant de lancer le dev server
   ensureVitePackageJson(projectRoot, cleanId);
 
-  // Tuer le serveur précédent s'il tourne déjà pour ce projet
+  // ── KILL ALL : Tuer TOUS les serveurs Vite actifs (tous projets confondus) ──
   global.activeDevServers = global.activeDevServers || new Map();
-  if (global.activeDevServers.has(cleanId)) {
+  const allServers = Array.from(global.activeDevServers.entries());
+  for (const [sid, oldProc] of allServers) {
     try {
-      const oldProc = global.activeDevServers.get(cleanId);
       if (oldProc && !oldProc.killed) {
+        if (global.addLog) global.addLog(`[🔪 KILL] Arrêt du serveur Vite "${sid}" pour libérer le port...`);
+        console.log(`[KILL-ALL-VITE] Arrêt de ${sid} (PID: ${oldProc.pid})`);
         if (process.platform === 'win32') {
           cp.exec(`taskkill /pid ${oldProc.pid} /T /F`, () => {});
         } else {
-          oldProc.kill('SIGTERM');
+          try { oldProc.kill('SIGKILL'); } catch (_) {}
         }
       }
     } catch (_) {}
-    global.activeDevServers.delete(cleanId);
+    global.activeDevServers.delete(sid);
   }
 
+  // Libérer le port 5173 au niveau système (Linux & Windows)
   if (process.platform !== 'win32') {
     try {
       cp.execSync('fuser -k 5173/tcp 2>/dev/null || true; sleep 1; fuser -k 5173/tcp 2>/dev/null || true', { stdio: 'ignore' });
+    } catch (_) {}
+  } else {
+    try {
+      const portOut = cp.execSync('netstat -ano | findstr :5173 || exit 0', { encoding: 'utf8' });
+      const pids = portOut.split('\n')
+        .map(line => line.trim().split(/\s+/).pop())
+        .filter(pid => pid && pid !== '0' && !isNaN(Number(pid)));
+      const uniquePids = [...new Set(pids)];
+      for (const p of uniquePids) {
+        try { cp.execSync(`taskkill /F /PID ${p}`, { stdio: 'ignore' }); } catch (_) {}
+      }
     } catch (_) {}
   }
 

@@ -368,10 +368,274 @@ server.get(['/api/mobile/list-apks', '/mobile/list-apks'], (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎨 TIGER-STITCH-AUTO — Câblage Automatique Stitch → React
+// Appelé après chaque extraction ZIP pour câbler les designs Stitch dans le projet
+// ═══════════════════════════════════════════════════════════════════════════════
+function autoWireStitchToPublic(projectRoot, projectId) {
+  const fsp = require('fs');
+  const pathp = require('path');
+
+  // ── 1. Scanner récursivement tous les code.html dans le projet ─────────────
+  // Structure Stitch : [pack_dir]/[ecran_dir]/code.html
+  const allCodeHtml = [];
+
+  function scanForStitchHtml(dir, depth) {
+    if (depth > 4) return;
+    let entries;
+    try { entries = fsp.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === 'public') continue;
+      if (e.isDirectory()) {
+        scanForStitchHtml(pathp.join(dir, e.name), depth + 1);
+      } else if (e.name === 'code.html') {
+        allCodeHtml.push(pathp.join(dir, e.name));
+      }
+    }
+  }
+  scanForStitchHtml(projectRoot, 0);
+
+  if (allCodeHtml.length === 0) {
+    console.log(`[STITCH-AUTO] ℹ️ Aucun code.html trouvé dans ${projectId}. Câblage non nécessaire.`);
+    return;
+  }
+
+  // ── 2. Construire la liste des écrans à partir des code.html ───────────────
+  const screens = [];
+  const screenIdSeen = new Set();
+
+  for (const htmlPath of allCodeHtml) {
+    // Le dossier parent direct = nom de l'écran
+    const screenDir = pathp.basename(pathp.dirname(htmlPath));
+    // Nettoyer le nom pour en faire un id valide
+    const screenId = screenDir
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+      .slice(0, 60) || 'ecran';
+
+    if (screenIdSeen.has(screenId)) continue;
+    screenIdSeen.add(screenId);
+
+    // Label lisible : remplacer _ et - par des espaces, capitaliser
+    const label = screenDir
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .slice(0, 40);
+
+    screens.push({ id: screenId, label, srcPath: htmlPath });
+  }
+
+  if (screens.length === 0) return;
+
+  // ── 3. Créer le dossier public/stitch/ ────────────────────────────────────
+  const publicStitchDir = pathp.join(projectRoot, 'public', 'stitch');
+  fsp.mkdirSync(publicStitchDir, { recursive: true });
+
+  // ── 4. Copier chaque code.html → public/stitch/[screenId]/code.html ───────
+  for (const screen of screens) {
+    const destDir = pathp.join(publicStitchDir, screen.id);
+    fsp.mkdirSync(destDir, { recursive: true });
+    const destFile = pathp.join(destDir, 'code.html');
+    try {
+      fsp.copyFileSync(screen.srcPath, destFile);
+      console.log(`[STITCH-AUTO] ✅ Copié : ${screen.id}/code.html`);
+    } catch (cpErr) {
+      console.warn(`[STITCH-AUTO] ⚠️ Erreur copie ${screen.id}:`, cpErr.message);
+    }
+
+    // Copier aussi les images (screen.png) si présentes
+    const srcDir = pathp.dirname(screen.srcPath);
+    try {
+      for (const asset of fsp.readdirSync(srcDir)) {
+        if (asset !== 'code.html' && /\.(png|jpg|svg|webp)$/i.test(asset)) {
+          fsp.copyFileSync(pathp.join(srcDir, asset), pathp.join(destDir, asset));
+        }
+      }
+    } catch {}
+  }
+
+  // ── 5. Écrire screens.json ────────────────────────────────────────────────
+  const screensJson = screens.map(s => ({ id: s.id, label: s.label }));
+  fsp.writeFileSync(
+    pathp.join(publicStitchDir, 'screens.json'),
+    JSON.stringify(screensJson, null, 2),
+    'utf8'
+  );
+
+  // ── 6. Générer/Mettre à jour src/App.tsx câblé ────────────────────────────
+  const srcDir = pathp.join(projectRoot, 'src');
+  fsp.mkdirSync(srcDir, { recursive: true });
+  const appTsxPath = pathp.join(srcDir, 'App.tsx');
+
+  // Ne pas écraser si App.tsx est déjà câblé (contient le viewer Stitch actif)
+  let shouldWriteApp = true;
+  if (fsp.existsSync(appTsxPath)) {
+    const existing = fsp.readFileSync(appTsxPath, 'utf8');
+    const alreadyWired = existing.includes('STITCH-AUTO-WIRED');
+    if (alreadyWired) {
+      // Mettre à jour uniquement les screens (injection intelligente)
+      const updatedScreens = `  const SCREENS = ${JSON.stringify(screensJson, null, 4)};`;
+      const newContent = existing.replace(
+        /\/\/ STITCH-AUTO-SCREENS-START[\s\S]*?\/\/ STITCH-AUTO-SCREENS-END/,
+        `// STITCH-AUTO-SCREENS-START\n${updatedScreens}\n  // STITCH-AUTO-SCREENS-END`
+      );
+      if (newContent !== existing) {
+        fsp.writeFileSync(appTsxPath, newContent, 'utf8');
+        console.log(`[STITCH-AUTO] 🔄 App.tsx mis à jour avec ${screens.length} écran(s).`);
+      }
+      shouldWriteApp = false;
+    } else if (
+      existing.includes('Sovereign Engine') ||
+      existing.includes("Prêt à recevoir le code de l'IA") ||
+      existing.includes('ActionToolbar') ||
+      existing.length < 600
+    ) {
+      shouldWriteApp = true; // App.tsx est un placeholder → écraser
+    } else {
+      shouldWriteApp = false; // App.tsx est un vrai projet → ne pas écraser
+    }
+  }
+
+  if (shouldWriteApp) {
+    const initialScreen = screensJson[0]?.id || 'ecran';
+    const navIcons = [
+      'home', 'shopping_cart', 'lock', 'check_circle', 'person',
+      'dashboard', 'payments', 'inventory', 'settings', 'favorite'
+    ];
+
+    const appTsxContent = `// STITCH-AUTO-WIRED — Généré automatiquement par Tiger Stitch Auto-Wiring
+import React, { useState } from 'react';
+
+// STITCH-AUTO-SCREENS-START
+  const SCREENS = ${JSON.stringify(screensJson, null, 4)};
+  // STITCH-AUTO-SCREENS-END
+
+type Viewport = 'desktop' | 'tablet' | 'mobile';
+
+export default function App() {
+  const [activeScreen, setActiveScreen] = useState('${initialScreen}');
+  const [viewport, setViewport] = useState<Viewport>('mobile');
+  const [activeTab, setActiveTab] = useState<'stitch' | 'live'>('stitch');
+
+  const currentScreen = SCREENS.find(s => s.id === activeScreen) || SCREENS[0];
+  const viewportWidth = viewport === 'mobile' ? '390px' : viewport === 'tablet' ? '768px' : '100%';
+
+  return (
+    <div style={{ width: '100vw', height: '100dvh', background: '#0d0e13', color: '#e3e1e9', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif', overflow: 'hidden' }}>
+
+      {/* ── Top Bar ── */}
+      <header style={{ height: '52px', background: 'rgba(13,14,19,0.97)', borderBottom: '1px solid rgba(78,222,163,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '18px' }}>⚡</span>
+          <span style={{ fontWeight: '700', fontSize: '14px', color: '#e3e1e9' }}>${projectId}</span>
+          <span style={{ fontSize: '10px', background: 'rgba(78,222,163,0.1)', color: '#4edea3', border: '1px solid rgba(78,222,163,0.2)', borderRadius: '20px', padding: '2px 8px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>STITCH LIVE</span>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={() => setActiveTab('stitch')} style={{ padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px', background: activeTab === 'stitch' ? '#4f46e5' : '#1e1f25', color: activeTab === 'stitch' ? '#fff' : '#86948a', transition: 'all 0.2s' }}>🎨 Designs</button>
+          <button onClick={() => setActiveTab('live')} style={{ padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '12px', background: activeTab === 'live' ? '#4edea3' : '#1e1f25', color: activeTab === 'live' ? '#003824' : '#86948a', transition: 'all 0.2s' }}>⚡ Application</button>
+        </div>
+      </header>
+
+      {/* ── Contenu Principal ── */}
+      {activeTab === 'stitch' ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+          {/* Barre d'écrans + viewport */}
+          <div style={{ background: 'rgba(13,14,19,0.9)', borderBottom: '1px solid rgba(78,222,163,0.08)', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', overflowX: 'auto', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              {SCREENS.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveScreen(s.id)}
+                  style={{ padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '11px', whiteSpace: 'nowrap', background: activeScreen === s.id ? '#4f46e5' : '#1e1f25', color: activeScreen === s.id ? '#fff' : '#86948a', transition: 'all 0.15s' }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+              {(['mobile', 'tablet', 'desktop'] as Viewport[]).map(vp => (
+                <button key={vp} onClick={() => setViewport(vp)} title={vp} style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: '700', background: viewport === vp ? '#4edea3' : '#292a2f', color: viewport === vp ? '#003824' : '#86948a' }}>
+                  {vp === 'mobile' ? '📱' : vp === 'tablet' ? '📟' : '🖥️'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Viewer iframe Stitch */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#06080e', padding: '16px', overflow: 'auto' }}>
+            <div style={{ width: viewportWidth, height: '100%', maxHeight: '100%', borderRadius: viewport === 'mobile' ? '24px' : '12px', overflow: 'hidden', border: '1px solid rgba(78,222,163,0.2)', boxShadow: '0 8px 40px rgba(0,0,0,0.6)', transition: 'width 0.3s ease', background: '#fff' }}>
+              <iframe
+                key={activeScreen}
+                src={\`./stitch/\${activeScreen}/code.html\`}
+                title={\`Stitch — \${currentScreen?.label || activeScreen}\`}
+                style={{ width: '100%', height: '100%', minHeight: '600px', border: 'none', display: 'block' }}
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            </div>
+          </div>
+
+          {/* Bottom navigation */}
+          {SCREENS.length > 1 && (
+            <nav style={{ height: '64px', background: 'rgba(13,14,19,0.97)', borderTop: '1px solid rgba(78,222,163,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 8px', flexShrink: 0 }}>
+              {SCREENS.map((s, i) => {
+                const icons = ['home', 'shopping_cart', 'lock', 'check_circle', 'person', 'dashboard', 'payments', 'settings'];
+                const isActive = activeScreen === s.id;
+                return (
+                  <button key={s.id} onClick={() => setActiveScreen(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '6px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: isActive ? 'rgba(78,222,163,0.12)' : 'transparent', color: isActive ? '#4edea3' : '#86948a', fontSize: '10px', fontWeight: '600', transition: 'all 0.2s' }}>
+                    <span style={{ fontFamily: 'Material Symbols Outlined', fontSize: '22px', fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>{icons[i % icons.length]}</span>
+                    <span>{s.label.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+        </div>
+      ) : (
+        // ── Onglet Application Live ──────────────────────────────────────────
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '32px', textAlign: 'center' }}>
+          <div style={{ fontSize: '48px' }}>⚡</div>
+          <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0 }}>${projectId}</h1>
+          <p style={{ color: '#86948a', fontSize: '14px', margin: 0, maxWidth: '400px' }}>
+            L'application est en cours de câblage. Les {SCREENS.length} écrans Stitch sont chargés et disponibles dans l'onglet Designs.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', width: '100%', maxWidth: '600px' }}>
+            {SCREENS.map(s => (
+              <div key={s.id} style={{ background: '#1e1f25', borderRadius: '12px', padding: '16px', border: '1px solid rgba(78,222,163,0.15)' }}>
+                <div style={{ fontSize: '12px', color: '#4edea3', fontWeight: '700', marginBottom: '4px' }}>✅ Écran</div>
+                <div style={{ fontSize: '13px', color: '#e3e1e9' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setActiveTab('stitch')} style={{ marginTop: '8px', padding: '12px 24px', borderRadius: '12px', border: 'none', cursor: 'pointer', background: '#4f46e5', color: '#fff', fontWeight: '700', fontSize: '14px' }}>
+            🎨 Voir les Designs Stitch
+          </button>
+        </div>
+      )}
+
+      {/* Material Symbols pour les icônes */}
+      <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    </div>
+  );
+}
+`;
+
+    fsp.writeFileSync(appTsxPath, appTsxContent, 'utf8');
+    console.log(`[STITCH-AUTO] ✨ App.tsx câblé généré avec ${screens.length} écran(s) pour ${projectId}.`);
+  }
+
+  // ── 7. Log final ──────────────────────────────────────────────────────────
+  const msg = `[STITCH-AUTO] 🎨 Câblage terminé : ${screens.length} écran(s) Stitch → public/stitch/ | ${projectId}`;
+  console.log(msg);
+  if (global.addLog) global.addLog(msg);
+}
+
 // ==============================================================================
 // GESTION DES ARCHIVES ZIP (STITCH / EXPORT UI / PACK PRD)
 // ==============================================================================
 server.post(['/api/fs/upload-zip', '/fs/upload-zip'], async (req, res) => {
+
   try {
     const { project, fileName, fileBase64 } = req.body || {};
     if (!fileBase64) {
@@ -465,6 +729,27 @@ server.post(['/api/fs/upload-zip', '/fs/upload-zip'], async (req, res) => {
       }
     } catch (e) {
       console.warn('[ZIP UPLOAD] Erreur configuration Vite/Stitch:', e.message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎨 CÂBLAGE AUTOMATIQUE STITCH → REACT (TIGER-STITCH-AUTO)
+    // Scanne les dossiers Stitch extraits, copie les code.html dans public/stitch/
+    // et génère App.tsx câblé + screens.json pour navigation automatique.
+    // ═══════════════════════════════════════════════════════════════════════
+    try {
+      // Priorité 1 : setupStitchPages du v5-router (version la plus avancée)
+      if (v5Router && typeof v5Router.setupStitchPages === 'function') {
+        const screens = v5Router.setupStitchPages(targetDir, targetProject);
+        if (screens && screens.length > 0) {
+          const msg = `[STITCH-AUTO] 🎨 ${screens.length} écran(s) câblés automatiquement pour ${targetProject}`;
+          console.log(msg);
+          if (global.addLog) global.addLog(msg);
+        }
+      }
+      // Priorité 2 : fonction locale autonome (toujours exécutée pour App.tsx)
+      autoWireStitchToPublic(targetDir, targetProject);
+    } catch (wireErr) {
+      console.warn('[ZIP UPLOAD] Câblage Stitch automatique (non bloquant):', wireErr.message);
     }
 
     return res.json({

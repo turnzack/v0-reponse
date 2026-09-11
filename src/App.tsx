@@ -3538,7 +3538,11 @@ const WidgetProjects = ({ isClient, getCachedGradient, setActiveProject, onOpenP
                       const data = await res.json();
                       alert(data.message || `🚀 Serveur Vite démarré pour ${targetProjName} !`);
                       if (data.previewUrl) {
-                        window.open(data.previewUrl, "_blank");
+                        let finalUrl = data.previewUrl;
+                        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                          finalUrl = finalUrl.replace(/localhost|127\.0\.0\.1/, window.location.hostname);
+                        }
+                        window.open(finalUrl, "_blank");
                       }
                     } catch(err: any) {
                       setLaunchingProject(null);
@@ -5746,7 +5750,9 @@ Format attendu:
                   setIsDesignMode(nextState);
                   if (nextState && !previewUrl) {
                     const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
-                    setPreviewUrl(isNextJs ? "http://localhost:3000" : "http://localhost:5175");
+                    const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+                    const targetHost = isRemote ? window.location.hostname : 'localhost';
+                    setPreviewUrl(isNextJs ? `http://${targetHost}:3000` : `http://${targetHost}:5173`);
                   }
                 }}
                 className={`design-ide-btn-action w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isDesignMode ? 'bg-pink-500 text-white border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 hover:bg-pink-500/20 text-pink-500 border-white/10 hover:border-pink-500'}`}
@@ -6086,7 +6092,13 @@ Format attendu:
                           ✕
                         </button>
                         <button
-                          onClick={() => window.open(previewUrl, '_blank')}
+                          onClick={() => {
+                            let targetUrl = previewUrl;
+                            if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                              targetUrl = targetUrl.replace(/localhost|127\.0\.0\.1/, window.location.hostname);
+                            }
+                            window.open(targetUrl, '_blank');
+                          }}
                           className="absolute top-2 right-14 bg-black/80 border border-white/20 text-white rounded-full px-3 h-8 flex items-center justify-center hover:bg-cyan hover:text-black transition-all shadow-lg z-50 text-xs font-bold"
                           title="Ouvrir dans un nouvel onglet"
                         >
