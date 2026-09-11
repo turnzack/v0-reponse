@@ -228,6 +228,16 @@ server.post(['/api/mobile/build-apk', '/mobile/build-apk'], async (req, res) => 
     webBuildDir = path.join(actualDir, 'build');
   }
 
+  // 0. Assurer la conformité Vite, types, ActionToolbar immunisé et purge parasite
+  try {
+    if (v5Router && typeof v5Router.ensureVitePackageJson === 'function') {
+      v5Router.ensureVitePackageJson(actualDir, cleanProject);
+      mobileBuildLogs.push(`[v0-apk] 🛡️ Types, ActionToolbar et structure vérifiés/immunisés avec succès.`);
+    }
+  } catch (e) {
+    console.warn("[v0-apk] Erreur ensureVitePackageJson:", e);
+  }
+
   // 1. Configurer Vite pour Capacitor (base: './')
   const viteConfigPath = path.join(actualDir, 'vite.config.ts');
   const viteConfigJsPath = path.join(actualDir, 'vite.config.js');
@@ -448,6 +458,11 @@ server.post(['/api/fs/upload-zip', '/fs/upload-zip'], async (req, res) => {
       if (v5Router && typeof v5Router.ensureVitePackageJson === 'function') {
         v5Router.ensureVitePackageJson(targetDir, targetProject);
       }
+      if (v5Router && typeof v5Router.autoInstallAndLaunchDevServer === 'function') {
+        setTimeout(() => {
+          v5Router.autoInstallAndLaunchDevServer(targetProject);
+        }, 500);
+      }
     } catch (e) {
       console.warn('[ZIP UPLOAD] Erreur configuration Vite/Stitch:', e.message);
     }
@@ -613,12 +628,21 @@ server.post('/api/projects', async (req, res) => {
     if (!fs.existsSync(projectDir)) {
       fs.mkdirSync(projectDir, { recursive: true });
       fs.writeFileSync(path.join(projectDir, 'README.md'), `# ${rawName}\n\nCréé avec succès sur Tiger Cloud VPS.\nDate: ${new Date().toISOString()}`);
-      fs.writeFileSync(path.join(projectDir, 'package.json'), JSON.stringify({
-        name: cleanId.toLowerCase(),
-        version: '1.0.0',
-        description: description || 'Projet Tiger Cloud',
-        main: 'index.js'
-      }, null, 2));
+    }
+
+    // 🚀 Configuration automatique immédiate Vite, Types, ActionToolbar & Dépendances
+    try {
+      if (v5Router && typeof v5Router.ensureVitePackageJson === 'function') {
+        v5Router.ensureVitePackageJson(projectDir, cleanId);
+      }
+      // Démarrage de l'installation automatique des dépendances en arrière-plan
+      if (v5Router && typeof v5Router.autoInstallAndLaunchDevServer === 'function') {
+        setTimeout(() => {
+          v5Router.autoInstallAndLaunchDevServer(cleanId);
+        }, 300);
+      }
+    } catch (e) {
+      console.warn('[PROJECTS] Erreur initialisation Vite/dépendances:', e.message);
     }
 
     // 2. Persistance dans Neon PostgreSQL

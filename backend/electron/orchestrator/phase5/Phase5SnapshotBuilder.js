@@ -158,10 +158,24 @@ async function buildProjectSnapshot(projectRoot) {
  *  - doit exister
  *  - doit être un dossier
  */
-const AUTHORIZED_WORKSPACES = [
-  path.resolve('e:\\v0reponses'),
-  path.resolve('e:\\JahVISE-ZAI'),
-];
+function getAuthorizedWorkspaces() {
+  const list = [
+    path.resolve('e:\\v0reponses'),
+    path.resolve('e:\\JahVISE-ZAI'),
+    path.resolve('e:\\ZAI'),
+    path.resolve('e:\\worldmodelv2'),
+    '/var/www/tiger',
+    '/var/www/tiger/backend',
+    '/var/www/tiger/backend/v0saveprojets',
+    '/var/projects',
+    process.cwd(),
+    path.resolve(process.cwd(), 'v0saveprojets'),
+  ];
+  if (global.WORKSPACE_DIR) {
+    list.push(path.resolve(global.WORKSPACE_DIR));
+  }
+  return list;
+}
 
 function resolveAuthorizedProjectRoot(projectRoot) {
   if (!projectRoot || typeof projectRoot !== 'string') {
@@ -170,11 +184,14 @@ function resolveAuthorizedProjectRoot(projectRoot) {
 
   // Résoudre le chemin absolu (élimine les ..)
   const resolved = path.resolve(projectRoot);
+  const normResolved = resolved.replace(/\\/g, '/').toLowerCase();
 
-  // Vérifier contre les workspaces autorisés (insensible à la casse pour Windows)
-  const isAuthorized = AUTHORIZED_WORKSPACES.some(ws => 
-    resolved.toLowerCase().startsWith(ws.toLowerCase())
-  );
+  // Vérifier contre les workspaces autorisés (insensible à la casse)
+  const workspaces = getAuthorizedWorkspaces();
+  const isAuthorized = workspaces.some(ws => {
+    const normWs = path.resolve(ws).replace(/\\/g, '/').toLowerCase();
+    return normResolved.startsWith(normWs);
+  });
   
   if (!isAuthorized) {
     throw Object.assign(
