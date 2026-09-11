@@ -2545,7 +2545,10 @@ const WidgetSettings = ({
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => window.open('http://localhost:3006/admin-design', '_blank')}
+                    onClick={() => {
+                      const proj = (typeof window !== 'undefined' ? localStorage.getItem('tiger_active_project') : '') || '';
+                      window.open(proj ? '/admin-design.html?project=' + encodeURIComponent(proj) : '/admin-design.html', '_blank');
+                    }}
                     className="flex-1 py-3 bg-gradient-to-r from-pink/30 to-purple-500/30 hover:from-pink/40 hover:to-purple-500/40 border border-pink/50 rounded-xl text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
                   >
                     🎨 Ouvrir le Studio Admin Design
@@ -4110,6 +4113,16 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   // Chargement de l'arborescence quand un projet est actif
   useEffect(() => {
     if (activeProject) {
+      try {
+        const cleanP = typeof activeProject === 'string' ? activeProject : ((activeProject as any)?.name || (activeProject as any)?.project_id || '');
+        if (cleanP && cleanP !== 'null' && cleanP !== 'undefined') {
+          localStorage.setItem('tiger_active_project', cleanP);
+          const adminIframe = document.querySelector('iframe[title="Studio Admin Design"]') as HTMLIFrameElement;
+          if (adminIframe && adminIframe.contentWindow) {
+            adminIframe.contentWindow.postMessage({ type: 'SET_ACTIVE_PROJECT', project: cleanP }, '*');
+          }
+        }
+      } catch (e) {}
       safeFetch(`http://localhost:5006/api/fs/tree?project=${activeProject}`)
         .then(res => res ? res.json() : null)
         .then(data => {
@@ -5991,7 +6004,7 @@ Format attendu:
                       {/* CONTENU DU STUDIO DESIGN */}
                       <div className="flex-1 overflow-hidden relative">
                         <iframe
-                          src={`/admin-design.html?project=${activeProject}`}
+                          src={'/admin-design.html?project=' + encodeURIComponent((typeof activeProject === 'string' ? activeProject : (activeProject ? ((activeProject as any).name || (activeProject as any).project_id || '') : '')) || (typeof window !== 'undefined' ? localStorage.getItem('tiger_active_project') || '' : ''))}
                           className="w-full h-full border-0 bg-black"
                           title="Studio Admin Design"
                         />

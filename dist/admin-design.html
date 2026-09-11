@@ -40,8 +40,7 @@
           }
           if (url.indexOf('localhost:500') !== -1 || url.indexOf('127.0.0.1:500') !== -1 || url.indexOf(':5006') !== -1) {
             if (!isElectron) {
-              try { localStorage.removeItem('tiger_enable_local_bridge'); } catch(e) {}
-              return 'mock_blocked';
+              return 'rewrite_relative';
             }
           }
           return false;
@@ -55,6 +54,13 @@
             else if (input && input.href) { url = input.href; }
             else if (input) { url = String(input); }
           } catch(e) {}
+          
+          var blockType = shouldBlock(url);
+          if (blockType === 'rewrite_relative') {
+            var relPath = url.replace(/^https?:\/\/[^\/]+/, '');
+            if (!relPath.startsWith('/')) relPath = '/' + relPath;
+            return origFetch.call(this, relPath, init);
+          }
           
           var blockType = shouldBlock(url);
           if (blockType === 'mock_ok') {
@@ -115,7 +121,7 @@
         }
       });
     </script>
-    <script type="module" crossorigin src="/assets/adminDesign-v200-Cic-RSZB.js"></script>
+    <script type="module" crossorigin src="/assets/adminDesign-v200-MPlmgnaZ.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/design-v200-DbCZFsQC.js">
     <link rel="stylesheet" crossorigin href="/assets/design-v200-BH1kPxk1.css">
   </head>

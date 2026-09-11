@@ -3,6 +3,21 @@ import Editor from '@monaco-editor/react';
 import defaultDesign from './design-tokens.json';
 import { safeFetch } from './lib/bridgeClient';
 
+
+export const getResolvedTargetProject = (): string => {
+  if (typeof window === 'undefined') return '';
+  const urlParams = new URLSearchParams(window.location.search);
+  const p = urlParams.get('project');
+  if (p && p !== 'null' && p !== 'undefined' && p !== '[object Object]' && p.trim() !== '') {
+    return p.trim();
+  }
+  const saved = localStorage.getItem('tiger_active_project') || localStorage.getItem('sovereign_current_project');
+  if (saved && saved !== 'null' && saved !== 'undefined' && saved !== '[object Object]' && saved.trim() !== '') {
+    return saved.trim();
+  }
+  return '';
+};
+
 const designStructure = {
   "🌍 Structure Globale": {
     "Architecture": ['appLargeurMax', 'appHauteurMax'],
@@ -323,8 +338,12 @@ const ElementSettingCard = ({ element, onSave, onSetLayer }: any) => {
 };
 
 const AdminDesignApp = () => {
-  const [activeCategory, setActiveCategory] = useState(Object.keys(designStructure)[0]);
-  const [activeSubCategory, setActiveSubCategory] = useState(Object.keys(designStructure[Object.keys(designStructure)[0] as keyof typeof designStructure])[0]);
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    const proj = getResolvedTargetProject();
+    if (proj && proj !== '../../v0-interface-versel') return '🎨 Écrans Stitch';
+    return Object.keys(designStructure)[0];
+  });
+  const [activeSubCategory, setActiveSubCategory] = useState<string>("");
   const [design, setDesign] = useState(defaultDesign);
   const [lockedSettings, setLockedSettings] = useState<Record<string, boolean>>({});
   const [isLoaded, setIsLoaded] = useState(false);
@@ -475,7 +494,7 @@ const AdminDesignApp = () => {
 
   const handleApplyTheme = async (theme: any) => {
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project') || 'Obsidian Flux';
+    const targetProject = getResolvedTargetProject() || 'Obsidian Flux';
     
     try {
       const res = await safeFetch('http://localhost:5006/api/themes/apply', {
@@ -518,7 +537,7 @@ const AdminDesignApp = () => {
   // Notifier le serveur local du changement de mode et de page active → la preview le poll
   const sendDesignMode = (enabled: boolean) => {
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project');
+    const targetProject = getResolvedTargetProject();
     safeFetch('http://localhost:5006/api/design-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -559,7 +578,7 @@ const AdminDesignApp = () => {
     setSaveSuccessMessage("🚀 Proposition UI envoyée... (Mise en file d'attente)");
 
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project') || "PASS";
+    const targetProject = getResolvedTargetProject() || 'PASS';
 
     try {
       const payload = {
@@ -697,6 +716,13 @@ const AdminDesignApp = () => {
       if (event.data?.type === 'DESIGN_ELEMENT_COLLIDED') {
          setCollidedElementData(event.data.payload);
       }
+      if (event.data?.type === 'SET_ACTIVE_PROJECT' && event.data.project) {
+         const newP = String(event.data.project).trim();
+         if (newP && newP !== currentTargetProject) {
+           localStorage.setItem('tiger_active_project', newP);
+           window.location.search = '?project=' + encodeURIComponent(newP);
+         }
+      }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
@@ -716,7 +742,7 @@ const AdminDesignApp = () => {
   useEffect(() => {
     if (activePagePath) {
       const urlParams = new URLSearchParams(window.location.search);
-      const targetProject = urlParams.get('project');
+      const targetProject = getResolvedTargetProject();
       safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
         .then(res => res ? res.json() : null)
         .then(data => {
@@ -735,7 +761,7 @@ const AdminDesignApp = () => {
       pushHistoryState(content);
     }
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project');
+    const targetProject = getResolvedTargetProject();
     safeFetch("http://localhost:5006/api/fs/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -744,11 +770,11 @@ const AdminDesignApp = () => {
   };
 
   const parsedPageSettings = useMemo(() => {
-    if (!activeCategory || !activeCategory.startsWith("📁") || !pageContent) return [];
+    if (!activeCategory || (!activeCategory.startsWith("📁") && !activeCategory.startsWith("🎨")) || !pageContent) return [];
     
     const elements: any[] = [];
     
-    // On cherche <tag className="...">Texte</tag>
+    // On cherche <tag (class|className)="...">Texte</tag>
     const elementRegex = /<([a-zA-Z0-9]+)([^>]*)>\s*([^<{}]+?)\s*<\/\1>/g;
     let match;
     while ((match = elementRegex.exec(pageContent)) !== null) {
@@ -760,7 +786,7 @@ const AdminDesignApp = () => {
         
         let className = "";
         let originalClassMatch = "";
-        const classMatch = attrs.match(/className=(['"])(.*?)\1/);
+        const classMatch = attrs.match(/(?:className|class)=(['"])(.*?)\1/);
         if (classMatch) {
           originalClassMatch = classMatch[0];
           className = classMatch[2];
@@ -807,8 +833,8 @@ const AdminDesignApp = () => {
       }
     }
 
-    // 2. Extraire les blocs structurels (Cards, Containers) sans capturer le texte intérieur
-    const blockRegex = /<(div|section|article|aside|nav)[^>]*?className=(['"])(.*?)\2[^>]*?>/g;
+    // 2. Extraire les blocs structurels (Cards, Containers, Header, Main) sans capturer le texte intérieur
+    const blockRegex = /<(div|section|article|aside|nav|header|main)[^>]*?(?:class|className)=(['"])(.*?)\2[^>]*?>/g;
     let blockMatch;
     while ((blockMatch = blockRegex.exec(pageContent)) !== null) {
       const fullTag = blockMatch[0];
@@ -834,8 +860,8 @@ const AdminDesignApp = () => {
            }
         });
 
-        // originalClassMatch exact extraction
-        const classMatch = fullTag.match(/className=(['"])(.*?)\1/);
+        // originalClassMatch exact extraction (support class & className)
+        const classMatch = fullTag.match(/(?:className|class)=(['"])(.*?)\1/);
         
         // Créer un petit aperçu pour aider l'utilisateur à identifier le bloc (ex: les fonds de page)
         let blockPreview = "";
@@ -879,15 +905,17 @@ const AdminDesignApp = () => {
     
     if (newClasses !== "") {
       if (element.originalClassMatch) {
-        // preserve quote type
-        const quote = element.originalClassMatch.match(/['"]/)[0];
-        newAttrs = `className=${quote}${newClasses}${quote}`;
+        const quote = element.originalClassMatch.match(/['"]/)?.[0] || '"';
+        const isStandardClass = element.originalClassMatch.startsWith('class=');
+        const attrName = isStandardClass ? 'class' : 'className';
+        newAttrs = `${attrName}=${quote}${newClasses}${quote}`;
       } else {
-        newAttrs = ` className="${newClasses}"`;
+        const isHtmlFile = Boolean(activePagePath && activePagePath.endsWith('.html'));
+        newAttrs = isHtmlFile ? ` class="${newClasses}"` : ` className="${newClasses}"`;
       }
     } else {
       if (element.originalClassMatch) {
-        newAttrs = ""; // remove className
+        newAttrs = "";
       }
     }
 
@@ -963,9 +991,12 @@ const AdminDesignApp = () => {
           if (newClasses !== "") {
             if (element.originalClassMatch) {
               const quote = element.originalClassMatch.match(/['"]/)?.[0] || '"';
-              newAttrs = `className=${quote}${newClasses}${quote}`;
+              const isStandardClass = element.originalClassMatch.startsWith('class=');
+              const attrName = isStandardClass ? 'class' : 'className';
+              newAttrs = `${attrName}=${quote}${newClasses}${quote}`;
             } else {
-              newAttrs = ` className="${newClasses}"`;
+              const isHtmlFile = Boolean(activePagePath && activePagePath.endsWith('.html'));
+              newAttrs = isHtmlFile ? ` class="${newClasses}"` : ` className="${newClasses}"`;
             }
           } else {
             newAttrs = "";
@@ -1047,9 +1078,12 @@ const AdminDesignApp = () => {
       if (newClasses !== "") {
         if (el.originalClassMatch) {
           const quote = el.originalClassMatch.match(/['"]/)?.[0] || '"';
-          newAttrs = `className=${quote}${newClasses}${quote}`;
+          const isStandardClass = el.originalClassMatch.startsWith('class=');
+          const attrName = isStandardClass ? 'class' : 'className';
+          newAttrs = `${attrName}=${quote}${newClasses}${quote}`;
         } else {
-          newAttrs = ` className="${newClasses}"`;
+          const isHtmlFile = Boolean(activePagePath && activePagePath.endsWith('.html'));
+          newAttrs = isHtmlFile ? ` class="${newClasses}"` : ` className="${newClasses}"`;
         }
       } else {
         newAttrs = "";
@@ -1159,8 +1193,7 @@ const AdminDesignApp = () => {
   };
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project');
+    const targetProject = getResolvedTargetProject();
 
     if (!targetProject || targetProject === "../../v0-interface-versel") {
       // Cas 1 : Interface Admin V0 (L'IDE lui-même)
@@ -1283,8 +1316,13 @@ const AdminDesignApp = () => {
                 setDesign(prev => ({ ...prev, ...parsedDesign }));
                 setDynamicStructure(newStructure);
                 const firstCat = Object.keys(newStructure)[0];
+                const firstSub = Object.keys(newStructure[firstCat])[0] || "";
                 setActiveCategory(firstCat);
-                setActiveSubCategory(Object.keys(newStructure[firstCat])[0] || "");
+                setActiveSubCategory(firstSub);
+                const firstPage = newStructure[firstCat]?.[firstSub]?.[0];
+                if (firstPage) {
+                  setActivePagePath(firstPage);
+                }
               }).catch((err) => {
                 console.error("Erreur réseau fetch tree:", err);
                 const fallbackProj = { "📁 Application": { "App": ["src/App.tsx"] } };
@@ -1292,6 +1330,7 @@ const AdminDesignApp = () => {
                 setDynamicStructure(fallbackProj);
                 setActiveCategory("📁 Application");
                 setActiveSubCategory("App");
+                setActivePagePath("src/App.tsx");
               });
             });
         })
@@ -1300,9 +1339,9 @@ const AdminDesignApp = () => {
   }, []);
 
   // Merge the IDE design parameters with the project's file explorer
-  const urlParamsCurrent = new URLSearchParams(window.location.search);
-  const currentTargetProject = urlParamsCurrent.get('project');
+    const currentTargetProject = getResolvedTargetProject();
   const isExternalProjectMode = Boolean(currentTargetProject && currentTargetProject !== "../../v0-interface-versel");
+  // Si nous sommes sur un projet utilisateur actif, JAMAIS afficher les structures internes V0 admin
   const currentStructure = isExternalProjectMode ? (dynamicStructure || {}) : (dynamicStructure ? { ...designStructure, ...dynamicStructure } : designStructure);
 
   const formatKeyToCSSVar = (key: string) => {
@@ -1316,7 +1355,7 @@ const AdminDesignApp = () => {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project');
+    const targetProject = getResolvedTargetProject();
     const isExternalProject = targetProject && targetProject !== "../../v0-interface-versel";
 
     if (isExternalProject) {
@@ -1701,7 +1740,7 @@ body {
     if (!isLoaded) return; // Ne JAMAIS sauvegarder avant d'avoir chargé les tokens du projet !
 
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project') || "../../v0-interface-versel";
+    const targetProject = getResolvedTargetProject() || '../../v0-interface-versel';
 
     const timer = setTimeout(() => {
       safeFetch("http://localhost:5006/api/fs/write", {
@@ -1731,7 +1770,7 @@ body {
 
   const saveToSource = () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = urlParams.get('project') || "../../v0-interface-versel";
+    const targetProject = getResolvedTargetProject() || '../../v0-interface-versel';
 
     safeFetch("http://localhost:5006/api/fs/write", {
       method: "POST", headers: { "Content-Type": "application/json" },
