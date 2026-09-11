@@ -704,7 +704,8 @@ const AdminDesignApp = () => {
 
   useEffect(() => {
     const struct = dynamicStructure || designStructure;
-    if (activeCategory.startsWith("📁") && struct[activeCategory]?.[activeSubCategory]) {
+    const isTargetCategory = activeCategory.startsWith("📁") || activeCategory.startsWith("🎨");
+    if (isTargetCategory && struct && struct[activeCategory] && struct[activeCategory][activeSubCategory]) {
       const path = struct[activeCategory][activeSubCategory][0];
       if (path && path !== activePagePath) {
         setActivePagePath(path);
@@ -1185,8 +1186,19 @@ const AdminDesignApp = () => {
              } catch(e) {}
           }
 
-          // Fetch de l'arbre pour les fichiers du projet
-          safeFetch(`http://localhost:5006/api/fs/tree?project=${targetProject}`)
+          // Fetch des écrans Stitch si existants
+          safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=public/stitch/screens.json`)
+            .then(res => res ? res.json() : null)
+            .then(stitchData => {
+              let stitchScreens: any[] = [];
+              if (stitchData && stitchData.success && stitchData.content) {
+                try {
+                  stitchScreens = JSON.parse(stitchData.content);
+                } catch(e) {}
+              }
+
+              // Fetch de l'arbre pour les fichiers du projet
+              safeFetch(`http://localhost:5006/api/fs/tree?project=${targetProject}`)
               .then(resTree => resTree ? resTree.json() : null)
               .then(treeData => {
                 let newStructure: Record<string, any> = {};
@@ -1236,9 +1248,31 @@ const AdminDesignApp = () => {
                       }
                     };
                     findAppTsx(treeData.tree);
+
+                    // Extraire les styles CSS et Design Tokens
+                    const stylesArr: string[] = [];
+                    extractFolder(treeData.tree, 'src', stylesArr);
+                    const cssFiles = stylesArr.filter(p => p.endsWith('.css') || p.endsWith('.json') || p.endsWith('.md'));
+                    if (cssFiles.length > 0) {
+                      newStructure["🎨 Styles & Tokens"] = {};
+                      cssFiles.forEach(path => {
+                        const name = path.split('/').pop();
+                        if (name) newStructure["🎨 Styles & Tokens"][name] = [path];
+                      });
+                    }
                   } catch (err) {
                     console.error("Erreur lors de l'extraction de l'arbre:", err);
                   }
+                }
+
+                // Injecter les Écrans Stitch en priorité absolue tout en haut !
+                if (Array.isArray(stitchScreens) && stitchScreens.length > 0) {
+                  const stitchCategory: Record<string, string[]> = {};
+                  stitchScreens.forEach((scr: any) => {
+                    const cleanUrl = (scr.url || '').replace(/^\.\//, '');
+                    stitchCategory[`${scr.icon || '📱'} ${scr.title || scr.id}`] = [cleanUrl || `public/stitch/${scr.id}/code.html`];
+                  });
+                  newStructure = { "🎨 Écrans Stitch": stitchCategory, ...newStructure };
                 }
 
                 // Fallback si l'arbre est vide
@@ -1259,13 +1293,17 @@ const AdminDesignApp = () => {
                 setActiveCategory("📁 Application");
                 setActiveSubCategory("App");
               });
+            });
         })
         .finally(() => setIsLoaded(true));
     }
   }, []);
 
   // Merge the IDE design parameters with the project's file explorer
-  const currentStructure = dynamicStructure ? { ...designStructure, ...dynamicStructure } : designStructure;
+  const urlParamsCurrent = new URLSearchParams(window.location.search);
+  const currentTargetProject = urlParamsCurrent.get('project');
+  const isExternalProjectMode = Boolean(currentTargetProject && currentTargetProject !== "../../v0-interface-versel");
+  const currentStructure = isExternalProjectMode ? (dynamicStructure || {}) : (dynamicStructure ? { ...designStructure, ...dynamicStructure } : designStructure);
 
   const formatKeyToCSSVar = (key: string) => {
     return '--' + key.replace(/([A-Z])/g, "-$1").toLowerCase();
@@ -1719,7 +1757,9 @@ body {
       <header className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-black/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-2xl">👑</span>
-          <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">TIGER OMNI-ADMIN STUDIO</h1>
+          <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">
+            {isExternalProjectMode ? `🎨 STUDIO DESIGN : ${currentTargetProject}` : 'TIGER OMNI-ADMIN STUDIO'}
+          </h1>
         </div>
         <div className="flex items-center gap-4">
           {themeApplyMessage && (
@@ -1880,7 +1920,23 @@ body {
                           key={subcat}
                           onClick={() => {
                             setActiveSubCategory(subcat);
-                            if (cat.startsWith("📁")) {
+                            const filePath = (currentStructure as any)[cat]?.[subcat]?.[0];
+                            if (filePath) {
+                              setActivePagePath(filePath);
+                            }
+                            if (cat.startsWith("🎨 Écrans Stitch") || (filePath && filePath.includes('stitch/'))) {
+                               const matchScreenId = filePath ? filePath.match(/stitch\/([^\/]+)/)?.[1] : null;
+                               const screenId = matchScreenId || subcat;
+                               window.parent.postMessage({ type: 'SET_ACTIVE_SCREEN', screenId, screen: screenId }, '*');
+                               window.parent.postMessage({ type: 'CHANGE_PREVIEW_SCREEN', screenId, screen: screenId }, '*');
+                               // Notifier directement aussi toutes les iframes
+                               document.querySelectorAll('iframe').forEach(ifr => {
+                                 try {
+                                   ifr.contentWindow?.postMessage({ type: 'SET_ACTIVE_SCREEN', screenId, screen: screenId }, '*');
+                                   ifr.contentWindow?.postMessage({ type: 'CHANGE_PREVIEW_SCREEN', screenId, screen: screenId }, '*');
+                                 } catch(e) {}
+                               });
+                            } else if (cat.startsWith("📁")) {
                                let route = "/";
                                if (subcat === 'AgentsManagement.tsx') route = '/agents';
                                else if (subcat === 'ProfileSettings.tsx') route = '/profile';
@@ -1971,10 +2027,10 @@ body {
                   <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Color Palette</span>
                   
                   {[
-                    { label: 'Primary', color: '#8b5cf6' },
-                    { label: 'Secondary', color: '#3b82f6' },
-                    { label: 'Tertiary', color: '#06b6d4' },
-                    { label: 'Neutral', color: '#09090b' }
+                    { label: 'Primary', color: (design as any).primary || (design as any).surfaceTint || '#4edea3' },
+                    { label: 'Secondary', color: (design as any).secondary || '#c0c1ff' },
+                    { label: 'Tertiary', color: (design as any).tertiary || '#4cd7f6' },
+                    { label: 'Surface', color: (design as any).surface || (design as any).background || '#121318' }
                   ].map((item) => (
                     <div 
                       key={item.label} 
@@ -2070,7 +2126,7 @@ body {
               </h2>
             </div>
             
-            {activeCategory.startsWith("📁") ? (
+            { (activeCategory.startsWith("📁") || activeCategory.startsWith("🎨") || activePagePath) ? (
               <div className="flex flex-col gap-6 col-span-full">
                 {activePagePath && (
                   <div className="flex flex-col items-center gap-4 mb-4 mx-auto w-full">

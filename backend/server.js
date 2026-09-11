@@ -157,6 +157,140 @@ server.get(['/api/mobile/project-archive', '/mobile/project-archive'], (req, res
 });
 
 // ==============================================================================
+// GESTION DU SYSTÈME DE FICHIERS (File Explorer, Read/Write, Projets IDE)
+// ==============================================================================
+function getProjectDir(project) {
+  const clean = (project || '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  if (!clean) return null;
+  const candidates = [
+    path.join('/var/projects', clean),
+    path.join(global.WORKSPACE_DIR || '', clean),
+    path.join(__dirname, 'v0saveprojets', clean),
+    path.join(process.cwd(), 'v0saveprojets', clean),
+    path.join('/var/www/tiger/backend/v0saveprojets', clean),
+    path.join(__dirname, '..', 'boilerplates', 'projets', clean),
+    path.join('e:\\worldmodelv2\\boilerplates\\projets', clean),
+    path.join('e:\\v0reponses\\v0saveprojets', clean),
+    path.join('e:\\v0reponses\\v0-moteur-electron\\v0saveprojets', clean)
+  ];
+  for (const d of candidates) {
+    if (d && fs.existsSync(d) && fs.statSync(d).isDirectory()) {
+      return d;
+    }
+  }
+  return null;
+}
+
+function buildFsTree(dirPath, basePath, depth = 0) {
+  if (depth > 7) return null;
+  try {
+    const stat = fs.statSync(dirPath);
+    const name = path.basename(dirPath);
+    const relPath = path.relative(basePath, dirPath).replace(/\\/g, '/');
+    if (stat.isDirectory()) {
+      const IGNORE = ['node_modules', '.git', 'dist', '.vite', 'android', 'ios', '.cache', 'build'];
+      if (depth > 0 && IGNORE.includes(name)) return null;
+      const entries = fs.readdirSync(dirPath);
+      const children = entries
+        .map(child => buildFsTree(path.join(dirPath, child), basePath, depth + 1))
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+      return { name, path: relPath || '.', type: 'directory', children };
+    } else {
+      return { name, path: relPath, type: 'file' };
+    }
+  } catch (e) {
+    return null;
+  }
+}
+
+server.get(['/api/fs/tree', '/api/bridge/fs/tree', '/bridge/fs/tree'], (req, res) => {
+  const proj = req.query.project || '';
+  const dir = getProjectDir(proj);
+  if (!dir) {
+    return res.json({ success: false, error: `Projet "${proj}" introuvable`, tree: null });
+  }
+  const tree = buildFsTree(dir, dir);
+  res.json({ success: true, tree });
+});
+
+server.get(['/api/fs/read', '/api/bridge/fs/read', '/bridge/fs/read'], (req, res) => {
+  const proj = req.query.project || '';
+  const file = (req.query.file || '').replace(/\.\./g, '');
+  const dir = getProjectDir(proj);
+  if (!dir) {
+    return res.json({ success: false, error: `Projet "${proj}" introuvable` });
+  }
+  const fullPath = path.join(dir, file);
+  if (!fullPath.startsWith(dir)) {
+    return res.status(403).json({ success: false, error: 'Accès refusé' });
+  }
+  try {
+    if (!fs.existsSync(fullPath)) {
+      return res.json({ success: false, error: 'Fichier introuvable' });
+    }
+    const content = fs.readFileSync(fullPath, 'utf8');
+    res.json({ success: true, content, file });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+server.post(['/api/fs/write', '/api/bridge/fs/write', '/bridge/fs/write'], (req, res) => {
+  const { project, file, content } = req.body || {};
+  const clean = (file || '').replace(/\.\./g, '');
+  const dir = getProjectDir(project);
+  if (!dir) {
+    return res.json({ success: false, error: `Projet "${project}" introuvable` });
+  }
+  const fullPath = path.join(dir, clean);
+  if (!fullPath.startsWith(dir)) {
+    return res.status(403).json({ success: false, error: 'Accès refusé' });
+  }
+  try {
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, content !== undefined ? content : '', 'utf8');
+    res.json({ success: true, message: `Fichier "${clean}" sauvegardé avec succès.` });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+server.get(['/api/projects-v2', '/api/projects', '/api/bridge/projects'], (req, res) => {
+  const candidateDirs = [
+    '/var/projects',
+    global.WORKSPACE_DIR,
+    path.join(__dirname, 'v0saveprojets'),
+    path.join(process.cwd(), 'v0saveprojets'),
+    path.join('/var/www/tiger/backend/v0saveprojets'),
+    path.join(__dirname, '..', 'boilerplates', 'projets'),
+    'e:\\worldmodelv2\\boilerplates\\projets',
+    'e:\\v0reponses\\v0saveprojets'
+  ].filter(Boolean);
+
+  const foundProjects = new Set();
+  for (const root of candidateDirs) {
+    try {
+      if (fs.existsSync(root) && fs.statSync(root).isDirectory()) {
+        const entries = fs.readdirSync(root);
+        for (const entry of entries) {
+          if (!entry.startsWith('.')) {
+            const p = path.join(root, entry);
+            if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+              foundProjects.add(entry);
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  res.json({ success: true, projects: Array.from(foundProjects) });
+});
+
+// ==============================================================================
 // GESTION DU COMPILATEUR MOBILE APK (v0-apk)
 // ==============================================================================
 let mobileBuildLogs = [];
