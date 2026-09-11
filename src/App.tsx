@@ -2151,8 +2151,11 @@ const WidgetSettings = ({
                               targetAi = task.target_ai || 'deepseek';
                             }
                             if (!task) { alert("Aucune tâche active ni en attente."); return; }
-                            const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
-                            safeFetch(`${targetBridge}/v1/bridge/inject`, {
+                            const targetBridge = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+                              ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`
+                              : (localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006");
+                            
+                            safeFetch(`${targetBridge}/api/bridge/inject`, {
                                method: "POST", headers: { "Content-Type": "application/json" },
                                body: JSON.stringify({ 
                                  prompt: task.prompt, 
@@ -2198,9 +2201,11 @@ const WidgetSettings = ({
                          <div className="flex gap-2">
                            <button 
                              onClick={async () => {
-                               const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
+                               const targetBridge = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+                                 ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`
+                                 : (localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006");
                                for (let i = 0; i < 20; i++) {
-                                 await safeFetch(`${targetBridge}/v1/bridge/consume`, { 
+                                 await safeFetch(`${targetBridge}/api/bridge/consume`, { 
                                    method: "POST", headers: { "Content-Type": "application/json" },
                                    body: JSON.stringify({})
                                  }).catch(() => null);
@@ -2213,7 +2218,9 @@ const WidgetSettings = ({
                            <button 
                              onClick={() => {
                                const proj = selectedLaunchProject || newProjectName || 'GTASTICH';
-                               const targetBridge = localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006";
+                               const targetBridge = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+                                 ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`
+                                 : (localStorage.getItem("tiger_bridgeUrl") || "http://localhost:5006");
                                safeFetch(`${targetBridge}/api/debug/advance-batch`, { 
                                  method: "POST", headers: { "Content-Type": "application/json" }, 
                                  body: JSON.stringify({ project_id: proj }) 

@@ -1799,61 +1799,97 @@ async function startApiWorker() {
           console.warn('[API WORKER] Notice extraction directe:', extErr.message);
         }
 
-        // Purge automatique du Boilerplate App.tsx générique si encore présent
+        // Préservation souveraine de App.tsx et intégration intelligente
         const appTsxPath = path.join(targetProjectDir, 'src', 'App.tsx');
         if (fs.existsSync(appTsxPath)) {
           const currentAppContent = fs.readFileSync(appTsxPath, 'utf8');
-          if (currentAppContent.includes('Sovereign Engine') || currentAppContent.includes("Prêt à recevoir le code de l'IA") || currentAppContent.includes("Prêt à recevoir le code de l’IA") || currentAppContent.includes('StitchScreen') || currentAppContent.includes('code.html')) {
-            console.log(`[API WORKER] 🧹 Détection du Boilerplate App.tsx pour ${task.project_id} - Remplacement automatique...`);
+          // Ne jamais écraser si App.tsx contient déjà le viewer Stitch ou les onglets
+          const hasStitchViewer = currentAppContent.includes('DESSINS STITCH') || currentAppContent.includes('stitchScreens') || currentAppContent.includes('activeTab');
+          
+          if (!hasStitchViewer && (currentAppContent.includes('Sovereign Engine') || currentAppContent.includes("Prêt à recevoir le code de l'IA") || currentAppContent.includes("Prêt à recevoir le code de l’IA"))) {
+            console.log(`[API WORKER] 🧹 Mise à jour de App.tsx pour ${task.project_id} en mode Souverain (Stitch + React)...`);
             
-            // Recherche du composant principal dans components/ et src/components/
-            let mainComponentImport = null;
-            const searchDirs = [
-              path.join(targetProjectDir, 'components'),
-              path.join(targetProjectDir, 'src', 'components')
-            ];
-
-            for (const sDir of searchDirs) {
-              if (fs.existsSync(sDir)) {
-                const subDirs = fs.readdirSync(sDir, { withFileTypes: true });
-                for (const d of subDirs) {
-                  if (d.isDirectory()) {
-                    const subFiles = fs.readdirSync(path.join(sDir, d.name));
-                    const mainComp = subFiles.find(f => /Container|Main|App|Dashboard|View/i.test(f) && f.endsWith('.tsx'));
-                    if (mainComp) {
-                      const compName = mainComp.replace('.tsx', '');
-                      const relPath = sDir.endsWith('src\\components') || sDir.endsWith('src/components')
-                        ? `./components/${d.name}/${compName}`
-                        : `../components/${d.name}/${compName}`;
-                      mainComponentImport = { name: compName, rel: relPath };
-                      break;
-                    }
-                  } else if (d.name.endsWith('.tsx') && !d.name.startsWith('component_')) {
-                    const compName = d.name.replace('.tsx', '');
-                    const relPath = `./components/${compName}`;
-                    mainComponentImport = { name: compName, rel: relPath };
-                    break;
-                  }
-                }
-              }
-              if (mainComponentImport) break;
-            }
-
-            if (mainComponentImport) {
-              const synthesizedApp = `import React from 'react';
-import { ${mainComponentImport.name} } from '${mainComponentImport.rel}';
+            // On s'assure que App.tsx conserve la vue Stitch et les composants réactifs
+            const defaultDualApp = `import React, { useState } from 'react';
+import { Eye, LayoutDashboard, Sparkles, Monitor, Tablet, Smartphone } from 'lucide-react';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'stitch' | 'app'>('stitch');
+  const [activeScreen, setActiveScreen] = useState('boutique_atelier');
+  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  const screens = [
+    { id: 'boutique_atelier', title: 'Boutique Atelier' },
+    { id: 'fiche_produit_manteau_sculpt', title: 'Fiche Produit' },
+    { id: 'drops_exclusifs_atelier', title: 'Drops Exclusifs' },
+    { id: 'mon_panier_commande', title: 'Mon Panier' },
+    { id: 'atelier_logo', title: 'Atelier Logo' }
+  ];
+
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-950">
-      <${mainComponentImport.name} currentUserId="user_123" />
+    <div className="min-h-screen bg-[#06080e] text-zinc-100 flex flex-col font-sans">
+      <header className="px-5 py-3 bg-zinc-950/90 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-2">
+          <span className="text-cyan-400 font-black text-lg">⚡</span>
+          <span className="font-extrabold text-sm text-white">${task.project_id}</span>
+        </div>
+        <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1 text-xs">
+          <button
+            onClick={() => setActiveTab('stitch')}
+            className={\`px-3 py-1.5 rounded-lg font-bold transition-all \${activeTab === 'stitch' ? 'bg-indigo-600 text-white' : 'text-zinc-400'}\`}
+          >
+            🎨 DESSINS STITCH
+          </button>
+          <button
+            onClick={() => setActiveTab('app')}
+            className={\`px-3 py-1.5 rounded-lg font-bold transition-all \${activeTab === 'app' ? 'bg-cyan-500 text-zinc-950' : 'text-zinc-400'}\`}
+          >
+            ⚡ APPLICATION LIVE
+          </button>
+        </div>
+      </header>
+
+      {activeTab === 'stitch' && (
+        <div className="flex-1 flex flex-col bg-[#04060b]">
+          <div className="px-4 py-2 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between gap-2 overflow-x-auto">
+            <div className="flex items-center gap-1.5">
+              {screens.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveScreen(s.id)}
+                  className={\`px-3 py-1 rounded-lg text-xs font-bold transition-all \${activeScreen === s.id ? 'bg-indigo-600 text-white' : 'bg-zinc-900 text-zinc-400'}\`}
+                >
+                  {s.title}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-xs">
+              <button onClick={() => setViewport('desktop')} className={\`p-1 rounded \${viewport === 'desktop' ? 'bg-cyan-500 text-zinc-950' : 'text-zinc-400'}\`}><Monitor size={12} /></button>
+              <button onClick={() => setViewport('tablet')} className={\`p-1 rounded \${viewport === 'tablet' ? 'bg-cyan-500 text-zinc-950' : 'text-zinc-400'}\`}><Tablet size={12} /></button>
+              <button onClick={() => setViewport('mobile')} className={\`p-1 rounded \${viewport === 'mobile' ? 'bg-cyan-500 text-zinc-950' : 'text-zinc-400'}\`}><Smartphone size={12} /></button>
+            </div>
+          </div>
+          <div className="flex-1 p-4 flex items-center justify-center">
+            <div className={\`transition-all h-full rounded-2xl overflow-hidden border border-zinc-800 bg-white shadow-2xl \${viewport === 'mobile' ? 'w-[375px]' : viewport === 'tablet' ? 'w-[768px]' : 'w-full'}\`}>
+              <iframe src={\`./stitch/\${activeScreen}/code.html\`} className="w-full h-full min-h-[80vh] border-0" title="Stitch Viewer" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'app' && (
+        <main className="flex-1 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-zinc-400 text-sm">Application câblée en cours d'exécution...</p>
+          </div>
+        </main>
+      )}
     </div>
   );
 }
 `;
-              fs.writeFileSync(appTsxPath, synthesizedApp, 'utf8');
-              console.log(`[API WORKER] ✨ App.tsx assemblé et lié automatiquement à ${mainComponentImport.name} !`);
-            }
+            fs.writeFileSync(appTsxPath, defaultDualApp, 'utf8');
+            console.log(`[API WORKER] ✨ App.tsx souverain bi-mode initialisé avec succès !`);
           }
         }
 

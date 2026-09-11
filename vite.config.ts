@@ -143,6 +143,14 @@ export default defineConfig({
     port: 3006,
     strictPort: true,
     proxy: {
+      '/v1/bridge': {
+        target: 'http://localhost:5006',
+        changeOrigin: true
+      },
+      '/v1': {
+        target: 'http://localhost:5006',
+        changeOrigin: true
+      },
       '/api/bridge': {
         target: 'http://localhost:5006',
         changeOrigin: true
@@ -152,6 +160,10 @@ export default defineConfig({
         changeOrigin: true
       },
       '/api/suture': {
+        target: 'http://localhost:5006',
+        changeOrigin: true
+      },
+      '/api/debug': {
         target: 'http://localhost:5006',
         changeOrigin: true
       }
