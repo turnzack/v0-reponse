@@ -275,6 +275,11 @@ function devApiMockPlugin() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
+    },
+  },
   plugins: [react(), devApiMockPlugin()],
   server: {
     port: 3006,

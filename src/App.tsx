@@ -10,6 +10,10 @@ import { Diamond, X, CheckCircle2, Box, Zap } from 'lucide-react';
 import { ALL_PRD_PACKS as AVAILABLE_PACKS } from './data/prds';
 import { ProjectConfigurator } from './components/ProjectConfigurator';
 import { GuestIdeaPanel } from './components/GuestIdeaPanel';
+import BuilderView from './components/studio/builder-view';
+import DataView from './components/studio/data-view';
+import WorkflowsView from './components/studio/workflows-view';
+import GeneratorView from './components/studio/generator-view';
 import { safeFetch, isLocalEnvironment } from './lib/bridgeClient';
 import { launchCloudApkBuild, getGithubToken } from './lib/cloudApkBuilder';
 
@@ -3882,6 +3886,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
   const [isAutoPilot, setIsAutoPilot] = useState<boolean>(true);
   const [reuseActiveTab, setReuseActiveTab] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [activeStudioTab, setActiveStudioTab] = useState<'code' | 'builder' | 'data' | 'workflows' | 'generator'>('code');
   const [selectedTargetProject, setSelectedTargetProject] = useState<string | null>(null);
   const [fsTree, setFsTree] = useState<any>(null);
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -6062,7 +6067,25 @@ Format attendu:
                 ) : (
                   /* --- MODE ÉDITEUR STANDARD (CODE & PREVIEW OPTIONNEL) --- */
                   <>
-                    <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
+                    {activeStudioTab === 'builder' ? (
+                      <div className="w-full h-full overflow-hidden bg-[#0a0a0a]">
+                        <BuilderView projectId={activeProject} onOpenPreview={() => {}} />
+                      </div>
+                    ) : activeStudioTab === 'data' ? (
+                      <div className="w-full h-full overflow-hidden bg-[#0a0a0a]">
+                        <DataView projectId={activeProject} />
+                      </div>
+                    ) : activeStudioTab === 'workflows' ? (
+                      <div className="w-full h-full overflow-hidden bg-[#0a0a0a]">
+                        <WorkflowsView projectId={activeProject} />
+                      </div>
+                    ) : activeStudioTab === 'generator' ? (
+                      <div className="w-full h-full overflow-hidden bg-[#0a0a0a]">
+                        <GeneratorView projectId={activeProject || undefined} onOpenBuilder={() => setActiveStudioTab('builder')} />
+                      </div>
+                    ) : (
+                      <>
+                        <div className={`relative flex flex-col ${previewUrl ? 'w-1/2 border-r border-black' : 'w-full'}`}>
                       {activeFile ? (
                         <Editor
                           height="100%"
@@ -6118,6 +6141,8 @@ Format attendu:
                           ↗ Ouvrir
                         </button>
                       </div>
+                    )}
+                      </>
                     )}
                   </>
                 )}
@@ -6686,6 +6711,56 @@ Format attendu:
           {/* Action Icons Toolbar (Moved to the Right of Chat Bar) */}
           <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 px-1">
             
+            {/* 💻 Éditeur Code */}
+            <button
+              onClick={() => setActiveStudioTab('code')}
+              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'code' ? 'border border-zinc-500 bg-zinc-500/20' : ''}`}
+              title="Éditeur Code"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">💻</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Code</span>
+            </button>
+
+            {/* 🏗️ Builder UI */}
+            <button
+              onClick={() => setActiveStudioTab('builder')}
+              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'builder' ? 'border border-blue-500 bg-blue-500/20' : ''}`}
+              title="Builder UI"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🏗️</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Builder</span>
+            </button>
+
+            {/* 🗄️ Données */}
+            <button
+              onClick={() => setActiveStudioTab('data')}
+              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'data' ? 'border border-purple-500 bg-purple-500/20' : ''}`}
+              title="Données"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🗄️</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Données</span>
+            </button>
+
+            {/* ⚙️ Workflows */}
+            <button
+              onClick={() => setActiveStudioTab('workflows')}
+              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'workflows' ? 'border border-orange-500 bg-orange-500/20' : ''}`}
+              title="Workflows"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">⚙️</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Workflows</span>
+            </button>
+
+            {/* ⚡ Générateur */}
+            <button
+              onClick={() => setActiveStudioTab('generator')}
+              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'generator' ? 'border border-green-500 bg-green-500/20' : ''}`}
+              title="Générateur"
+            >
+              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">⚡</span>
+              <span className="design-app-texte z-10 drop-shadow-md">Générateur</span>
+            </button>
+
             {/* ⚙️ Réglages */}
             <button
               onClick={() => { setSettingsInitialTab("connexion"); setIsSettingsOpen(true); }}

@@ -338,6 +338,9 @@ const ElementSettingCard = ({ element, onSave, onSetLayer }: any) => {
 };
 
 const AdminDesignApp = () => {
+  const [targetProject, setTargetProject] = useState<string>(() => getResolvedTargetProject());
+  const isExternalProjectMode = Boolean(targetProject && targetProject !== "../../v0-interface-versel");
+
   const [activeCategory, setActiveCategory] = useState<string>(() => {
     const proj = getResolvedTargetProject();
     if (proj && proj !== '../../v0-interface-versel') return '🎨 Écrans Stitch';
@@ -718,15 +721,17 @@ const AdminDesignApp = () => {
       }
       if (event.data?.type === 'SET_ACTIVE_PROJECT' && event.data.project) {
          const newP = String(event.data.project).trim();
-         if (newP && newP !== currentTargetProject) {
+         if (newP && newP !== targetProject) {
            localStorage.setItem('tiger_active_project', newP);
-           window.location.search = '?project=' + encodeURIComponent(newP);
+           localStorage.setItem('sovereign_current_project', newP);
+           setTargetProject(newP);
+           setIsLoaded(false);
          }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [targetProject]);
 
   useEffect(() => {
     const struct = dynamicStructure || designStructure;
@@ -741,9 +746,8 @@ const AdminDesignApp = () => {
 
   useEffect(() => {
     if (activePagePath) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetProject = getResolvedTargetProject();
-      safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=${encodeURIComponent(activePagePath)}`)
+      const proj = targetProject || getResolvedTargetProject();
+      safeFetch(`http://localhost:5006/api/fs/read?project=${proj}&file=${encodeURIComponent(activePagePath)}`)
         .then(res => res ? res.json() : null)
         .then(data => {
            if (data && data.success) {
@@ -753,19 +757,18 @@ const AdminDesignApp = () => {
            }
         });
     }
-  }, [activePagePath]);
+  }, [activePagePath, targetProject]);
 
   const handleSavePage = (content: string, recordHistory = true) => {
     setPageContent(content);
     if (recordHistory) {
       pushHistoryState(content);
     }
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetProject = getResolvedTargetProject();
+    const proj = targetProject || getResolvedTargetProject();
     safeFetch("http://localhost:5006/api/fs/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project: targetProject, file: activePagePath, content })
+      body: JSON.stringify({ project: proj, file: activePagePath, content })
     }).catch(() => {});
   };
 
@@ -1193,8 +1196,7 @@ const AdminDesignApp = () => {
   };
 
   useEffect(() => {
-    const targetProject = getResolvedTargetProject();
-
+    setIsLoaded(false);
     if (!targetProject || targetProject === "../../v0-interface-versel") {
       // Cas 1 : Interface Admin V0 (L'IDE lui-même)
       safeFetch(`http://localhost:5006/api/fs/read?project=../../v0-interface-versel&file=src/design-tokens.json`)
@@ -1205,10 +1207,14 @@ const AdminDesignApp = () => {
               setDesign(prev => ({ ...prev, ...JSON.parse(data.content) }));
             } catch (e) { }
           }
+          setDynamicStructure(null);
+          setActiveCategory(Object.keys(designStructure)[0]);
+          setActiveSubCategory(Object.keys((designStructure as any)[Object.keys(designStructure)[0]])[0] || "");
         })
         .finally(() => setIsLoaded(true));
     } else {
       // Cas 2 : Projet Utilisateur (Lire le design-tokens.json du projet)
+      setDynamicStructure(null);
       safeFetch(`http://localhost:5006/api/fs/read?project=${targetProject}&file=src/design-tokens.json`)
         .then(res => res ? res.json() : null)
         .then(data => {
@@ -1336,11 +1342,8 @@ const AdminDesignApp = () => {
         })
         .finally(() => setIsLoaded(true));
     }
-  }, []);
+  }, [targetProject]);
 
-  // Merge the IDE design parameters with the project's file explorer
-    const currentTargetProject = getResolvedTargetProject();
-  const isExternalProjectMode = Boolean(currentTargetProject && currentTargetProject !== "../../v0-interface-versel");
   // Si nous sommes sur un projet utilisateur actif, JAMAIS afficher les structures internes V0 admin
   const currentStructure = isExternalProjectMode ? (dynamicStructure || {}) : (dynamicStructure ? { ...designStructure, ...dynamicStructure } : designStructure);
 
@@ -1797,7 +1800,7 @@ body {
         <div className="flex items-center gap-3">
           <span className="text-2xl">👑</span>
           <h1 className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan to-pink-500">
-            {isExternalProjectMode ? `🎨 STUDIO DESIGN : ${currentTargetProject}` : 'TIGER OMNI-ADMIN STUDIO'}
+            {isExternalProjectMode ? `🎨 STUDIO DESIGN : ${targetProject}` : 'TIGER OMNI-ADMIN STUDIO'}
           </h1>
         </div>
         <div className="flex items-center gap-4">
@@ -2360,10 +2363,18 @@ body {
                     )
                   ) : (
                     <div className="col-span-full flex items-center justify-center text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed h-40">
-                      Sélectionnez un fichier dans le menu de gauche pour éditer ses paramètres.
+                      Sélectionnez un fichier ou écran dans le menu de gauche pour éditer ses paramètres.
                     </div>
                   )}
                 </div>
+              </div>
+            ) : isExternalProjectMode ? (
+              <div className="col-span-full flex flex-col items-center justify-center text-gray-400 bg-white/5 rounded-2xl border border-white/10 border-dashed p-12 text-center gap-3">
+                <span className="text-4xl">🎨</span>
+                <h3 className="text-lg font-bold text-white">Sélectionnez un composant ou un écran de {targetProject}</h3>
+                <p className="text-xs text-gray-400 max-w-md">
+                  Cliquez sur un fichier dans <strong>🎨 Écrans Stitch</strong> ou <strong>📁 src/pages</strong> dans l'arborescence à gauche pour charger ses paramètres et modifier son design en direct.
+                </p>
               </div>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
