@@ -80,7 +80,7 @@ export async function callCloudflareHermes(
 
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     const abortCtrl = new AbortController();
-    const timeoutId = setTimeout(() => abortCtrl.abort(), 120000); // 120s timeout
+    const timeoutId = setTimeout(() => abortCtrl.abort(), 300000); // 300s timeout
 
     try {
       console.log(`[Hermes-CF] Appel Worker Kirov (Tentative ${attempt}/${maxRetries + 1})...`);
@@ -127,7 +127,7 @@ export async function callCloudflareHermes(
       clearTimeout(timeoutId);
       let errMsg = netErr.message;
       if (netErr.name === 'AbortError') {
-        errMsg = 'Hermes Worker — Timeout local (120s) atteint.';
+        errMsg = 'Hermes Worker — Timeout local (300s) atteint.';
       }
       lastError = new Error(errMsg);
 
