@@ -308,6 +308,10 @@ export default defineConfig({
       '/api/debug': {
         target: 'http://localhost:5006',
         changeOrigin: true
+      },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     },
     watch: {
