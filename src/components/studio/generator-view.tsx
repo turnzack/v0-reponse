@@ -345,21 +345,17 @@ export default function GeneratorView({
           if (/\.zip$/i.test(file.name)) {
             // Sécurité ZIP serveur (G3) : l'archive est extraite via l'API,
             // avec boucliers zip slip / tailles / chemins.
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result ?? ""));
-              reader.onerror = () => reject(new Error("lecture impossible"));
-              reader.readAsDataURL(file);
-            });
-            const zipBase64 = dataUrl.split(",")[1] ?? "";
-            const d = await apiFetch<{
-              files: SourceFile[];
-              rejected: { name: string; reason: string }[];
-              warnings: string[];
-            }>("/api/generator/extract", {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch("/api/generator/extract", {
               method: "POST",
-              body: JSON.stringify({ zipBase64 }),
+              body: formData,
             });
+            const text = await res.text();
+            let d: any;
+            try { d = JSON.parse(text); } catch { throw new Error("Erreur serveur lors de l'extraction"); }
+            if (!res.ok) throw new Error(d.error || `Erreur ${res.status}`);
+            
             added.push(...d.files);
             zipInfo = { files: d.files.length, rejected: d.rejected.length };
             if (d.rejected.length > 0) {

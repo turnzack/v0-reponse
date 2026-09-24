@@ -7620,7 +7620,13 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
     console.log(endMsg);
   });
 
-  const previewUrl = `http://109.205.182.17:5173`;
+  const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
+  const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
+  const isStitchProject = hasStitchPublic || hasCodeHtml;
+  const isWin = process.platform === 'win32';
+  const previewUrl = isStitchProject
+    ? /api/projects//preview/index.html
+    : (isWin ? http://localhost:5173 : /preview/);
 
   if (global.addLog) {
     global.addLog(`URL_PREVIEW=${previewUrl}`);

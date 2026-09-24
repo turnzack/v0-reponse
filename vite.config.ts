@@ -94,7 +94,7 @@ function devApiMockPlugin() {
           return;
         }
 
-        // 4. Liste des Projets locaux et souverains
+        // 4. Liste des Projets locaux et souverains — format ProjectsData
         if (url.startsWith('/api/projects')) {
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
@@ -113,11 +113,22 @@ function devApiMockPlugin() {
               if (fs.existsSync(dir)) {
                 const entries = fs.readdirSync(dir, { withFileTypes: true });
                 for (const e of entries) {
-                  if (e.isDirectory() && !e.name.startsWith('.') && !['node_modules', 'dist', 'build', '.git'].includes(e.name) && !projectsList.some(p => p.project_id === e.name)) {
+                  if (e.isDirectory() && !e.name.startsWith('.') && !['node_modules', 'dist', 'build', '.git'].includes(e.name) && !projectsList.some(p => p.id === e.name)) {
+                    const source = dir.includes('worldmodel') ? 'WorldModel' : dir.includes('ZAI') ? 'ZAI' : 'V0';
+                    const slug = e.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                    const now = new Date().toISOString();
                     projectsList.push({
-                      project_id: e.name,
-                      title: e.name,
-                      desc: 'Projet local (' + (dir.includes('worldmodel') ? 'WorldModel' : dir.includes('ZAI') ? 'ZAI' : 'V0') + ')'
+                      id: e.name,
+                      name: e.name,
+                      slug: slug,
+                      type: 'blank',
+                      description: 'Projet local (' + source + ')',
+                      status: 'active',
+                      createdAt: now,
+                      updatedAt: now,
+                      pack: null,
+                      counts: { pages: 0, tables: 0, workflows: 0, rows: 0 },
+                      roadmap: { done: 0, total: 0 }
                     });
                   }
                 }
@@ -125,9 +136,24 @@ function devApiMockPlugin() {
             } catch {}
           }
 
+          const activeCount = projectsList.filter(p => p.status === 'active').length;
+          const archivedCount = projectsList.filter(p => p.status === 'archived').length;
+
           res.end(JSON.stringify({
-            success: true,
-            projects: projectsList
+            projects: projectsList,
+            stats: {
+              active: activeCount,
+              archived: archivedCount,
+              pages: 0,
+              tables: 0,
+              workflows: 0,
+              rows: 0
+            },
+            limits: {
+              plan: 'free',
+              used: activeCount,
+              max: null
+            }
           }));
           return;
         }
@@ -267,6 +293,56 @@ function devApiMockPlugin() {
           return;
         }
 
+        // 8. Serve Project Static Files for Live Preview (HTML projects)
+        if (url.startsWith('/api/projects/') && url.includes('/preview/')) {
+          const match = url.match(/^\/api\/projects\/([^\/]+)\/preview\/(.*)$/);
+          if (match) {
+            const rawProj = decodeURIComponent(match[1]).trim();
+            const proj = rawProj.replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const file = match[2] || 'index.html';
+            
+            const candidateDirs = [
+              pathLib.join('e:\\ZAI', rawProj),
+              pathLib.join('e:\\ZAI', proj),
+              pathLib.join('e:\\worldmodelv2\\boilerplates\\projets', proj),
+              pathLib.join('e:\\v0reponses\\v0-moteur-electron\\v0saveprojets', proj),
+              pathLib.join('e:\\v0reponses\\v0saveprojets', proj),
+              pathLib.join(process.cwd(), 'v0saveprojets', proj),
+              pathLib.join('/var/projects', proj)
+            ];
+            
+            const projDir = candidateDirs.find(d => fs.existsSync(d) && fs.statSync(d).isDirectory());
+            
+            if (projDir) {
+              const fullPath = pathLib.join(projDir, file);
+              if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+                const ext = pathLib.extname(fullPath).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                  '.html': 'text/html',
+                  '.htm': 'text/html',
+                  '.css': 'text/css',
+                  '.js': 'application/javascript',
+                  '.json': 'application/json',
+                  '.png': 'image/png',
+                  '.jpg': 'image/jpeg',
+                  '.jpeg': 'image/jpeg',
+                  '.svg': 'image/svg+xml'
+                };
+                res.setHeader('Content-Type', mimeTypes[ext] || 'text/plain');
+                res.statusCode = 200;
+                fs.createReadStream(fullPath).pipe(res);
+                return;
+              }
+            }
+            
+            // Fichier non trouvé
+            res.setHeader('Content-Type', 'text/html');
+            res.statusCode = 404;
+            res.end('<h1>404 Not Found</h1><p>Fichier introuvable dans le projet.</p>');
+            return;
+          }
+        }
+
         next();
       });
     }
@@ -308,6 +384,11 @@ export default defineConfig({
       '/api/debug': {
         target: 'http://localhost:5006',
         changeOrigin: true
+      },
+      '/preview-proxy': {
+        target: 'http://localhost:5173',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/preview-proxy/, '')
       },
       '/api': {
         target: 'http://localhost:3000',

@@ -2145,6 +2145,7 @@ const WidgetSettings = ({
                         </span>
                         <button 
                           onClick={async () => {
+                            const previewSource = previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000` : fsTree && JSON.stringify(fsTree).includes("vite.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5173` : `/api/projects/${activeProject || 'stitch'}/preview/index.html`);
                             let task: any = null;
                             let targetAi = 'deepseek';
                             if (bridgeQueueData.current && Object.keys(bridgeQueueData.current).length > 0) {
@@ -4077,11 +4078,19 @@ export default function Dashboard({ user, onLogout }: DashboardProps = {}) {
       lastPreviewUrlRef.current = "http://localhost:3007";
     } else if (activeProject) {
       setIsIdeFullscreen(true);
-      const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
+      const fsStr = fsTree ? JSON.stringify(fsTree) : "";
+      const isNextJs = fsStr.includes("next.config");
+      const isVite = fsStr.includes("vite.config");
+      const hasStitch = fsStr.includes("stitch") || fsStr.includes("code.html");
       const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      const targetHost = isRemote ? window.location.hostname : 'localhost';
       const defaultUrl = isNextJs 
-        ? "http://localhost:3000" 
-        : (lastPreviewUrlRef.current || (isRemote ? `http://${window.location.hostname}:5173` : "http://localhost:5173"));
+        ? `http://${targetHost}:3000` 
+        : hasStitch 
+          ? `/api/projects/${activeProject || 'stitch'}/preview/index.html`
+          : isVite 
+            ? (isRemote ? (lastPreviewUrlRef.current || `/api/projects/${activeProject || 'stitch'}/preview/index.html`) : `http://${targetHost}:5173`)
+            : (lastPreviewUrlRef.current || `/api/projects/${activeProject || 'stitch'}/preview/index.html`);
       setPreviewUrl(defaultUrl);
       setPreviewInput(defaultUrl);
       lastPreviewUrlRef.current = defaultUrl;
@@ -5768,9 +5777,10 @@ Format attendu:
                   setIsDesignMode(nextState);
                   if (nextState && !previewUrl) {
                     const isNextJs = fsTree && JSON.stringify(fsTree).includes("next.config");
+                    const isVite = fsTree && JSON.stringify(fsTree).includes("vite.config");
                     const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
                     const targetHost = isRemote ? window.location.hostname : 'localhost';
-                    setPreviewUrl(isNextJs ? `http://${targetHost}:3000` : `http://${targetHost}:5173`);
+                    setPreviewUrl(isNextJs ? `http://${targetHost}:3000` : isVite ? `http://${targetHost}:5173` : `/api/projects/${activeProject || 'stitch'}/preview/index.html`);
                   }
                 }}
                 className={`design-ide-btn-action w-10 h-10 rounded-xl flex items-center justify-center transition-all group relative border ${isDesignMode ? 'bg-pink-500 text-white border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]' : 'bg-white/5 hover:bg-pink-500/20 text-pink-500 border-white/10 hover:border-pink-500'}`}
@@ -5897,7 +5907,15 @@ Format attendu:
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ project_id: selected, open_explorer: false })
-                      }).catch(err => console.error("Erreur de lancement :", err));
+                      })
+                      .then(r => r ? r.json() : null)
+                      .then(data => {
+                        if (data && data.previewUrl) {
+                          setPreviewUrl(data.previewUrl);
+                          setPreviewInput(data.previewUrl);
+                        }
+                      })
+                      .catch(err => console.error("Erreur de lancement :", err));
                     }
                   }}
                   className="w-full bg-[#161616] text-cyan font-bold text-xs border border-cyan/40 rounded-xl px-2.5 py-2 outline-none focus:border-cyan focus:ring-1 focus:ring-cyan shadow-[0_0_10px_rgba(8,179,201,0.2)] cursor-pointer truncate"
@@ -6023,14 +6041,14 @@ Format attendu:
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
                           <span className="text-xs font-mono font-bold text-green-400">
-                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "LOCALHOST:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `${window.location.hostname}:5173` : "LOCALHOST:5173")})
+                            LIVE PREVIEW ({fsTree && JSON.stringify(fsTree).includes("next.config") ? "3000" : fsTree && JSON.stringify(fsTree).includes("vite.config") ? "5173" : "STATIC HTML API"})
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `http://${window.location.hostname}:5173` : "http://localhost:5173"))}
+                            value={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000` : fsTree && JSON.stringify(fsTree).includes("vite.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5173` : `/api/projects/${activeProject || 'stitch'}/preview/index.html`)}
                             onChange={(e) => setPreviewInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') setPreviewUrl(previewInput);
@@ -6057,7 +6075,7 @@ Format attendu:
                       {/* IFRAME APPLICATION ACTIVE */}
                       <div className="flex-1 relative overflow-hidden" style={{ background: 'var(--preview-bg)' }}>
                         <iframe
-                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? "http://localhost:3000" : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? `http://${window.location.hostname}:5173` : "http://localhost:5173"))}
+                          src={previewUrl || (fsTree && JSON.stringify(fsTree).includes("next.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000` : fsTree && JSON.stringify(fsTree).includes("vite.config") ? `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5173` : `/api/projects/${activeProject || 'stitch'}/preview/index.html`)}
                           className="w-full h-full border-none"
                           title="Application Preview Live"
                         />

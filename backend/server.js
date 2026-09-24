@@ -291,6 +291,242 @@ server.get(['/api/projects-v2', '/api/projects', '/api/bridge/projects'], (req, 
 });
 
 // ==============================================================================
+// GESTION DU LIVE PREVIEW DES PROJETS & INTERFACE STITCH (VPS & LOCAL)
+// ==============================================================================
+server.all(['/api/projects/:projectId/preview/*', '/api/projects/:projectId/preview', '/projects/:projectId/preview/*', '/projects/:projectId/preview'], (req, res) => {
+  const projectId = req.params.projectId || 'AUDIO';
+  const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const projectDir = getProjectDir(cleanId) || getProjectDir(projectId);
+
+  if (!projectDir) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head><meta charset="UTF-8"><title>Projet Introuvable</title>
+      <style>body{background:#0d0e13;color:#e3e1e9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style>
+      </head>
+      <body><div style="text-align:center;"><h2>📁 Projet "${projectId}" introuvable</h2><p style="color:#888;">Le dossier n'a pas encore été synchronisé sur ce serveur.</p></div></body>
+      </html>
+    `);
+  }
+
+  // Fichier demandé (relatif à la racine du projet)
+  const reqPath = req.params[0] || '';
+  const cleanReqPath = reqPath.replace(/^\/+/, '').replace(/\.\./g, '');
+
+  const mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.htm': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.mjs': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.ico': 'image/x-icon',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf'
+  };
+
+  // 1. Si un fichier précis (non-vide, non-index.html) est demandé, tenter de le servir directement
+  if (cleanReqPath && cleanReqPath !== 'index.html' && cleanReqPath !== '/') {
+    const candidatePaths = [
+      path.join(projectDir, cleanReqPath),
+      path.join(projectDir, 'public', cleanReqPath),
+      path.join(projectDir, 'dist', cleanReqPath)
+    ];
+
+    for (const cp of candidatePaths) {
+      if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+        const ext = path.extname(cp).toLowerCase();
+        res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return fs.createReadStream(cp).pipe(res);
+      }
+    }
+  }
+
+  // 2. Si c'est index.html ou la racine : Détecter si le projet contient des écrans Stitch
+  const stitchScreens = [];
+  const publicStitchDir = path.join(projectDir, 'public', 'stitch');
+  const screensJsonPath = path.join(publicStitchDir, 'screens.json');
+
+  if (fs.existsSync(screensJsonPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(screensJsonPath, 'utf8'));
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        for (const s of parsed) {
+          stitchScreens.push({
+            id: s.id,
+            label: s.label || s.id,
+            url: `/api/projects/${encodeURIComponent(cleanId)}/preview/stitch/${s.id}/code.html`
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Si pas de screens.json ou vide, scanner récursivement les code.html dans le projet
+  if (stitchScreens.length === 0) {
+    function findCodeHtml(dir, depth = 0) {
+      if (depth > 4) return;
+      try {
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        for (const it of items) {
+          if (it.name.startsWith('.') || it.name === 'node_modules') continue;
+          const full = path.join(dir, it.name);
+          if (it.isDirectory()) {
+            findCodeHtml(full, depth + 1);
+          } else if (it.name === 'code.html') {
+            const rel = path.relative(projectDir, full).replace(/\\/g, '/');
+            const parentDir = path.basename(path.dirname(full));
+            const label = parentDir
+              .replace(/[_-]+/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase()) || 'Écran';
+            stitchScreens.push({
+              id: parentDir,
+              label,
+              url: `/api/projects/${encodeURIComponent(cleanId)}/preview/${rel}`
+            });
+          }
+        }
+      } catch (_) {}
+    }
+    findCodeHtml(projectDir);
+  }
+
+  // ── CAS A : Écrans Stitch détectés -> Servir le Visualiseur Interactif Stitch ──
+  if (stitchScreens.length > 0 && (!cleanReqPath || cleanReqPath === 'index.html')) {
+    const screensJsonStr = JSON.stringify(stitchScreens);
+    const viewerHtml = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stitch Studio - ${cleanId}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #08090d; color: #e3e1e9; font-family: 'Inter', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    header { height: 50px; background: rgba(13,14,19,0.96); border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13px; }
+    .badge { font-size: 9px; background: rgba(0,240,255,0.12); color: #00f0ff; border: 1px solid rgba(0,240,255,0.3); border-radius: 12px; padding: 2px 8px; font-family: monospace; font-weight: 800; }
+    .controls { display: flex; align-items: center; gap: 8px; }
+    .vp-group { display: flex; gap: 3px; background: rgba(255,255,255,0.06); padding: 3px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); }
+    .vp-btn { background: transparent; border: none; color: #86948a; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; transition: all 0.15s; }
+    .vp-btn.active { background: #00f0ff; color: #000; box-shadow: 0 0 10px rgba(0,240,255,0.4); }
+    .screens-bar { background: rgba(10,11,16,0.85); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 8px 16px; display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0; }
+    .screen-tab { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #a0a6b2; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+    .screen-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .screen-tab.active { background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; border-color: #00f0ff; box-shadow: 0 0 12px rgba(6,182,212,0.3); font-weight: 700; }
+    .viewer-area { flex: 1; display: flex; align-items: center; justify-content: center; background: #040507; padding: 14px; overflow: auto; position: relative; }
+    .device-frame { width: 390px; height: 100%; max-height: 100%; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.85); transition: width 0.3s ease; background: #000; display: flex; flex-direction: column; }
+    iframe { width: 100%; height: 100%; border: none; flex: 1; background: #fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span style="font-size:16px;">🎨</span>
+      <span style="font-family:'Orbitron',sans-serif;letter-spacing:0.05em;color:#fff;">${cleanId}</span>
+      <span class="badge">STITCH INTERFACE</span>
+    </div>
+    <div class="controls">
+      <div class="vp-group">
+        <button class="vp-btn active" onclick="setVp('mobile', this)" title="Vue Mobile (390px)">📱 390px</button>
+        <button class="vp-btn" onclick="setVp('tablet', this)" title="Vue Tablette (768px)">📟 768px</button>
+        <button class="vp-btn" onclick="setVp('desktop', this)" title="Plein Écran (100%)">🖥️ 100%</button>
+      </div>
+      <button onclick="window.open(document.getElementById('mainIframe').src, '_blank')" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">↗ Ouvrir</button>
+    </div>
+  </header>
+  <div class="screens-bar" id="screensBar"></div>
+  <div class="viewer-area">
+    <div class="device-frame" id="deviceFrame">
+      <iframe id="mainIframe" src="${stitchScreens[0].url}" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+    </div>
+  </div>
+  <script>
+    const screens = ${screensJsonStr};
+    const bar = document.getElementById('screensBar');
+    const iframe = document.getElementById('mainIframe');
+    const frame = document.getElementById('deviceFrame');
+
+    screens.forEach((s, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'screen-tab' + (idx === 0 ? ' active' : '');
+      btn.innerHTML = '<span>📄</span> ' + s.label;
+      btn.onclick = () => {
+        document.querySelectorAll('.screen-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        iframe.src = s.url;
+      };
+      bar.appendChild(btn);
+    });
+
+    function setVp(vp, btn) {
+      document.querySelectorAll('.vp-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (vp === 'mobile') {
+        frame.style.width = '390px';
+        frame.style.borderRadius = '20px';
+      } else if (vp === 'tablet') {
+        frame.style.width = '768px';
+        frame.style.borderRadius = '12px';
+      } else {
+        frame.style.width = '100%';
+        frame.style.borderRadius = '0';
+      }
+    }
+  </script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.send(viewerHtml);
+  }
+
+  // ── CAS B : Projet avec index.html classique à la racine ou dans dist/ ──
+  const htmlCandidates = [
+    path.join(projectDir, 'index.html'),
+    path.join(projectDir, 'dist', 'index.html'),
+    path.join(projectDir, 'code.html')
+  ];
+
+  for (const hc of htmlCandidates) {
+    if (fs.existsSync(hc) && fs.statSync(hc).isFile()) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return fs.createReadStream(hc).pipe(res);
+    }
+  }
+
+  // Fallback : Message clair
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head><meta charset="UTF-8"><title>Initialisation - ${cleanId}</title>
+    <style>body{background:#0d0e13;color:#e3e1e9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style>
+    </head>
+    <body>
+      <div style="text-align:center;max-width:500px;padding:24px;border:1px solid rgba(255,255,255,0.1);border-radius:16px;background:rgba(255,255,255,0.03);">
+        <h2>⚡ Projet "${cleanId}" Détecté</h2>
+        <p style="color:#aaa;margin-top:10px;font-size:14px;">Aucun fichier HTML statique ou écran Stitch directement accessible à la racine. Cliquez sur <strong>"🚀 Relancer"</strong> dans la barre supérieure pour démarrer le serveur de développement Vite ou importez vos maquettes Stitch.</p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// ==============================================================================
 // GESTION DU COMPILATEUR MOBILE APK (v0-apk)
 // ==============================================================================
 let mobileBuildLogs = [];
@@ -1296,8 +1532,6 @@ server.get(['/api/projects/download-zip', '/projects/download-zip', '/api/projec
 server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/launch-design'], (req, res) => {
   const projectId = req.params.projectId || req.body?.project_id || 'AUDIO';
   const cleanId = (projectId || 'AUDIO').replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const previewUrl = `http://109.205.182.17:5173`;
-
   const candidates = [
     global.WORKSPACE_DIR && path.join(global.WORKSPACE_DIR, cleanId),
     path.join(process.cwd(), 'v0saveprojets', cleanId),
@@ -1311,6 +1545,16 @@ server.post(['/api/projects/:projectId/launch-design', '/projects/:projectId/lau
       break;
     }
   }
+
+  // Détection du mode : Stitch statique direct vs Vite
+  const hasStitchPublic = projectDir && fs.existsSync(path.join(projectDir, 'public', 'stitch'));
+  const hasCodeHtml = projectDir && fs.existsSync(path.join(projectDir, 'code.html'));
+  const isStitchProject = hasStitchPublic || hasCodeHtml;
+
+  const isWin = process.platform === 'win32';
+  const previewUrl = isStitchProject
+    ? `/api/projects/${encodeURIComponent(cleanId)}/preview/index.html`
+    : (isWin ? `http://localhost:5173` : `/preview/`);
 
   // 🚀 Garantir automatiquement la configuration Vite et Stitch
   try {
