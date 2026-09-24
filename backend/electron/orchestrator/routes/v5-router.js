@@ -4846,8 +4846,8 @@ router.post(['/projects/:projectId/launch-design', '/api/projects/:projectId/lau
       }
     } catch (_) {}
 
-    const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
-    const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
+    const hasStitchPublic = fs.existsSync(path.join(projectDir, 'public', 'stitch'));
+    const hasCodeHtml = fs.existsSync(path.join(projectDir, 'code.html'));
     const isStitchProject = hasStitchPublic || hasCodeHtml;
     const previewUrl = isStitchProject ? `/api/projects/${cleanId}/preview/index.html` : '/preview/';
 
