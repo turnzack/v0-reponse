@@ -46,11 +46,7 @@ const AdminDesignApp = () => {
   }, [targetProject]);
 
   const TABS = [
-    { id: 'code', icon: '💻', label: 'Code' },
-    { id: 'builder', icon: '🏗️', label: 'Builder' },
-    { id: 'data', icon: '🗄️', label: 'Données' },
-    { id: 'workflows', icon: '⚙️', label: 'Workflows' },
-    { id: 'generator', icon: '⚡', label: 'Générateur' },
+
   ] as const;
 
   return (

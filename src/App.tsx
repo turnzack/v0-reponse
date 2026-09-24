@@ -6729,55 +6729,6 @@ Format attendu:
           {/* Action Icons Toolbar (Moved to the Right of Chat Bar) */}
           <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 px-1">
             
-            {/* 💻 Éditeur Code */}
-            <button
-              onClick={() => setActiveStudioTab('code')}
-              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'code' ? 'border border-zinc-500 bg-zinc-500/20' : ''}`}
-              title="Éditeur Code"
-            >
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">💻</span>
-              <span className="design-app-texte z-10 drop-shadow-md">Code</span>
-            </button>
-
-            {/* 🏗️ Builder UI */}
-            <button
-              onClick={() => setActiveStudioTab('builder')}
-              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'builder' ? 'border border-blue-500 bg-blue-500/20' : ''}`}
-              title="Builder UI"
-            >
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🏗️</span>
-              <span className="design-app-texte z-10 drop-shadow-md">Builder</span>
-            </button>
-
-            {/* 🗄️ Données */}
-            <button
-              onClick={() => setActiveStudioTab('data')}
-              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'data' ? 'border border-purple-500 bg-purple-500/20' : ''}`}
-              title="Données"
-            >
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">🗄️</span>
-              <span className="design-app-texte z-10 drop-shadow-md">Données</span>
-            </button>
-
-            {/* ⚙️ Workflows */}
-            <button
-              onClick={() => setActiveStudioTab('workflows')}
-              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'workflows' ? 'border border-orange-500 bg-orange-500/20' : ''}`}
-              title="Workflows"
-            >
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">⚙️</span>
-              <span className="design-app-texte z-10 drop-shadow-md">Workflows</span>
-            </button>
-
-            {/* ⚡ Générateur */}
-            <button
-              onClick={() => setActiveStudioTab('generator')}
-              className={`design-app-icone flex flex-col items-center justify-center shrink-0 group relative overflow-hidden ${activeStudioTab === 'generator' ? 'border border-green-500 bg-green-500/20' : ''}`}
-              title="Générateur"
-            >
-              <span className="z-10 drop-shadow-md group-hover:scale-110 transition-transform">⚡</span>
-              <span className="design-app-texte z-10 drop-shadow-md">Générateur</span>
-            </button>
 
             {/* ⚙️ Réglages */}
             <button
