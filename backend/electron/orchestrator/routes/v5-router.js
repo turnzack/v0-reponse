@@ -3298,7 +3298,10 @@ function autoInstallAndLaunchDevServer(projectId) {
 
     global.activeDevServers.set(cleanId, devProc);
 
-    const previewUrl = `http://109.205.182.17:5173`;
+    const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
+    const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
+    const isStitchProject = hasStitchPublic || hasCodeHtml;
+    const previewUrl = isStitchProject ? `/api/projects/${cleanId}/preview/index.html` : '/preview/';
     if (global.addLog) {
       global.addLog(`[💻 AUTO-PILOT] 🚀 Serveur Vite lancé automatiquement pour ${cleanId} !`);
       global.addLog(`URL_PREVIEW=${previewUrl}`);
@@ -4843,7 +4846,10 @@ router.post(['/projects/:projectId/launch-design', '/api/projects/:projectId/lau
       }
     } catch (_) {}
 
-    const previewUrl = `http://109.205.182.17:5173`;
+    const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
+    const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
+    const isStitchProject = hasStitchPublic || hasCodeHtml;
+    const previewUrl = isStitchProject ? `/api/projects/${cleanId}/preview/index.html` : '/preview/';
 
     return res.json({
       success: true,
@@ -7623,10 +7629,9 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
   const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
   const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
   const isStitchProject = hasStitchPublic || hasCodeHtml;
-  const isWin = process.platform === 'win32';
   const previewUrl = isStitchProject
-    ? /api/projects//preview/index.html
-    : (isWin ? http://localhost:5173 : /preview/);
+    ? `/api/projects/${cleanId}/preview/index.html`
+    : '/preview/';
 
   if (global.addLog) {
     global.addLog(`URL_PREVIEW=${previewUrl}`);
