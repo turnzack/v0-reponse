@@ -2540,7 +2540,7 @@ export default function App() {
           <div style={{ fontSize: '52px' }}>⚡</div>
           <h1 style={{ fontSize: '26px', fontWeight: '800', margin: 0, color: '#fff' }}>${cleanId}</h1>
           <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0, maxWidth: '440px', lineHeight: '1.6' }}>
-            Tous les ${SCREENS.length} écrans UI/UX Stitch sont importés et prêts à l'utilisation dans l'onglet <strong>Designs Stitch</strong>.
+            Tous les \${SCREENS.length} écrans UI/UX Stitch sont importés et prêts à l'utilisation dans l'onglet <strong>Designs Stitch</strong>.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', width: '100%', maxWidth: '640px' }}>
             {SCREENS.map(s => (
