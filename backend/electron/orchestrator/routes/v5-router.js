@@ -4849,7 +4849,7 @@ router.post(['/projects/:projectId/launch-design', '/api/projects/:projectId/lau
     const hasStitchPublic = fs.existsSync(path.join(projectDir, 'public', 'stitch'));
     const hasCodeHtml = fs.existsSync(path.join(projectDir, 'code.html'));
     const isStitchProject = hasStitchPublic || hasCodeHtml;
-    const previewUrl = isStitchProject ? `/api/projects/${cleanId}/preview/index.html` : '/preview/';
+    const previewUrl = isStitchProject ? `/api/projects/${cleanId}/preview/index.html` : `http://109.205.182.17:5173`;
 
     return res.json({
       success: true,
@@ -7629,9 +7629,11 @@ router.post(['/api/bridge/manual-pnpm-run', '/bridge/manual-pnpm-run', '/api/bri
   const hasStitchPublic = fs.existsSync(path.join(projectRoot, 'public', 'stitch'));
   const hasCodeHtml = fs.existsSync(path.join(projectRoot, 'code.html'));
   const isStitchProject = hasStitchPublic || hasCodeHtml;
+  // Fallback direct sur le port 5173 pour éviter le proxy Nginx qui casse les assets Vite
   const previewUrl = isStitchProject
     ? `/api/projects/${cleanId}/preview/index.html`
-    : '/preview/';
+    : `http://109.205.182.17:5173`;
+
 
   if (global.addLog) {
     global.addLog(`URL_PREVIEW=${previewUrl}`);
