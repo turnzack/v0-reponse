@@ -5,3 +5,6 @@ compatibility_flags = ["nodejs_compat"]
 
 [env.production]
 # Ajoutez DATABASE_URL et JWT_SECRET dans l'interface Cloudflare Pages
+
+[assets]
+directory = "./dist"
